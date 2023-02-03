@@ -1,0 +1,5 @@
+<launch>
+<!-- <node pkg="example" name="camera" output="screen" type="camera0115.py" required="true"/> -->
+<node pkg="example" name="control" output="screen" type="control0115.py" required="true"/>
+<node pkg="example" name="localisation" output="screen" type="localisation0112.py" required="true"/>
+</launch>
