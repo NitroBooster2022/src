@@ -32,9 +32,6 @@ class ObjectDetector():
         self.bridge = CvBridge()
         # self.image_sub = rospy.Subscriber("/automobile/image_raw", Image, self.image_callback)
         self.image_sub = rospy.Subscriber("automobile/image_raw/compressed", CompressedImage, self.image_callback)
-        # self.image_sync = ApproximateTimeSynchronizer([self.image_sub], queue_size = 2, slop=0.1)
-        # # Register the image_callback function to be called when a synchronized message is received
-        # self.image_sync.registerCallback(self.image_callback)
         self.pub = rospy.Publisher("sign", Sign, queue_size = 3)
         self.p = Sign()
         self.rate = rospy.Rate(5)
@@ -46,8 +43,6 @@ class ObjectDetector():
         """
         # Convert the image to the OpenCV format
         image = self.bridge.compressed_imgmsg_to_cv2(data, "bgr8")
-        # cv2.imshow("Frame preview", image)
-        # cv2.waitKey(1)
 
          # Update the header information
         header = Header()
@@ -60,10 +55,10 @@ class ObjectDetector():
         self.class_ids, __, self.boxes, t2 = self.detect(image, self.class_list, show=True)
         self.p.objects = self.class_ids
         self.p.num = len(self.class_ids)
-        if len(self.class_ids)>=2:
+        if self.p.num>=2:
             self.p.box1 = self.boxes[0]
             self.p.box2 = self.boxes[1]
-        elif len(self.class_ids)>=1:
+        elif self.p.num>=1:
             self.p.box1 = self.boxes[0]
 
         print(self.p)
@@ -107,7 +102,7 @@ class ObjectDetector():
                     box = alex.array([left, top, width, height])
                     boxes.append(box)
 
-        indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.25, 0.45) 
+        indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.37, 0.75) 
 
         result_class_ids = []
         result_confidences = []

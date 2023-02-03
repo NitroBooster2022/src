@@ -45,14 +45,11 @@ class LaneDetector():
         Initialize the lane follower node
         """
         rospy.init_node('lane_detector_node', anonymous=True)
-        self.pub = rospy.Publisher("lane", Lane, queue_size=2)
+        self.pub = rospy.Publisher("lane", Lane, queue_size=3)
         self.p = Lane()
         self.bridge = CvBridge()
         # self.image_sub = rospy.Subscriber("/automobile/image_raw", Image, self.image_callback)
         self.image_sub = rospy.Subscriber("automobile/image_raw/compressed", CompressedImage, self.image_callback)
-        # self.image_sync = ApproximateTimeSynchronizer([self.image_sub], queue_size = 2, slop=0.1)
-        # # Register the image_callback function to be called when a synchronized message is received
-        # self.image_sync.registerCallback(self.image_callback)
         self.rate = rospy.Rate(5)
 
     def image_callback(self, data):
@@ -61,6 +58,7 @@ class LaneDetector():
         :param data: Image data in the ROS Image format
         """
          # Update the header information
+        t1 = time.time()
         header = Header()
         header.seq = data.header.seq
         header.stamp = data.header.stamp
@@ -89,7 +87,7 @@ class LaneDetector():
         print(self.p)
         # Publish the steering command
         self.pub.publish(self.p)
-
+        print("time: ", time.time()-t1)
     def dotted_lines(self,image):
         img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         h = img_gray.shape[0]

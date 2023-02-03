@@ -24,6 +24,6 @@
   <!-- <node pkg="sim_pkg" type="delay.sh" args="5 sim_pkg members.launch"             name="members"              output="screen"/> -->
   <!-- <node pkg="sim_pkg" type="delay.sh" args="5 sim_pkg ramp.launch"                name="ramp"                 output="screen"/> -->
   <node pkg="sim_pkg" type="delay.sh" args="5 sim_pkg roadblock.launch"           name="roadblock"            output="screen"/>
-  <!-- <node pkg="sim_pkg" type="delay.sh" args="5 sim_pkg traffic_lights.launch"      name="traffic_lights"       output="screen"/> -->
+  <node pkg="sim_pkg" type="delay.sh" args="5 sim_pkg traffic_lights.launch"      name="traffic_lights"       output="screen"/>
 
 </launch>

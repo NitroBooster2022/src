@@ -5,8 +5,9 @@ from message_filters import ApproximateTimeSynchronizer
 from std_msgs.msg import String, Byte
 from utils.msg import Lane, Sign
 from pynput import keyboard
-from utils.srv import *
+from utils.srv import get_direction, nav
 import message_filters
+import time
 class LaneFollower():
     def __init__(self):
         #states
@@ -16,8 +17,8 @@ class LaneFollower():
         #sign
         self.class_names = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority',
                 'lights','block','pedestrian','car','others','nothing']
-        self.min_sizes = [50,50,55,50,50,65,50,50,60,25,50,100,100]
-        self.max_sizes = [50,50,55,50,50,65,50,50,60,25,50,100,100]
+        self.min_sizes = [00,00,37,00,00,52,00,00,00,150,00,000,90]
+        self.max_sizes = [50,50,44,50,50,65,50,50,60,188,50,100,125]
         self.center = -1
         self.detected_objects = []
         self.numObj = -1
@@ -25,6 +26,8 @@ class LaneFollower():
         self.box2 = []
 
         #steering
+        self.msg = String()
+        self.msg2 = String()
         self.p = 0.006
         self.ArrivedAtStopline = False
         self.maxspeed = 0.15
@@ -46,24 +49,25 @@ class LaneFollower():
         rospy.init_node('lane_follower_node', anonymous=True)
         self.cd = rospy.Time.now()
         self.cmd_vel_pub = rospy.Publisher("/automobile/command", String, queue_size=1)
-        self.rate = rospy.Rate(10)
-        # Subscribe to topics
-        self.lane_sub = message_filters.Subscriber('lane', Lane, queue_size=3)
-        self.sign_sub = message_filters.Subscriber('sign', Sign, queue_size=3)
-
-        # Create an instance of TimeSynchronizer
-        ts = ApproximateTimeSynchronizer([self.lane_sub, self.sign_sub], queue_size=3, slop=0.15)
-        ts.registerCallback(self.callback)
+        self.rate = rospy.Rate(50)
 
         # Create service proxy
         self.get_dir = rospy.ServiceProxy('get_direction',get_direction)
-        rospy.wait_for_service('get_direction')
+
+        # Subscribe to topics
+        self.lane_sub = message_filters.Subscriber('lane', Lane, queue_size=3)
+        self.sign_sub = message_filters.Subscriber('sign', Sign, queue_size=3)
+        
+        # Create an instance of TimeSynchronizer
+        ts = ApproximateTimeSynchronizer([self.lane_sub, self.sign_sub], queue_size=3, slop=0.15)
+        ts.registerCallback(self.callback)
     
     #callback function
     def callback(self,lane,sign):
         # Perform decision making tasks
         # Compute the steering angle & linear velocity
         # Publish the steering angle & linear velocity to the /automobile/command topic
+        t1 = time.time()
         self.center = lane.center
         self.detected_objects = sign.objects
         self.numObj = sign.num
@@ -72,11 +76,12 @@ class LaneFollower():
         self.ArrivedAtStopline = lane.stopline
         for i in range(self.numObj):
             if i == 0:
-                print(f"{self.class_names[self.objects[i]]} detected! width, height: {self.box1[2]}, {self.box1[3]}")
+                print(self.numObj)
+                print(f"{self.class_names[self.detected_objects[i]]} detected! width, height: {self.box1[2]}, {self.box1[3]}")
             elif i == 1:
-                print(f"{self.class_names[self.objects[i]]} detected! width, height: {self.box2[2]}, {self.box2[3]}")
+                print(f"{self.class_names[self.detected_objects[i]]} detected! width, height: {self.box2[2]}, {self.box2[3]}")
             else:
-                print(f"{self.class_names[self.objects[i]]} detected!")
+                print(f"{self.class_names[self.detected_objects[i]]} detected!")
         act = self.action()
         if act==1:
             print(f"transitioning to '{self.states[self.state]}'")
@@ -84,16 +89,17 @@ class LaneFollower():
         # print("steering angle: ", steering_angle)
         # # Publish the steering command
         # self.publish_cmd_vel(steering_angle) 
-
+        # print("time: ", time.time() -t1)
     #state machine
     def action(self):
         if self.state==0: #lane following
+            print("state 0")
             # Determine the steering angle based on the center
             steering_angle = self.get_steering_angle(self.center)
             print("steering angle: ", steering_angle)
             # Publish the steering command
             self.publish_cmd_vel(steering_angle) 
-            #transition guards
+            #transition events
             if self.stop_sign_detected():
                 self.intersectionStop = True
                 self.state = 1
@@ -112,10 +118,13 @@ class LaneFollower():
             elif self.pedestrian_appears():
                 self.state = 5
                 return 1
+            if self.ArrivedAtStopline:
+                self.doneManeuvering = False #set to false before entering state 3
+                self.state = 3
             return 0
         elif self.state == 1: #Approaching Intersection
-            #Transition guards
-            if self.arrived_at_intersection():
+            #Transition events
+            if self.ArrivedAtStopline:
                 if self.intersectionStop:
                     self.state = 2
                     return 1
@@ -124,12 +133,16 @@ class LaneFollower():
                     self.state = 3
                     return 1
             #Action: Adjust Position
-            
+            # Determine the steering angle based on the center
+            steering_angle = self.get_steering_angle(self.center)
+            print("steering angle: ", steering_angle)
+            # Publish the steering command
+            self.publish_cmd_vel(steering_angle) 
             return 0
         elif self.state == 2: #Stopping at Intersection
             #Action: idle
             self.idle()
-            #Transition Guards
+            #Transition events
             if self.timer is None:
                 self.timer = rospy.Time.now() + rospy.Duration(3.57)
             elif rospy.Time.now() >= self.timer:
@@ -139,10 +152,11 @@ class LaneFollower():
                 return 1
             return 0
         elif self.state == 3: #Intersection Maneuvering
+            # print("state 3")
             #go left, straight or right
-            #call service to get direction
-            #Transition Guards
+            #Transition Events
             if self.doneManeuvering:
+                self.doneManeuvering = False #reset
                 self.intersectionDecision = -1 #reset
                 self.state = 0 #go back to lane following
                 return 1
@@ -150,15 +164,15 @@ class LaneFollower():
                 self.intersectionDecision = np.random.randint(low=0, high=3) #replace this with service call
                 print("intersection decision: going " + self.intersectionDecisions[self.intersectionDecision])
             if self.intersectionDecision == 0: #left
-                #go straight for 3.5s then left for 8s
+                #go straight for 3.5s then left for 4s
                 if self.timer is None and self.timer2 is None: #begin going straight
                     print("begin going straight")
-                    self.timer = rospy.Time.now()+rospy.Duration(3.5)
+                    self.timer = rospy.Time.now()+rospy.Duration(5.7)
                 if self.timer is not None and self.timer2 is None:
                     if rospy.Time.now() >= self.timer: #finished going straight. reset timer to None
                         print("finished going straight. reset timer to None")
                         self.timer = None
-                        self.timer2 = rospy.Time.now()+rospy.Duration(8.0)
+                        self.timer2 = rospy.Time.now()+rospy.Duration(3.0)
                     else:
                         self.straight()
                         return 0
@@ -175,7 +189,7 @@ class LaneFollower():
                 #go straight for 3s
                 if self.timer is None: #begin going straight
                     print("begin going straight")
-                    self.timer = rospy.Time.now()+rospy.Duration(3.0)
+                    self.timer = rospy.Time.now()+rospy.Duration(3.7)
                 if rospy.Time.now() >= self.timer: #finished going straight. reset timer to None
                     print("finished going straight. reset timer to None")
                     self.timer = None
@@ -188,12 +202,12 @@ class LaneFollower():
                 #go straight for 1.5s then right for 8s
                 if self.timer is None and self.timer2 is None: #begin going straight
                     print("begin going straight")
-                    self.timer = rospy.Time.now()+rospy.Duration(1.5)
+                    self.timer = rospy.Time.now()+rospy.Duration(3.2)
                 if self.timer is not None and self.timer2 is None:
                     if rospy.Time.now() >= self.timer: #finished going straight. reset timer to None
                         print("finished going straight. reset timer to None")
                         self.timer = None
-                        self.timer2 = rospy.Time.now()+rospy.Duration(8.0)
+                        self.timer2 = rospy.Time.now()+rospy.Duration(2.3)
                     else:
                         self.straight()
                         return 0
@@ -207,7 +221,7 @@ class LaneFollower():
                         self.right()
                         return 0
         elif self.state == 4: #Approaching Crosswalk
-            #Transition Guards
+            #Transition events
             if self.timer is None: #start timer. ~5 seconds to pass crosswalk?
                 self.timer = rospy.Time.now() + rospy.Duration(5)
             if rospy.Time.now() >= self.timer:
@@ -234,7 +248,7 @@ class LaneFollower():
         else:
              self.state = 0
              return 0
-
+        return 0
     #Transition events
     def stopline_detected(self):
         return False
@@ -278,15 +292,35 @@ class LaneFollower():
 
     #controller functions
     def straight(self):
-        self.cmd_vel_pub(0.0, 0.2)
+        # self.cmd_vel_pub(0.0, 0.2)
+        self.msg.data = '{"action":"1","speed":'+str(0.2)+'}'
+        self.msg2.data = '{"action":"2","steerAngle":'+str(0.0*180/np.pi)+'}'
+        self.cmd_vel_pub.publish(self.msg)
+        self.cmd_vel_pub.publish(self.msg2)
     def left(self):
-        self.cmd_vel_pub(-23, 0.12)
+        # self.cmd_vel_pub(-23, 0.12)
+        self.msg.data = '{"action":"1","speed":'+str(0.12)+'}'
+        self.msg2.data = '{"action":"2","steerAngle":'+str(-23*180/np.pi)+'}'
+        self.cmd_vel_pub.publish(self.msg)
+        self.cmd_vel_pub.publish(self.msg2)
     def right(self):
-        self.cmd_vel_pub(23, 0.12)
+        # self.cmd_vel_pub(23, 0.12)
+        self.msg.data = '{"action":"1","speed":'+str(0.12)+'}'
+        self.msg2.data = '{"action":"2","steerAngle":'+str(23*180/np.pi)+'}'
+        self.cmd_vel_pub.publish(self.msg)
+        self.cmd_vel_pub.publish(self.msg2)
     def idle(self):
-        self.cmd_vel_pub(0.0, 0.0)
+        # self.cmd_vel_pub(0.0, 0.0)
+        self.msg.data = '{"action":"1","speed":'+str(0.0)+'}'
+        self.msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
+        self.cmd_vel_pub.publish(self.msg)
+        self.cmd_vel_pub.publish(self.msg2)
     def go_back(self):
-        self.cmd_vel_pub(0.0, -0.2)
+        # self.cmd_vel_pub(0.0, -0.2)
+        self.msg.data = '{"action":"1","speed":'+str(-0.2)+'}'
+        self.msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
+        self.cmd_vel_pub.publish(self.msg)
+        self.cmd_vel_pub.publish(self.msg2)
 
     #helper functions
     def object_detected(self, obj_id):
@@ -335,61 +369,20 @@ class LaneFollower():
         Publish the steering command to the cmd_vel topic
         :param steering_angle: Steering angle in radians
         """
-        msg = String()
-        msg2 = String()
         if velocity is None:
             velocity = self.maxspeed + self.maxspeed*abs(steering_angle)/0.4
-        msg.data = '{"action":"1","speed":'+str(velocity)+'}'
-        msg2.data = '{"action":"2","steerAngle":'+str(steering_angle*180/np.pi)+'}'
-        self.cmd_vel_pub.publish(msg)
-        self.cmd_vel_pub.publish(msg2)
-
-    def keyInput(self):
-        self.allKeys = ['=','-','w','s','r','l','g','p','e']
-        with keyboard.Listener(on_press = self.keyPress) as listener:
-            listener.join()
-
-    # ===================================== KEY PRESS ====================================
-    def keyPress(self,key):
-        """Processing the key pressing 
-        
-        Parameters
-        ----------
-        key : pynput.keyboard.Key
-            The key pressed
-        """                                     
-        try:
-            if key.char in self.allKeys:
-                if key.char == '=':
-                    self.p += 0.001
-                elif key.char == '-':
-                    self.p -= 0.001
-                elif key.char == 'w':
-                    self.maxspeed += 0.01
-                elif key.char == 'e':
-                    self.maxspeed -= 0.01
-                elif key.char == 'r':
-                    self.inter_dec = 'right'
-                    print(self.inter_dec)
-                elif key.char == 'l':
-                    self.inter_dec = 'left'
-                    print(self.inter_dec)
-                elif key.char == 's':
-                    self.inter_dec = 'straight'
-                    print(self.inter_dec)
-                elif key.char == 'i':
-                    self.inter_dec = 'idle'
-                    print(self.inter_dec)
-                elif key.char == 'g':
-                    self.inter_dec = ''
-                elif key.char == 'p':
-                    print('p,maxspeed',self.p,self.maxspeed)
-        except: pass
+        self.msg.data = '{"action":"1","speed":'+str(velocity)+'}'
+        self.msg2.data = '{"action":"2","steerAngle":'+str(steering_angle*180/np.pi)+'}'
+        self.cmd_vel_pub.publish(self.msg)
+        self.cmd_vel_pub.publish(self.msg2)
 
 if __name__ == '__main__':
-    try:
-        node = LaneFollower()
+    node = LaneFollower()
+    while not rospy.is_shutdown():
         node.rate.sleep()
         rospy.spin()
-    except rospy.ROSInterruptException:
-        rospy.loginfo("interrupt")
+    # try:
+    #     node.rate.sleep()
+    #     rospy.spin()
+    # except rospy.ROSInterruptException:
+    #     rospy.loginfo("interrupt")
