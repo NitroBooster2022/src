@@ -107,9 +107,9 @@ class LaneFollower():
             elif self.light_detected():
                 #call service to check light color
                 if self.is_green():
-                    self.intersectionStop = True
-                else:
                     self.intersectionStop = False
+                else:
+                    self.intersectionStop = True
                 self.state = 1
                 return 1
             elif self.crosswalk_sign_detected():
@@ -144,10 +144,11 @@ class LaneFollower():
             self.idle()
             #Transition events
             if self.timer is None:
-                self.timer = rospy.Time.now() + rospy.Duration(3.57)
+                self.timer = rospy.Time.now() + rospy.Duration(3.57) #evil number again!?!?
             elif rospy.Time.now() >= self.timer:
                 self.timer = None
                 self.doneManeuvering = False #set to false before entering state 3
+                self.intersectionStop = False #reset
                 self.state = 3
                 return 1
             return 0
@@ -161,7 +162,8 @@ class LaneFollower():
                 self.state = 0 #go back to lane following
                 return 1
             elif self.intersectionDecision <0: 
-                self.intersectionDecision = np.random.randint(low=0, high=3) #replace this with service call
+                self.intersectionDecision = self.get_dir('direction').res
+                # self.intersectionDecision = np.random.randint(low=0, high=3) #replace this with service call
                 print("intersection decision: going " + self.intersectionDecisions[self.intersectionDecision])
             if self.intersectionDecision == 0: #left
                 #go straight for 3.5s then left for 4s
@@ -267,7 +269,7 @@ class LaneFollower():
     def arrived_at_intersection(self):
         return self.ArrivedAtStopline
     def is_green(self): #call service or message
-        r=self.get_dir(0,0,0,'').dir
+        r=self.get_dir('orientation').res
         if r.split()[2]=='N' or r.split()[2]=='S':
             topic = 'start'
         else:
