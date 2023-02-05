@@ -74,51 +74,51 @@ class LaneFollower():
         self.box1 = sign.box1
         self.box2 = sign.box2
         self.ArrivedAtStopline = lane.stopline
-        for i in range(self.numObj):
-            if i == 0:
-                print(self.numObj)
-                print(f"{self.class_names[self.detected_objects[i]]} detected! width, height: {self.box1[2]}, {self.box1[3]}")
-            elif i == 1:
-                print(f"{self.class_names[self.detected_objects[i]]} detected! width, height: {self.box2[2]}, {self.box2[3]}")
-            else:
-                print(f"{self.class_names[self.detected_objects[i]]} detected!")
+        # for i in range(self.numObj):
+        #     if i == 0:
+        #         print(self.numObj)
+        #         print(f"{self.class_names[self.detected_objects[i]]} detected! width, height: {self.box1[2]}, {self.box1[3]}")
+        #     elif i == 1:
+        #         print(f"{self.class_names[self.detected_objects[i]]} detected! width, height: {self.box2[2]}, {self.box2[3]}")
+        #     else:
+        #         print(f"{self.class_names[self.detected_objects[i]]} detected!")
         act = self.action()
-        if act==1:
+        if int(act)==1:
             print(f"transitioning to '{self.states[self.state]}'")
-        # steering_angle = self.get_steering_angle(self.center)
-        # print("steering angle: ", steering_angle)
-        # # Publish the steering command
-        # self.publish_cmd_vel(steering_angle) 
-        # print("time: ", time.time() -t1)
+
     #state machine
     def action(self):
         if self.state==0: #lane following
-            print("state 0")
             # Determine the steering angle based on the center
             steering_angle = self.get_steering_angle(self.center)
-            print("steering angle: ", steering_angle)
             # Publish the steering command
             self.publish_cmd_vel(steering_angle) 
             #transition events
             if self.stop_sign_detected():
+                print("stop sign detected -> state 1")
                 self.intersectionStop = True
                 self.state = 1
                 return 1
             elif self.light_detected():
                 #call service to check light color
                 if self.is_green():
+                    print("green light detected -> state 1")
                     self.intersectionStop = False
                 else:
+                    print("red light detected -> state 1")
                     self.intersectionStop = True
                 self.state = 1
                 return 1
             elif self.crosswalk_sign_detected():
+                print("crosswalk sign detected -> state 4")
                 self.state = 4
                 return 1
             elif self.pedestrian_appears():
+                print("pedestrian appears!!! -> state 5")
                 self.state = 5
                 return 1
             if self.ArrivedAtStopline:
+                print("signless intersection detected... -> state 3")
                 self.doneManeuvering = False #set to false before entering state 3
                 self.state = 3
             return 0
@@ -135,7 +135,6 @@ class LaneFollower():
             #Action: Adjust Position
             # Determine the steering angle based on the center
             steering_angle = self.get_steering_angle(self.center)
-            print("steering angle: ", steering_angle)
             # Publish the steering command
             self.publish_cmd_vel(steering_angle) 
             return 0
@@ -144,11 +143,10 @@ class LaneFollower():
             self.idle()
             #Transition events
             if self.timer is None:
-                self.timer = rospy.Time.now() + rospy.Duration(3.57) #evil number again!?!?
+                self.timer = rospy.Time.now() + rospy.Duration(3.57)
             elif rospy.Time.now() >= self.timer:
                 self.timer = None
                 self.doneManeuvering = False #set to false before entering state 3
-                self.intersectionStop = False #reset
                 self.state = 3
                 return 1
             return 0
@@ -162,8 +160,7 @@ class LaneFollower():
                 self.state = 0 #go back to lane following
                 return 1
             elif self.intersectionDecision <0: 
-                self.intersectionDecision = self.get_dir('direction').res
-                # self.intersectionDecision = np.random.randint(low=0, high=3) #replace this with service call
+                self.intersectionDecision = np.random.randint(low=0, high=3) #replace this with service call
                 print("intersection decision: going " + self.intersectionDecisions[self.intersectionDecision])
             if self.intersectionDecision == 0: #left
                 #go straight for 3.5s then left for 4s
@@ -224,8 +221,8 @@ class LaneFollower():
                         return 0
         elif self.state == 4: #Approaching Crosswalk
             #Transition events
-            if self.timer is None: #start timer. ~5 seconds to pass crosswalk?
-                self.timer = rospy.Time.now() + rospy.Duration(5)
+            if self.timer is None: #start timer. ~10 seconds to pass crosswalk?
+                self.timer = rospy.Time.now() + rospy.Duration(10)
             if rospy.Time.now() >= self.timer:
                 self.timer = None #reset timer
                 self.state = 0
@@ -236,7 +233,6 @@ class LaneFollower():
                 return 1
             #Action: slow down
             steering_angle = self.get_steering_angle(self.center)
-            print("steering angle: ", steering_angle)
             # Publish the steering command
             self.publish_cmd_vel(steering_angle, self.maxspeed/2)
             return 0
@@ -269,20 +265,21 @@ class LaneFollower():
     def arrived_at_intersection(self):
         return self.ArrivedAtStopline
     def is_green(self): #call service or message
-        r=self.get_dir('orientation').res
-        if r.split()[2]=='N' or r.split()[2]=='S':
-            topic = 'start'
-        else:
-            topic = 'master'
-        state=rospy.wait_for_message('/automobile/trafficlight/'+topic,Byte)
-        if state.data==0:
-            print('redlight')
-            return False
-        elif state.data==1:
-            print('yellowlight')
-            return False
-        else:
-            return True
+        return False
+        # r=self.get_dir(0,0,0,'').dir
+        # if r.split()[2]=='N' or r.split()[2]=='S':
+        #     topic = 'start'
+        # else:
+        #     topic = 'master'
+        # state=rospy.wait_for_message('/automobile/trafficlight/'+topic,Byte)
+        # if state.data==0:
+        #     print('redlight')
+        #     return False
+        # elif state.data==1:
+        #     print('yellowlight')
+        #     return False
+        # else:
+        #     return True
     def crosswalk_sign_detected(self):
         return self.object_detected(5)
     def pedestrian_appears(self):
@@ -341,7 +338,7 @@ class LaneFollower():
     def check_size(self, obj_id, index):
         #checks whether a detected object is within a certain min and max sizes defined by the obj type
         box = self.box1 if index==0 else self.box2
-        size = np.max(box[2], box[3])
+        size = max(box[2], box[3])
         return size >= self.min_sizes[obj_id] and size <= self.max_sizes[obj_id]
     def get_steering_angle(self, center):
         """
@@ -383,8 +380,3 @@ if __name__ == '__main__':
     while not rospy.is_shutdown():
         node.rate.sleep()
         rospy.spin()
-    # try:
-    #     node.rate.sleep()
-    #     rospy.spin()
-    # except rospy.ROSInterruptException:
-    #     rospy.loginfo("interrupt")

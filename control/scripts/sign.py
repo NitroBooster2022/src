@@ -2,6 +2,7 @@
 
 # import onnxruntime
 # from yolov7 import YOLOv7
+import argparse
 import rospy
 import json
 import cv2
@@ -25,8 +26,11 @@ def format_yolov5(frame):
     return result
 
 class ObjectDetector():
-    def __init__(self):
-        self.net = cv2.dnn.readNet('/home/simonli/Documents/Simulator/src/control/models/alex12s2.onnx')
+    def __init__(self, show):
+        self.show = show
+        self.model = os.path.dirname(os.path.realpath(__file__)).replace("scripts", "models/alex12s2.onnx")
+        self.net = cv2.dnn.readNet(self.model)
+        # self.net = cv2.dnn.readNet('/home/simonli/Documents/Simulator/src/control/models/alex12s2.onnx')
         self.class_list = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority', 'light', 'block', 'girl', 'car']
         rospy.init_node('object_detection_node', anonymous=True)
         self.bridge = CvBridge()
@@ -34,7 +38,7 @@ class ObjectDetector():
         self.image_sub = rospy.Subscriber("automobile/image_raw/compressed", CompressedImage, self.image_callback)
         self.pub = rospy.Publisher("sign", Sign, queue_size = 3)
         self.p = Sign()
-        self.rate = rospy.Rate(5)
+        self.rate = rospy.Rate(10)
 
     def image_callback(self, data):
         """
@@ -52,7 +56,7 @@ class ObjectDetector():
         # Update the header information in the message
         self.p.header = header
 
-        self.class_ids, __, self.boxes, t2 = self.detect(image, self.class_list, show=True)
+        self.class_ids, __, self.boxes, t2 = self.detect(image, self.class_list, show=self.show)
         self.p.objects = self.class_ids
         self.p.num = len(self.class_ids)
         if self.p.num>=2:
@@ -102,7 +106,7 @@ class ObjectDetector():
                     box = alex.array([left, top, width, height])
                     boxes.append(box)
 
-        indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.37, 0.75) 
+        indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.37, 0.77) 
 
         result_class_ids = []
         result_confidences = []
@@ -131,8 +135,11 @@ class ObjectDetector():
         return result_class_ids, result_confidences, result_boxes, t2
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--show", type=str, default=False, help="show camera frames")
+    args = parser.parse_args()
     try:
-        node = ObjectDetector()
+        node = ObjectDetector(show = args.show)
         node.rate.sleep()
         rospy.spin()
     except rospy.ROSInterruptException:
