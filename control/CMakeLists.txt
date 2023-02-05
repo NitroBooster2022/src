@@ -17,6 +17,9 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_ros
   turtlesim
   message_generation
+  sensor_msgs
+  cv_bridge
+  image_transport
 )
 
 ## System dependencies are found with CMake's conventions
@@ -112,7 +115,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES control
- CATKIN_DEPENDS geometry_msgs roscpp rospy std_msgs tf2 tf2_geometry_msgs tf2_ros turtlesim message_runtime
+ CATKIN_DEPENDS geometry_msgs roscpp rospy std_msgs tf2 tf2_geometry_msgs tf2_ros turtlesim message_runtime image_transport cv_bridge sensor_msgs
 #  DEPENDS system_lib
 )
 
@@ -145,12 +148,15 @@ include_directories(
 add_executable(control2
   src/control2.cpp
 )
+add_executable(camera
+  src/camera.cpp
+)
 # add_executable(lane
 #   src/lane.cpp
 # )
-# add_executable(sign
-#   src/sign.cpp
-# )
+add_executable(sign
+  src/sign.cpp
+)
 # add_executable(localization
 #   src/localization.cpp
 # )
@@ -169,12 +175,15 @@ add_executable(control2
 target_link_libraries(control2
   ${catkin_LIBRARIES}
 )
+target_link_libraries(camera
+  ${catkin_LIBRARIES}
+)
 # target_link_libraries(lane
 #   ${catkin_LIBRARIES}
 # )
-# target_link_libraries(sign
-#   ${catkin_LIBRARIES}
-# )
+target_link_libraries(sign
+  ${catkin_LIBRARIES}
+)
 # target_link_libraries(localization
 #   ${catkin_LIBRARIES}
 # )
