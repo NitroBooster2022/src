@@ -43,38 +43,43 @@ class Localiser():
 
     def doDir(self,request):
         # get the next direction
-        if len(self.planned_path)==self.path_number+1:
-            return 'idle 0 N'
-        # self.track_map=track_map(request.x,request.y,request.r,[request.dest])
-        self.track_map.locate(self.pos[0],self.pos[1],self.rot)
-        self.track_map.planned_path=[self.planned_path[self.path_number]]
-        self.track_map.plan_path()
-        if self.track_map.path[0]==self.planned_path[self.path_number]:
-            self.path_number+=1
+        if request.req == 'direction':
+            if len(self.planned_path)==self.path_number+1:
+                return 'idle'
+            # self.track_map=track_map(request.x,request.y,request.r,[request.dest])
             self.track_map.locate(self.pos[0],self.pos[1],self.rot)
             self.track_map.planned_path=[self.planned_path[self.path_number]]
             self.track_map.plan_path()
-        response = self.track_map.directions[0]
-        if self.track_map.decision_point(self.pos[0],self.pos[1])==False:
-            response = 'straight'
-
-        # offset calculation
-        orientations = np.array([0,np.pi/2,np.pi,-np.pi/2,-np.pi])
-        dif = np.absolute(orientations-self.rot)
-        offset = self.rot-orientations[dif.argmin()]
-        response += ' '+str(offset)
-
-        # orientation calculation (for traffic lights)
-        if dif.argmin()==0:
-            response += ' E'
-        elif dif.argmin()==1:
-            response += ' N'
-        elif dif.argmin()==3:
-            response += ' S'
+            if self.track_map.path[0]==self.planned_path[self.path_number]:
+                self.path_number+=1
+                self.track_map.locate(self.pos[0],self.pos[1],self.rot)
+                self.track_map.planned_path=[self.planned_path[self.path_number]]
+                self.track_map.plan_path()
+            response = self.track_map.directions[0]
+            if self.track_map.decision_point(self.pos[0],self.pos[1])==False:
+                response = 'straight'
+            return response
+        elif request.req == 'offset':
+            # offset calculation
+            orientations = np.array([0,np.pi/2,np.pi,-np.pi/2,-np.pi])
+            dif = np.absolute(orientations-self.rot)
+            offset = self.rot-orientations[dif.argmin()]
+            response = str(offset)
+            return response
+        elif request.req == 'orientation':
+            # orientation calculation (for traffic lights)
+            if dif.argmin()==0:
+                response = 'E'
+            elif dif.argmin()==1:
+                response = 'N'
+            elif dif.argmin()==3:
+                response = 'S'
+            else:
+                response = 'W'
+            # rospy.loginfo("direction is: %s", response)
+            return response
         else:
-            response += ' W'
-        # rospy.loginfo("direction is: %s", response)
-        return response
+            return ''
     
     def callback(self,data):
         # update position and orientation

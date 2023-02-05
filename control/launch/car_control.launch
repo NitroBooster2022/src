@@ -1,0 +1,6 @@
+<launch>
+<node pkg="control" name="control" output="screen" type="control.py" required="true"/>
+<node pkg="control" name="localisation" output="screen" type="localisation.py" required="true"/>
+<node pkg="control" name="lane" output="screen" type="lane.py" required="true"/>
+<node pkg="control" name="sign" output="screen" type="sign.py" required="true"/>
+</launch>
