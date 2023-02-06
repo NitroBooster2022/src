@@ -8,7 +8,7 @@
 
 void load_net(cv::dnn::Net &net, bool is_cuda)
 {
-    auto result = cv::dnn::readNet("../models/alex12s2.onnx");
+    auto result = cv::dnn::readNet("/home/simonli/Documents/Simulator/src/control/models/alex12s2.onnx");
     if (is_cuda)
     {
         std::cout << "Attempty to use CUDA\n";
@@ -30,13 +30,15 @@ const float INPUT_HEIGHT = 640.0;
 const float SCORE_THRESHOLD = 0.2;
 const float NMS_THRESHOLD = 0.4;
 const float CONFIDENCE_THRESHOLD = 0.4;
-
+const std::vector<std::string> class_list = {"oneway", "highwayexit", "stopsign", "roundabout", "park", "crosswalk", "noentry", "highwayentrance", "priority", "light", "block", "girl", "car"};
+cv::dnn::Net net;
 struct Detection
 {
     int class_id;
     float confidence;
     cv::Rect box;
 };
+std::vector<Detection> output;
 
 cv::Mat format_yolov5(const cv::Mat &source) {
     int col = source.cols;
@@ -154,6 +156,8 @@ public:
       return;
     }
 
+    detect(cv_ptr->image, net, output, class_list);
+
     // Draw an example circle on the video stream
     if (cv_ptr->image.rows > 60 && cv_ptr->image.cols > 60)
       cv::circle(cv_ptr->image, cv::Point(50, 50), 10, CV_RGB(255,0,0));
@@ -170,14 +174,17 @@ public:
 int main(int argc, char** argv)
 {
     //yolo
-    std::vector<std::string> class_list = {"oneway", "highwayexit", "stopsign", "roundabout", "park", "crosswalk", "noentry", "highwayentrance", "priority", "light", "block", "girl", "car"};
     bool is_cuda = argc > 1 && strcmp(argv[1], "cuda") == 0;
-    cv::dnn::Net net;
     load_net(net, is_cuda);
     
     //ros 
     ros::init(argc, argv, "image_converter");
     ImageConverter ic;
-    ros::spin();
+    ros::Rate rate(10);
+    while(ros::ok()){
+        ROS_INFO("objects: %d", output.size());
+        ros::spinOnce();
+        rate.sleep();
+    }
     return 0;
 }

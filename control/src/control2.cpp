@@ -27,14 +27,10 @@ float d = 0.003;
 float last = 0;
 int center = 0;
 // ros::Rate rate;
-ros::NodeHandle nh;
-ros::Publisher cmd_vel_pub = nh.advertise<std_msgs::String>("/automobile/command", 1);
-message_filters::Subscriber<utils::Lane> lane_sub(nh, "lane", 1);
-message_filters::Subscriber<utils::Sign> sign_sub(nh, "sign", 1);
 
 double getSteeringAngle(double center);
-void publishCmdVel(double steering_angle);
-void callback(const utils::Lane::ConstPtr& lane, const utils::Sign::ConstPtr& sign);
+void publishCmdVel(double steering_angle, ros::Publisher cmd_vel_pub);
+void callback(const utils::Lane::ConstPtr& lane, const utils::Sign::ConstPtr& sign, ros::Publisher cmd_vel_pub);
 
 double getSteeringAngle(double center) {
     double image_center = 640 / 2;
@@ -45,7 +41,7 @@ double getSteeringAngle(double center) {
     steering_angle = std::min(0.4, std::max(-0.4, steering_angle));
     return steering_angle;
 }
-void publishCmdVel(double steering_angle) {
+void publishCmdVel(double steering_angle, ros::Publisher cmd_vel_pub) {
     std::string msgData;
     std_msgs::String msg;
     double x = maxspeed + maxspeed * std::abs(steering_angle) / 0.4;
@@ -56,7 +52,7 @@ void publishCmdVel(double steering_angle) {
     msg.data = msgData;
     cmd_vel_pub.publish(msg);
 }
-void callback(const utils::Lane::ConstPtr& lane, const utils::Sign::ConstPtr& sign) {
+void callback(const utils::Lane::ConstPtr& lane, const utils::Sign::ConstPtr& sign, ros::Publisher cmd_vel_pub) {
     // Perform decision making tasks
     // Compute the steering angle & linear velocity
     // Publish the steering angle & linear velocity to the /automobile/command topic
@@ -72,16 +68,20 @@ void callback(const utils::Lane::ConstPtr& lane, const utils::Sign::ConstPtr& si
     double steering_angle = getSteeringAngle(center);
     ROS_INFO("steering angle: %f", steering_angle);
     // Publish the steering command
-    publishCmdVel(steering_angle);
+    publishCmdVel(steering_angle, cmd_vel_pub);
 }
 
 
 int main(int argc, char** argv) {
   ros::init(argc, argv, "lane_follower_node");
+  ros::NodeHandle nh;
+  ros::Publisher cmd_vel_pub = nh.advertise<std_msgs::String>("/automobile/command", 1);
+  message_filters::Subscriber<utils::Lane> lane_sub(nh, "lane", 1);
+  message_filters::Subscriber<utils::Sign> sign_sub(nh, "sign", 1);
   typedef message_filters::sync_policies::ApproximateTime<utils::Lane, utils::Sign> MySyncPolicy;
   message_filters::Synchronizer<MySyncPolicy> synchronizer(MySyncPolicy(100), lane_sub, sign_sub);
   synchronizer.registerCallback(boost::bind(&callback, _1, _2));
-  ros::Rate rate(10);
+  ros::Rate rate(100);
   while (ros::ok()) {
     rate.sleep();
     ros::spinOnce();

@@ -115,7 +115,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES control
- CATKIN_DEPENDS geometry_msgs roscpp rospy std_msgs tf2 tf2_geometry_msgs tf2_ros turtlesim message_runtime image_transport cv_bridge sensor_msgs
+ CATKIN_DEPENDS geometry_msgs roscpp rospy std_msgs tf2 tf2_geometry_msgs tf2_ros turtlesim message_runtime image_transport cv_bridge sensor_msgs opencv2
 #  DEPENDS system_lib
 )
 
@@ -145,9 +145,12 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(control2
-  src/control2.cpp
-)
+# add_executable(control2
+#   src/control2.cpp
+# )
+# add_executable(statemachine
+#   src/statemachine.cpp
+# )
 add_executable(camera
   src/camera.cpp
 )
@@ -172,9 +175,12 @@ add_executable(sign
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(control2
-  ${catkin_LIBRARIES}
-)
+# target_link_libraries(control2
+#   ${catkin_LIBRARIES}
+# )
+# target_link_libraries(statemachine
+#   ${catkin_LIBRARIES}
+# )
 target_link_libraries(camera
   ${catkin_LIBRARIES}
 )
