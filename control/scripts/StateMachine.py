@@ -3,7 +3,7 @@ import rospy
 import numpy as np
 from message_filters import ApproximateTimeSynchronizer
 from std_msgs.msg import String, Byte
-from utils.msg import Lane, Sign
+from utils.msg import Lane, Sign, localisation, IMU
 from pynput import keyboard
 from utils.srv import get_direction, nav
 import message_filters
@@ -62,20 +62,28 @@ class StateMachine():
         # Subscribe to topics
         self.lane_sub = message_filters.Subscriber('lane', Lane, queue_size=3)
         self.sign_sub = message_filters.Subscriber('sign', Sign, queue_size=3)
+        self.localization_sub = message_filters.Subscriber("/automobile/localisation", localisation, queue_size=3)
+        self.imu_sub = message_filters.Subscriber("/automobile/IMU", IMU, queue_size=3)
         self.subscribers = []
         self.subscribers.append(self.lane_sub)
         self.subscribers.append(self.sign_sub)
+        self.subscribers.append(self.localization_sub)
+        self.subscribers.append(self.imu_sub)
         
         # Create an instance of TimeSynchronizer
         ts = ApproximateTimeSynchronizer(self.subscribers, queue_size=3, slop=0.15)
         ts.registerCallback(self.callback)
     
     #callback function
-    def callback(self,lane,sign):
+    def callback(self,lane,sign, localization, imu):
         # Perform decision making tasks
         # Compute the steering angle & linear velocity
         # Publish the steering angle & linear velocity to the /automobile/command topic
         t1 = time.time()
+        self.posA = localization.posA
+        self.posB = localization.posB
+        self.yaw = imu.yaw
+        print("x,y,yaw: ", self.posA, self.posB, self.yaw)
         self.center = lane.center
         self.detected_objects = sign.objects
         self.numObj = sign.num
@@ -147,9 +155,11 @@ class StateMachine():
             #Transition events
             if self.ArrivedAtStopline:
                 if self.intersectionStop:
+                    print("arrived at stopline. Transitioning to 'stopping at intersection'.")
                     self.state = 2
                     return 1
                 else:
+                    print("arrived at stopline. Transitioning to 'intersection maneuvering' directly.")
                     self.doneManeuvering = False #set to false before entering state 3
                     self.state = 3
                     return 1
