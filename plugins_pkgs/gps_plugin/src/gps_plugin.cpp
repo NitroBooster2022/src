@@ -12,7 +12,7 @@ namespace gazebo
         void GPS::Load(physics::ModelPtr model_ptr, sdf::ElementPtr sdf_ptr)
         {
           nh = boost::make_shared<ros::NodeHandle>();
-          timer = nh->createTimer(ros::Duration(0.25), std::bind(&GPS::OnUpdate, this));
+          timer = nh->createTimer(ros::Duration(0.01), std::bind(&GPS::OnUpdate, this));
 
   			  // Save a pointer to the model for later use
   			  this->m_model = model_ptr;
@@ -46,7 +46,8 @@ namespace gazebo
         // Publish the updated values
         void GPS::OnUpdate()
         {
-		this->m_gps_pose.timestamp  = this->m_model->GetWorld()->SimTime().Float();
+            this->m_gps_pose.header.stamp = ros::Time::now();
+		        this->m_gps_pose.timestamp  = this->m_model->GetWorld()->SimTime().Float();
            	this->m_gps_pose.posA   = this->m_model->RelativePose().Pos().X() + (rand() / (float)RAND_MAX * 0.2) - 0.1;
            	this->m_gps_pose.posB   = abs(this->m_model->RelativePose().Pos().Y()) + (rand() / (float)RAND_MAX * 0.2) - 0.1;
            	this->m_gps_pose.rotA   = this->m_model->RelativePose().Rot().Yaw();

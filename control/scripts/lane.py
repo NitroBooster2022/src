@@ -87,7 +87,7 @@ class LaneDetector():
         print(self.p)
         # Publish the steering command
         self.pub.publish(self.p)
-        print("time: ", time.time()-t1)
+        # print("time: ", time.time()-t1)
     def dotted_lines(self,image):
         img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         h = img_gray.shape[0]
@@ -210,8 +210,8 @@ class LaneDetector():
                             right.append(p_x)
                 else:
                     if abs(x1-x2)>w/10 and y1>0.85*h:
-                        print(x1,y1,x2,y2)
-                        print(len(lines))
+                        # print(x1,y1,x2,y2)
+                        # print(len(lines))
                         self.stopline = True
         if len(left) == 0:
             left_lane = 0
@@ -221,9 +221,8 @@ class LaneDetector():
             right_lane = w
         else:
             right_lane = alex.mean(right)
-        print("time used: ", time.time()-t1)
+        # print("time used: ", time.time()-t1)
         center = (left_lane+right_lane)/2
-        print(center)
         if show:
             cv2.line(image,(int(center),int(image.shape[0])),(int(center),int(0.8*image.shape[0])),(255,0,255),5)
             cv2.imshow('center', image)
