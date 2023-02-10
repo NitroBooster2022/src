@@ -43,6 +43,8 @@ class CameraHandler():
         """
         self.bridge = CvBridge()
         self.cv_image = np.zeros((640, 480))
+        # print(np.sum(self.cv_image))
+        # self.cv_image+=50
         rospy.init_node('CAMnod', anonymous=True)
         self.image_sub = rospy.Subscriber("/automobile/image_raw", Image, self.callback)
         rospy.spin()
@@ -52,7 +54,7 @@ class CameraHandler():
         :param data: sensor_msg array containing the image in the Gazsbo format
         :return: nothing but sets [cv_image] to the usefull image that can be use in opencv (numpy array)
         """
-        self.cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+        self.cv_image = self.bridge.imgmsg_to_cv2(data, "rgb8")
         cv2.imshow("Frame preview", self.cv_image)
         key = cv2.waitKey(1)
     
