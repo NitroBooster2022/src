@@ -45,6 +45,7 @@ class ObjectDetector():
         Callback function for the image processed topic
         :param data: Image data in the ROS Image format
         """
+        t1 = time.time()
         # Convert the image to the OpenCV format
         image = self.bridge.imgmsg_to_cv2(data, "rgb8")
         # image = self.bridge.compressed_imgmsg_to_cv2(data, "bgr8")
@@ -57,7 +58,7 @@ class ObjectDetector():
         # Update the header information in the message
         self.p.header = header
 
-        self.class_ids, __, self.boxes, t2 = self.detect(image, self.class_list, show=self.show)
+        self.class_ids, __, self.boxes = self.detect(image, self.class_list, show=self.show)
         self.p.objects = self.class_ids
         self.p.num = len(self.class_ids)
         if self.p.num>=2:
@@ -68,9 +69,9 @@ class ObjectDetector():
 
         print(self.p)
         self.pub.publish(self.p)
+        print("time: ", time.time()-t1)
 
     def detect(self, image, class_list, save=False, show=False):
-        t1 = time.time()
         input_image = format_yolov5(image) # making the image square
         blob = cv2.dnn.blobFromImage(input_image , 1/255.0, (640, 640), swapRB=True)
         self.net.setInput(blob)
@@ -85,7 +86,7 @@ class ObjectDetector():
         image_width, image_height, _ = input_image.shape
         x_factor = image_width / 640
         y_factor =  image_height / 640
-        # print("output data: ", len(output_data))
+        #loop takes 20 ms
         for r in range(25200):
             row = output_data[r]
             confidence = row[4]
@@ -106,7 +107,6 @@ class ObjectDetector():
                     height = int(h * y_factor)
                     box = alex.array([left, top, width, height])
                     boxes.append(box)
-
         indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.37, 0.77) 
 
         result_class_ids = []
@@ -131,9 +131,7 @@ class ObjectDetector():
         if show:
             cv2.imshow("output", image)
             cv2.waitKey(1)
-        t2 = time.time()-t1
-        print("time: ", t2)
-        return result_class_ids, result_confidences, result_boxes, t2
+        return result_class_ids, result_confidences, result_boxes
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

@@ -17,6 +17,9 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_ros
   turtlesim
   message_generation
+  sensor_msgs
+  cv_bridge
+  image_transport
 )
 
 ## System dependencies are found with CMake's conventions
@@ -112,7 +115,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES control
- CATKIN_DEPENDS geometry_msgs roscpp rospy std_msgs tf2 tf2_geometry_msgs tf2_ros turtlesim message_runtime
+ CATKIN_DEPENDS geometry_msgs roscpp rospy std_msgs tf2 tf2_geometry_msgs tf2_ros turtlesim message_runtime image_transport cv_bridge sensor_msgs opencv2
 #  DEPENDS system_lib
 )
 
@@ -142,15 +145,21 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(control2
-  src/control2.cpp
+# add_executable(control2
+#   src/control2.cpp
+# )
+# add_executable(statemachine
+#   src/statemachine.cpp
+# )
+add_executable(camera
+  src/camera.cpp
 )
 # add_executable(lane
 #   src/lane.cpp
 # )
-# add_executable(sign
-#   src/sign.cpp
-# )
+add_executable(sign
+  src/sign.cpp
+)
 # add_executable(localization
 #   src/localization.cpp
 # )
@@ -166,15 +175,21 @@ add_executable(control2
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(control2
+# target_link_libraries(control2
+#   ${catkin_LIBRARIES}
+# )
+# target_link_libraries(statemachine
+#   ${catkin_LIBRARIES}
+# )
+target_link_libraries(camera
   ${catkin_LIBRARIES}
 )
 # target_link_libraries(lane
 #   ${catkin_LIBRARIES}
 # )
-# target_link_libraries(sign
-#   ${catkin_LIBRARIES}
-# )
+target_link_libraries(sign
+  ${catkin_LIBRARIES}
+)
 # target_link_libraries(localization
 #   ${catkin_LIBRARIES}
 # )
@@ -191,7 +206,9 @@ target_link_libraries(control2
 catkin_install_python(PROGRAMS
   scripts/lane.py
   scripts/sign.py
+  scripts/sign_onnx.py
   scripts/control.py
+  scripts/StateMachine.py
   scripts/localization.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

@@ -11,7 +11,7 @@ namespace gazebo
         void BNO055::Load(physics::ModelPtr model_ptr, sdf::ElementPtr sdf_ptr)
         {
             nh = boost::make_shared<ros::NodeHandle>();	
-            timer = nh->createTimer(ros::Duration(0.1), std::bind(&BNO055::OnUpdate, this));
+            timer = nh->createTimer(ros::Duration(0.01), std::bind(&BNO055::OnUpdate, this));
 	    	
       			// Save a pointer to the model for later use
       			this->m_model = model_ptr;
@@ -46,11 +46,11 @@ namespace gazebo
         // Publish the updated values
         void BNO055::OnUpdate()
         {        
-          
+            this->m_bno055_pose.header.stamp = ros::Time::now();
+            this->m_bno055_pose.header.frame_id = "bno055";
            	this->m_bno055_pose.roll = this->m_model->RelativePose().Rot().Roll();
-		this->m_bno055_pose.pitch = this->m_model->RelativePose().Rot().Pitch();
+		        this->m_bno055_pose.pitch = this->m_model->RelativePose().Rot().Pitch();
            	this->m_bno055_pose.yaw = this->m_model->RelativePose().Rot().Yaw();
-           	
             this->m_pubBNO.publish(this->m_bno055_pose);
         };      
     }; //namespace trafficLight
