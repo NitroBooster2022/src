@@ -45,6 +45,7 @@ class ObjectDetector():
         Callback function for the image processed topic
         :param data: Image data in the ROS Image format
         """
+        t1 = time.time()
         # Convert the image to the OpenCV format
         image = self.bridge.compressed_imgmsg_to_cv2(data, "bgr8")
 
@@ -67,6 +68,7 @@ class ObjectDetector():
 
         print(self.p)
         self.pub.publish(self.p)
+        print("time: ", time.time()-t1)
 
     def detect(self, image, class_list, save=False, show=False):
         input_image = format_yolov5(image) # making the image square

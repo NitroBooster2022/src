@@ -8,6 +8,8 @@ from pynput import keyboard
 from utils.srv import get_direction, nav
 import message_filters
 import time
+import math
+
 class StateMachine():
     def __init__(self):
         #states
@@ -27,6 +29,25 @@ class StateMachine():
         self.box1 = []
         self.box2 = []
 
+        #pose
+        self.x = 0.82
+        self.y = 14.91
+        self.yaw = 1.5707
+
+        #PID
+        #for initial angle adjustment
+        self.kp = 0.5
+        self.ki = 0.005
+        self.kd = 0.3
+        self.error_sum = 0
+        self.last_error = 0
+        #for goal points
+        self.kp2 = 0.2
+        self.ki2 = 0.005
+        self.kd2 = 0.08
+        self.error_sum2 = 0
+        self.last_error2 = 0
+
         #steering
         self.msg = String()
         self.msg2 = String()
@@ -38,14 +59,31 @@ class StateMachine():
         self.last = 0
         self.center = 0
 
-        #other
+        #timers
         self.timer = None
         self.timer2 = None
         self.timer3 = None
+
+        #intersection
         self.intersectionStop = None
         self.intersectionDecision = -1 #0:left, 1:straight, 2:right
         self.intersectionDecisions = ["left", "straight", "right"] #0:left, 1:straight, 2:right
         self.doneManeuvering = False
+        self.destination_x = None
+        self.destination_y = None
+        self.destination_theta = None
+        self.goalPoints = None
+        self.intersectionState = 0
+        self.numIntersectionStates = 0
+        #constants
+        self.orientations = np.array([0,1.5708,3.14159,4.7124]) #0, pi/2, pi, 3pi/2
+        self.left_offset_y = 1.239
+        self.left_offset_x = 0.769
+        self.right_offset_y = 0.3363
+        self.right_offset_x = 0.5055
+        self.intersection_offsets = np.array([[self.left_offset_x,self.left_offset_y],[self.right_offset_x,self.right_offset_y]])
+
+        #carblock
         self.carCleared = None
         self.dotted = False
         """
@@ -55,6 +93,7 @@ class StateMachine():
         self.cd = rospy.Time.now()
         self.cmd_vel_pub = rospy.Publisher("/automobile/command", String, queue_size=1)
         self.rate = rospy.Rate(50)
+        self.dt = 1/50 #for PID
 
         # Create service proxy
         self.get_dir = rospy.ServiceProxy('get_direction',get_direction)
@@ -80,10 +119,10 @@ class StateMachine():
         # Compute the steering angle & linear velocity
         # Publish the steering angle & linear velocity to the /automobile/command topic
         t1 = time.time()
-        self.posA = localization.posA
-        self.posB = localization.posB
+        self.x = localization.posA
+        self.y = localization.posB
         self.yaw = imu.yaw
-        print("x,y,yaw: ", self.posA, self.posB, self.yaw)
+        # print("x,y,yaw: ", self.x, self.y, self.yaw)
         self.center = lane.center
         self.detected_objects = sign.objects
         self.numObj = sign.num
@@ -101,6 +140,7 @@ class StateMachine():
         act = self.action()
         if int(act)==1:
             print(f"transitioning to '{self.states[self.state]}'")
+        # print("time: ",time.time()-t1)
 
     #state machine
     def action(self):
@@ -186,70 +226,54 @@ class StateMachine():
             #go left, straight or right
             #Transition Events
             if self.doneManeuvering:
+                print("done intersection maneuvering. Back to lane following...")
                 self.doneManeuvering = False #reset
                 self.intersectionDecision = -1 #reset
                 self.state = 0 #go back to lane following
+                self.goalPoints = None #reset goal points
                 return 1
             elif self.intersectionDecision <0: 
-                self.intersectionDecision = np.random.randint(low=0, high=3) #replace this with service call
+                # self.intersectionDecision = np.random.randint(low=0, high=3) #replace this with service call
+                self.intersectionDecision = 0 #always left
                 print("intersection decision: going " + self.intersectionDecisions[self.intersectionDecision])
-            if self.intersectionDecision == 0: #left
-                #go straight for 5.7s then left for 3s
-                if self.timer is None and self.timer2 is None: #begin going straight
-                    print("begin going straight")
-                    self.timer = rospy.Time.now()+rospy.Duration(5.7)
-                if self.timer is not None and self.timer2 is None:
-                    if rospy.Time.now() >= self.timer: #finished going straight. reset timer to None
-                        print("finished going straight. reset timer to None")
-                        self.timer = None
-                        self.timer2 = rospy.Time.now()+rospy.Duration(3.0)
-                    else:
-                        self.straight()
-                        return 0
-                if self.timer is None and self.timer2 is not None: #begin going left
-                    if rospy.Time.now() >= self.timer2: #finished going straight
-                        print("finished going left. reset timer2 to None. Maneuvering done")
-                        self.timer2 = None #finished going left. reset timer2 to None.
-                        self.doneManeuvering = True
-                        return 0
-                    else: 
-                        self.left()
-                        return 0 
-            elif self.intersectionDecision == 1: #straight
-                #go straight for 3s
-                if self.timer is None: #begin going straight
-                    print("begin going straight")
-                    self.timer = rospy.Time.now()+rospy.Duration(3.7)
-                if rospy.Time.now() >= self.timer: #finished going straight. reset timer to None
-                    print("finished going straight. reset timer to None")
-                    self.timer = None
-                    self.doneManeuvering = True
+            if self.goalPoints is None:
+                print("calculating goal points...")
+                self.get_goal_points()
+                self.set_current_angle()
+                self.numIntersectionStates = len(self.goalPoints) + 1
+                self.intersectionState = 0 #adjusting:0, goalPoint1, goalPoint2, ...
+            if self.intersectionState==0: #adjusting
+                error = self.currentAngle - self.yaw
+                if error <= 0.05:
+                    print("done adjusting angle. Transitioning to goal point 1...")
+                    self.intersectionState+=1 #done adjusting
+                    self.error_sum = 0 #reset pid errors
+                    self.last_error = 0
                     return 0
                 else:
-                    self.straight()
+                    steering_angle = self.pid(error)
+                    self.publish_cmd_vel(steering_angle, self.maxspeed*0.3)
                     return 0
-            elif self.intersectionDecision == 2: #right
-                #go straight for 1.5s then right for 8s
-                if self.timer is None and self.timer2 is None: #begin going straight
-                    print("begin going straight")
-                    self.timer = rospy.Time.now()+rospy.Duration(3.2)
-                if self.timer is not None and self.timer2 is None:
-                    if rospy.Time.now() >= self.timer: #finished going straight. reset timer to None
-                        print("finished going straight. reset timer to None")
-                        self.timer = None
-                        self.timer2 = rospy.Time.now()+rospy.Duration(2.3)
-                    else:
-                        self.straight()
-                        return 0
-                if self.timer is None and self.timer2 is not None: #begin going left
-                    if rospy.Time.now() >= self.timer2: #finished going straight
-                        print("finished going left. reset timer2 to None. Maneuvering done")
-                        self.timer2 = None #finished going left. reset timer2 to None.
+            elif self.intersectionState>=1: #goal points
+                x_error = self.goalPoints[self.intersectionState-1,0]
+                y_error = self.goalPoints[self.intersectionState-1,1]
+                if abs(x_error)<0.1 and abs(y_error)<0.1:
+                    print("goal point 1 done. Transitioning to goal point 2...")
+                    self.intersectionState += 1
+                    self.error_sum2 = 0 #reset pid2 errors
+                    self.last_error2 = 0
+                    if self.intersectionState == self.numIntersectionStates: #done
                         self.doneManeuvering = True
                         return 0
-                    else: 
-                        self.right()
-                        return 0
+                    return 0
+                else:
+                    error = math.atan(y_error/x_error)
+                    if x_error<0:
+                        error+=1.5708 #left quadrant, add 180 degrees
+                    error -= self.yaw #error = difference between desired angle and current angle
+                    steering_angle = self.pid2(error)
+                    self.publish_cmd_vel(steering_angle, self.maxspeed*0.75)
+                    return 0
         elif self.state == 4: #Approaching Crosswalk
             #Transition events
             if self.timer is None: #start timer. ~10 seconds to pass crosswalk?
@@ -414,6 +438,41 @@ class StateMachine():
         self.cmd_vel_pub.publish(self.msg2)
 
     #helper functions
+    def pid(self, error):
+        # self.error_sum += error * self.dt
+        derivative = (error - self.last_error) / self.dt
+        output = self.kp * error + self.kd * derivative #+ self.ki * self.error_sum
+        self.last_error = error
+        return output
+    def pid2(self, error):
+        # self.error_sum2 += error * self.dt
+        derivative = (error - self.last_error2) / self.dt
+        output = self.kp2 * error + self.kd2 * derivative #+ self.ki2 * self.error_sum2
+        self.last_error2 = error
+        return output
+    def set_current_angle(self):
+        self.currentAngle = self.orientations[np.argmin([abs(self.yaw),abs(self.yaw-1.5708),abs(self.yaw-3.14159),abs(self.yaw-4.7124)])]
+    def get_goal_points(self):
+        if self.intersectionDecision == 0: #left
+            self.goalPoints = np.array([[self.x, self.y+self.left_offset_y/2],[self.x+self.left_offset_x*0.4, 
+                            self.y+self.left_offset_y*0.85],[self.x+self.left_offset_x, self.y+self.left_offset_y]])
+            return
+        if self.intersectionDecision == 1: #straight
+            self.goalPoints = np.array([[self.x, self.y+0.6],[self.x, self.y+1.2]])
+            return
+        if self.intersectionDecision == 2: #RIGHT
+            self.goalPoints = np.array([[self.x+self.right_offset_x*0.3, self.y+self.left_offset_y/2],
+                                        [self.x+self.left_offset_x, self.y+self.left_offset_y]])
+            return
+
+    def intersection_destination(self):
+        if self.intersectionDecision == 0: #left
+            self.destination_theta = self.yaw+1.5708
+            self.destination_y = self.posB + self.left_offset_y
+        if self.intersectionDecision == 1: #straight
+            pass
+        if self.intersectionDecision == 2: #right
+            pass
     def object_detected(self, obj_id):
         if self.numObj >= 2:
             if self.detected_objects[0]==obj_id: 
