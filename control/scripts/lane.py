@@ -50,7 +50,7 @@ class LaneDetector():
         self.bridge = CvBridge()
         # self.image_sub = rospy.Subscriber("/automobile/image_raw", Image, self.image_callback)
         self.image_sub = rospy.Subscriber("automobile/image_raw/compressed", CompressedImage, self.image_callback)
-        self.rate = rospy.Rate(10)
+        self.rate = rospy.Rate(15)
 
     def image_callback(self, data):
         """
