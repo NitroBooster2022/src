@@ -9,7 +9,7 @@ import cv2
 import os
 import time
 import numpy as alex
-# from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image
 from sensor_msgs.msg import CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
 # from pynput import keyboard
@@ -48,8 +48,9 @@ class LaneDetector():
         self.pub = rospy.Publisher("lane", Lane, queue_size=3)
         self.p = Lane()
         self.bridge = CvBridge()
-        # self.image_sub = rospy.Subscriber("/automobile/image_raw", Image, self.image_callback)
-        self.image_sub = rospy.Subscriber("automobile/image_raw/compressed", CompressedImage, self.image_callback)
+
+        self.image_sub = rospy.Subscriber("/automobile/image_raw", Image, self.image_callback)
+        # self.image_sub = rospy.Subscriber("automobile/image_raw/compressed", CompressedImage, self.image_callback)
         self.rate = rospy.Rate(15)
 
     def image_callback(self, data):
@@ -67,7 +68,8 @@ class LaneDetector():
         self.p.header = header
 
         # Convert the image to the OpenCV format
-        image = self.bridge.compressed_imgmsg_to_cv2(data, "bgr8")
+        # image = self.bridge.compressed_imgmsg_to_cv2(data, "bgr8")
+        image = self.bridge.imgmsg_to_cv2(data, "rgb8")
 
         # Extract the lanes from the image
         if self.method == 'histogram':
@@ -128,7 +130,7 @@ class LaneDetector():
         poly = alex.array([[(int(0*w),int(0.85*h)),(int(1*w),int(0.85*h)),(w,h),(0,h)]])
         cv2.fillPoly(mask,poly,255)
         img_roi = cv2.bitwise_and(img_gray,mask)
-        ret, thresh = cv2.threshold(img_roi, 150, 255, cv2.THRESH_BINARY)
+        ret, thresh = cv2.threshold(img_roi, 120, 255, cv2.THRESH_BINARY)
         hist=alex.zeros((1,w))
         for i in range(w):
             hist[0,i]=alex.sum(thresh[:,i])
