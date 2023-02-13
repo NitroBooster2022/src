@@ -16,7 +16,7 @@ class StateMachine():
         self.states = ['Lane Following', "Approaching Intersection", "Stopping at Intersection", 
                        "Intersection Maneuvering", "Approaching Crosswalk", "Pedestrian", "Highway",
                        "Carblock", "Roundabout", "Parking"]
-        self.state = 0
+        self.state = 10
 
         #sign
         self.class_names = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority',
@@ -42,20 +42,20 @@ class StateMachine():
         self.error_sum = 0
         self.last_error = 0
         #for goal points
-        self.kp2 = 0.2
-        self.ki2 = 0.005
-        self.kd2 = 0.08
+        self.kp2 = 1.0
+        self.ki2 = 0.00#5
+        self.kd2 = 0.0#8
         self.error_sum2 = 0
         self.last_error2 = 0
 
         #steering
         self.msg = String()
         self.msg2 = String()
-        self.p = 0.006
+        self.p = 0.005
         self.ArrivedAtStopline = False
         self.maxspeed = 0.15
         self.i = 0
-        self.d = 0.003
+        self.d = 0.000#15
         self.last = 0
         self.center = 0
 
@@ -63,6 +63,8 @@ class StateMachine():
         self.timer = None
         self.timer2 = None
         self.timer3 = None
+        self.toggle = False #True: velocity; False: steering angle
+        print("hello world")
 
         #intersection
         self.intersectionStop = None
@@ -76,9 +78,11 @@ class StateMachine():
         self.intersectionState = 0
         self.numIntersectionStates = 0
         #constants
+        self.orientation = 1 #0,1,2,3=east,north,west,south
+        self.directions = ["east", "north", "west", "south"]
         self.orientations = np.array([0,1.5708,3.14159,4.7124]) #0, pi/2, pi, 3pi/2
-        self.left_offset_y = 1.239
-        self.left_offset_x = 0.769
+        self.left_offset_y = 1.20
+        self.left_offset_x = 0.82
         self.right_offset_y = 0.3363
         self.right_offset_x = 0.5055
         self.intersection_offsets = np.array([[self.left_offset_x,self.left_offset_y],[self.right_offset_x,self.right_offset_y]])
@@ -90,7 +94,7 @@ class StateMachine():
         Initialize the lane follower node
         """
         rospy.init_node('lane_follower_node', anonymous=True)
-        self.cd = rospy.Time.now()
+        self.timer4 = rospy.Time.now()
         self.cmd_vel_pub = rospy.Publisher("/automobile/command", String, queue_size=1)
         self.rate = rospy.Rate(50)
         self.dt = 1/50 #for PID
@@ -115,12 +119,14 @@ class StateMachine():
     
     #callback function
     def callback(self,lane,sign, localization, imu):
+        self.dt = (rospy.Time.now()-self.timer4).to_sec()
+        # rospy.loginfo("time: %.4f", self.dt)
+        self.timer4 = rospy.Time.now()
         # Perform decision making tasks
         # Compute the steering angle & linear velocity
         # Publish the steering angle & linear velocity to the /automobile/command topic
-        t1 = time.time()
         self.x = localization.posA
-        self.y = localization.posB
+        self.y = 15.0-localization.posB
         self.yaw = imu.yaw
         # print("x,y,yaw: ", self.x, self.y, self.yaw)
         self.center = lane.center
@@ -238,15 +244,20 @@ class StateMachine():
                 print("intersection decision: going " + self.intersectionDecisions[self.intersectionDecision])
             if self.goalPoints is None:
                 print("calculating goal points...")
-                self.get_goal_points()
                 self.set_current_angle()
+                print("current orientation: ", self.directions[self.orientation])
+                self.get_goal_points()
+                print("goal points: ", self.goalPoints)
+                print("begin adjusting angle...")
                 self.numIntersectionStates = len(self.goalPoints) + 1
                 self.intersectionState = 0 #adjusting:0, goalPoint1, goalPoint2, ...
             if self.intersectionState==0: #adjusting
-                error = self.currentAngle - self.yaw
+                error = self.yaw-self.currentAngle 
                 if error <= 0.05:
-                    print("done adjusting angle. Transitioning to goal point 1...")
                     self.intersectionState+=1 #done adjusting
+                    print(f"done adjusting angle. Transitioning to goal point {self.intersectionState}...")
+                    print(f"first goal point: {self.goalPoints[self.intersectionState-1]}")
+                    print(f"current position: ({self.x},{self.y})")
                     self.error_sum = 0 #reset pid errors
                     self.last_error = 0
                     return 0
@@ -255,24 +266,26 @@ class StateMachine():
                     self.publish_cmd_vel(steering_angle, self.maxspeed*0.3)
                     return 0
             elif self.intersectionState>=1: #goal points
-                x_error = self.goalPoints[self.intersectionState-1,0]
-                y_error = self.goalPoints[self.intersectionState-1,1]
-                if abs(x_error)<0.1 and abs(y_error)<0.1:
-                    print("goal point 1 done. Transitioning to goal point 2...")
+                x_error = self.goalPoints[self.intersectionState-1,0]-self.x
+                y_error = self.goalPoints[self.intersectionState-1,1]-self.y
+                if abs(x_error)<0.05 and abs(y_error)<0.05:
                     self.intersectionState += 1
                     self.error_sum2 = 0 #reset pid2 errors
                     self.last_error2 = 0
                     if self.intersectionState == self.numIntersectionStates: #done
                         self.doneManeuvering = True
                         return 0
+                    print(f"goal point {self.intersectionState-1} done. Transitioning to next goal point...")
+                    print(f"new goal point is {self.goalPoints[self.intersectionState-1]}")
                     return 0
                 else:
                     error = math.atan(y_error/x_error)
                     if x_error<0:
-                        error+=1.5708 #left quadrant, add 180 degrees
-                    error -= self.yaw #error = difference between desired angle and current angle
-                    steering_angle = self.pid2(error)
+                        error+=3.14159 #left quadrant, add 180 degrees
+                    steering_angle = self.yaw-error #error = difference between desired angle and current angle
+                    steering_angle = self.pid2(steering_angle)
                     self.publish_cmd_vel(steering_angle, self.maxspeed*0.75)
+                    # print("abs angle, steering angle,x, y error: ", error, steering_angle,x_error, y_error)
                     return 0
         elif self.state == 4: #Approaching Crosswalk
             #Transition events
@@ -352,8 +365,23 @@ class StateMachine():
             self.state = 0
         elif self.state == 9: #Parking
             self.state = 0
-        else:
-            self.state = 0
+        elif self.state == 10: #initialization state
+            if self.timer is None:
+                print("initializing...")
+                self.timer = rospy.Time.now() + rospy.Duration(1.57)
+            if self.timer.now() >= self.timer:
+                print("done initializing.")
+                self.timer = None
+                self.state = 0
+                return 1
+            else:
+                if self.toggle == True:
+                    self.toggle = False
+                    self.msg.data = '{"action":"4","activate": true}'
+                else: 
+                    self.toggle = True
+                    self.msg.data = '{"action":"1","speed":'+str(0.0)+'}'
+                self.cmd_vel_pub.publish(self.msg)
         return 0
     #Transition events
     def can_park(self):
@@ -427,9 +455,9 @@ class StateMachine():
     def idle(self):
         # self.cmd_vel_pub(0.0, 0.0)
         self.msg.data = '{"action":"1","speed":'+str(0.0)+'}'
-        self.msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
+        # self.msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
         self.cmd_vel_pub.publish(self.msg)
-        self.cmd_vel_pub.publish(self.msg2)
+        # self.cmd_vel_pub.publish(self.msg2)
     def go_back(self):
         # self.cmd_vel_pub(0.0, -0.2)
         self.msg.data = '{"action":"1","speed":'+str(-0.2)+'}'
@@ -451,12 +479,27 @@ class StateMachine():
         self.last_error2 = error
         return output
     def set_current_angle(self):
-        self.currentAngle = self.orientations[np.argmin([abs(self.yaw),abs(self.yaw-1.5708),abs(self.yaw-3.14159),abs(self.yaw-4.7124)])]
+        self.orientation = np.argmin([abs(self.yaw),abs(self.yaw-1.5708),abs(abs(self.yaw)-3.14159),abs(self.yaw+1.5708)])
+        self.currentAngle = self.orientations[self.orientation]
     def get_goal_points(self):
+        print(f"get_goal_points called. current orientation: {self.directions[self.orientation]}")
         if self.intersectionDecision == 0: #left
-            self.goalPoints = np.array([[self.x, self.y+self.left_offset_y/2],[self.x+self.left_offset_x*0.4, 
-                            self.y+self.left_offset_y*0.85],[self.x+self.left_offset_x, self.y+self.left_offset_y]])
-            return
+            if self.orientation == 1: #north
+                self.goalPoints = np.array([[self.x, self.y+self.left_offset_y/2],[self.x-self.left_offset_x*0.4, 
+                                self.y+self.left_offset_y*0.85],[self.x-self.left_offset_x, self.y+self.left_offset_y]])
+                return
+            if self.orientation == 3: #south
+                self.goalPoints = np.array([[self.x, self.y-self.left_offset_y/2],[self.x+self.left_offset_x*0.4, 
+                                self.y-self.left_offset_y*0.85],[self.x+self.left_offset_x, self.y-self.left_offset_y]])
+                return
+            if self.orientation == 0: #east
+                self.goalPoints = np.array([[self.x+self.left_offset_y/2, self.y],[self.x+self.left_offset_y*0.85, 
+                                self.y+self.left_offset_x*0.4],[self.x+self.left_offset_y, self.y+self.left_offset_x]])
+                return
+            if self.orientation == 2: #west
+                self.goalPoints = np.array([[self.x-self.left_offset_y/2, self.y],[self.x-self.left_offset_y*0.85, 
+                                self.y-self.left_offset_x*0.4],[self.x-self.left_offset_y, self.y-self.left_offset_x]])
+                return
         if self.intersectionDecision == 1: #straight
             self.goalPoints = np.array([[self.x, self.y+0.6],[self.x, self.y+1.2]])
             return
@@ -507,7 +550,7 @@ class StateMachine():
             self.center=center
         
         error = (center - image_center)
-        d_error = error-self.last
+        d_error = (error-self.last)/self.dt
         self.last = error
         steering_angle = (error * self.p+d_error*self.d)
         steering_angle = np.clip(steering_angle, -0.4, 0.4)
@@ -521,10 +564,13 @@ class StateMachine():
         """
         if velocity is None:
             velocity = self.maxspeed + self.maxspeed*abs(steering_angle)/0.4
-        self.msg.data = '{"action":"1","speed":'+str(velocity)+'}'
-        self.msg2.data = '{"action":"2","steerAngle":'+str(steering_angle*180/np.pi)+'}'
+        if self.toggle:
+            self.toggle = False
+            self.msg.data = '{"action":"1","speed":'+str(velocity)+'}'
+        else:
+            self.toggle = True
+            self.msg.data = '{"action":"2","steerAngle":'+str(steering_angle*180/np.pi)+'}'
         self.cmd_vel_pub.publish(self.msg)
-        self.cmd_vel_pub.publish(self.msg2)
 
 if __name__ == '__main__':
     node = StateMachine()

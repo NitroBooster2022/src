@@ -31,7 +31,7 @@ class ObjectDetector():
         self.image_sub = rospy.Subscriber("automobile/image_raw/compressed", CompressedImage, self.image_callback)
         self.pub = rospy.Publisher("sign", Sign, queue_size = 3)
         self.p = Sign()
-        self.rate = rospy.Rate(10)
+        self.rate = rospy.Rate(15)
 
     def image_callback(self, data):
         """
