@@ -33,6 +33,9 @@ class StateMachine():
         self.x = 0.82
         self.y = 14.91
         self.yaw = 1.5707
+        self.speed = 0
+        self.odomX = 0
+        self.odomY = 0
 
         #PID
         #for initial angle adjustment
@@ -128,6 +131,7 @@ class StateMachine():
         self.x = localization.posA
         self.y = 15.0-localization.posB
         self.yaw = imu.yaw
+        
         # print("x,y,yaw: ", self.x, self.y, self.yaw)
         self.center = lane.center
         self.detected_objects = sign.objects
@@ -478,6 +482,12 @@ class StateMachine():
         output = self.kp2 * error + self.kd2 * derivative #+ self.ki2 * self.error_sum2
         self.last_error2 = error
         return output
+    def odometry(self):
+        magnitude = self.speed*self.dt
+        self.odomX += magnitude * math.cos(self.yaw)
+        self.odomY += magnitude * math.sin(self.yaw)
+    def trajectory(self, y):
+        return -math.exp(2.5*y-3)
     def set_current_angle(self):
         self.orientation = np.argmin([abs(self.yaw),abs(self.yaw-1.5708),abs(abs(self.yaw)-3.14159),abs(self.yaw+1.5708)])
         self.currentAngle = self.orientations[self.orientation]
