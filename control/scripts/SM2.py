@@ -62,7 +62,7 @@ class StateMachine():
         self.msg2 = String()
         self.p = 0.005
         self.ArrivedAtStopline = False
-        self.maxspeed = 0.15
+        self.maxspeed = 0.08
         self.i = 0
         self.d = 0.000#15
         self.last = 0
@@ -72,6 +72,7 @@ class StateMachine():
         self.timer = None
         self.timer2 = None
         self.timer3 = None
+       
         self.toggle = False #True: velocity; False: steering angle
         print("hello world")
 
@@ -106,6 +107,8 @@ class StateMachine():
         """
         rospy.init_node('lane_follower_node', anonymous=True)
         self.timer4 = rospy.Time.now()
+        self.timer5 = rospy.Time.now()
+        self.timer6 = rospy.Time.now()
         self.cmd_vel_pub = rospy.Publisher("/automobile/command", String, queue_size=1)
         self.rate = rospy.Rate(50)
         self.dt = 1/50 #for PID
@@ -133,6 +136,20 @@ class StateMachine():
         ts.registerCallback(self.callback)
 
         self.trackbars()
+        
+        # Load data
+        file = open(os.path.dirname(os.path.realpath(__file__))+'/PID.json', 'r')
+        data = json.load(file)
+        print(data)
+        self.p = data.get('p')
+        self.d = data.get('d')
+        self.i = data.get('i')
+        self.kp = data.get('kp')
+        self.kd = data.get('kd')
+        self.ki = data.get('ki')
+        self.kp2 = data.get('kp2')
+        self.kd2 = data.get('kd2')
+        self.ki2 = data.get('ki2')
 
     def trackbars(self):
         windowName = "Params"
@@ -141,29 +158,41 @@ class StateMachine():
         cv2.resizeWindow(windowName,480,360)
         cv2.createTrackbar('Save',windowName,0,1,self.save_object)
         cv2.createTrackbar('View',windowName,0,1,self.view)
+        cv2.createTrackbar('p',windowName,int(self.p*1000),30,self.changep)
+        cv2.createTrackbar('d',windowName,int(self.d*1000),100,self.changed)
+        cv2.createTrackbar('i',windowName,int(self.i*1000),100,self.changei)
         cv2.createTrackbar('kp',windowName,int(self.kp*1000),2000,self.changekp)
-        cv2.createTrackbar('kd',windowName,int(self.kd*1000),2000,self.changekd)
-        cv2.createTrackbar('ki',windowName,int(self.ki*1000),2000,self.changeki)
-        cv2.createTrackbar('kp2',windowName,int(self.kp2*1000),2000,self.changekp2)
-        cv2.createTrackbar('kd2',windowName,int(self.kd2*1000),2000,self.changekd2)
-        cv2.createTrackbar('ki2',windowName,int(self.ki2*1000),2000,self.changeki2)
+        cv2.createTrackbar('kd',windowName,int(self.kd*1000),1000,self.changekd)
+        cv2.createTrackbar('ki',windowName,int(self.ki*1000),1000,self.changeki)
+        cv2.createTrackbar('kp2',windowName,int(self.kp2*1000),100,self.changekp2)
+        cv2.createTrackbar('kd2',windowName,int(self.kd2*1000),100,self.changekd2)
+        cv2.createTrackbar('ki2',windowName,int(self.ki2*1000),100,self.changeki2)
         cv2.imshow(windowName, image)
         key = cv2.waitKey(0)
 
     def save_object(self,v):
         file = open(os.path.dirname(os.path.realpath(__file__))+'/PID.json', 'w')
-        data = {"kp":self.kp,"kd":self.kd,"ki":self.ki,"kp2":self.kp2,"kd2":self.kd2,"ki2":self.ki2}
+        data = {"p":self.p,"d":self.d,"i":self.i,"kp":self.kp,"kd":self.kd,"ki":self.ki,"kp2":self.kp2,"kd2":self.kd2,"ki2":self.ki2}
         json.dump(data, file)
         self.view(0)
     def view(self,v):
         print("=========== PIDS ============"+'\n'+
-            "kp           "+str(self.kp)+
+            "p           "+str(self.p)+
+            "\nd         "+str(self.d)+
+            "\ni         "+str(self.i)+
+            "\nkp         "+str(self.kp)+
             "\nkd         "+str(self.kd)+
             "\nki         "+str(self.ki)+
             "\nkp2        "+str(self.kp2)+
             "\nkd2        "+str(self.kd2)+
             "\nki2        "+str(self.ki2)        
         )
+    def changep(self,v):
+        self.p = v/1000
+    def changed(self,v):
+        self.d = v/1000
+    def changei(self,v):
+        self.i = v/1000
     def changekp(self,v):
         self.kp = v/1000
     def changekd(self,v):
@@ -179,9 +208,9 @@ class StateMachine():
     
     #callback function
     def callback(self,lane,sign, localization, imu):
-        self.dt = (rospy.Time.now()-self.timer4).to_sec()
+        self.dt = (rospy.Time.now()-self.timer6).to_sec()
         # rospy.loginfo("time: %.4f", self.dt)
-        self.timer4 = rospy.Time.now()
+        self.timer6 = rospy.Time.now()
         # Perform decision making tasks
         # Compute the steering angle & linear velocity
         # Publish the steering angle & linear velocity to the /automobile/command topic
@@ -453,7 +482,7 @@ class StateMachine():
             if self.timer is None:
                 print("initializing...")
                 self.timer = rospy.Time.now() + rospy.Duration(1.57)
-            if self.timer.now() >= self.timer:
+            if rospy.Time.now() >= self.timer:
                 print("done initializing.")
                 self.timer = None
                 self.state = 0
@@ -552,13 +581,19 @@ class StateMachine():
     #helper functions
     def pid(self, error):
         # self.error_sum += error * self.dt
-        derivative = (error - self.last_error) / self.dt
+        dt = (rospy.Time.now()-self.timer4).to_sec()
+        # rospy.loginfo("time: %.4f", self.dt)
+        self.timer4 = rospy.Time.now()
+        derivative = (error - self.last_error) / dt
         output = self.kp * error + self.kd * derivative #+ self.ki * self.error_sum
         self.last_error = error
         return output
     def pid2(self, error):
         # self.error_sum2 += error * self.dt
-        derivative = (error - self.last_error2) / self.dt
+        dt = (rospy.Time.now()-self.timer5).to_sec()
+        # rospy.loginfo("time: %.4f", self.dt)
+        self.timer4 = rospy.Time.now()
+        derivative = (error - self.last_error2) / dt
         output = self.kp2 * error + self.kd2 * derivative #+ self.ki2 * self.error_sum2
         self.last_error2 = error
         return output

@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 
+import os
+import sys
+
+file_dir = os.path.dirname(__file__)
+sys.path.append(file_dir)
+
 import argparse
 import rospy
 import json
@@ -15,6 +21,7 @@ from std_msgs.msg import Header
 from utils.msg import Sign
 import onnxruntime
 from yolov7 import YOLOv7
+# from yolov7 import YOLOv7
 from yolov7.utils import draw_detections
 
 
@@ -77,16 +84,21 @@ class ObjectDetector():
             self.boxes[0][3] = height1
             self.p.box1 = self.boxes[0]
 
-        print(self.p)
         self.pub.publish(self.p)
-        print("time: ",time.time()-t1)
+        # print(self.p)
+        # print("time: ",time.time()-t1)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--show", type=str, default=False, help="show camera frames")
-    args = parser.parse_args()
+    args = parser.parse_args(rospy.myargv()[1:])
+    print(args.show)
     try:
-        node = ObjectDetector(show = args.show)
+        if args.show=="True":
+            s = True
+        else:
+            s = False
+        node = ObjectDetector(show = s)
         node.rate.sleep()
         rospy.spin()
     except rospy.ROSInterruptException:

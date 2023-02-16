@@ -208,7 +208,7 @@ catkin_install_python(PROGRAMS
   scripts/sign.py
   scripts/sign_onnx.py
   scripts/control.py
-  scripts/StateMachine.py
+  scripts/StateMachineV1.py
   scripts/localization.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
