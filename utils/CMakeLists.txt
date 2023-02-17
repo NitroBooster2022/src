@@ -12,6 +12,8 @@ find_package(catkin REQUIRED COMPONENTS
    localisation.msg
    Sign.msg
    Lane.msg
+   Encoder.msg
+   ImgInfo.msg
  )
  
 ## Generate services in the 'srv' folder
