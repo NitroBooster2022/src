@@ -86,7 +86,7 @@ class LaneDetector():
         
         #determine whether we arrive at intersection
         self.p.stopline = self.stopline
-        print(self.p)
+        # print(self.p)
         # Publish the steering command
         self.pub.publish(self.p)
         # print("time: ", time.time()-t1)
@@ -235,9 +235,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--method", type=str, default='histogram', help="hough or histogram")
     parser.add_argument("--show", type=str, default=True, help="show camera frames")
-    args = parser.parse_args()
+    args = parser.parse_args(rospy.myargv()[1:])
     try:
-        node = LaneDetector(method=args.method, show = args.show)
+        if args.show=="True":
+            s = True
+        else:
+            s = False
+        node = LaneDetector(method=args.method, show = s)
         node.rate.sleep()
         rospy.spin()
     except rospy.ROSInterruptException:

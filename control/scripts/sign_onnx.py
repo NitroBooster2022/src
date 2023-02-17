@@ -381,10 +381,16 @@ def draw_comparison(img1, img2, name1, name2, fontsize=2.6, text_thickness=3):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--show", type=str, default=False, help="show camera frames")
-    args = parser.parse_args()
+    args = parser.parse_args(rospy.myargv()[1:])
+    print(args.show)
     try:
-        node = ObjectDetector(show = args.show)
+        if args.show=="True":
+            s = True
+        else:
+            s = False
+        node = ObjectDetector(show = s)
         node.rate.sleep()
         rospy.spin()
     except rospy.ROSInterruptException:
         cv2.destroyAllWindows()
+
