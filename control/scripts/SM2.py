@@ -164,9 +164,9 @@ class StateMachine():
         cv2.createTrackbar('kp',windowName,int(self.kp*1000),2000,self.changekp)
         cv2.createTrackbar('kd',windowName,int(self.kd*1000),1000,self.changekd)
         cv2.createTrackbar('ki',windowName,int(self.ki*1000),1000,self.changeki)
-        cv2.createTrackbar('kp2',windowName,int(self.kp2*1000),100,self.changekp2)
-        cv2.createTrackbar('kd2',windowName,int(self.kd2*1000),100,self.changekd2)
-        cv2.createTrackbar('ki2',windowName,int(self.ki2*1000),100,self.changeki2)
+        cv2.createTrackbar('kp2',windowName,int(self.kp2*1000),2000,self.changekp2)
+        cv2.createTrackbar('kd2',windowName,int(self.kd2*1000),2000,self.changekd2)
+        cv2.createTrackbar('ki2',windowName,int(self.ki2*1000),2000,self.changeki2)
         cv2.imshow(windowName, image)
         key = cv2.waitKey(0)
 
