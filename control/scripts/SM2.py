@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#added trajectory following for intersection turning
 import rospy
 import numpy as np
 from message_filters import ApproximateTimeSynchronizer
@@ -11,9 +12,13 @@ from utils.srv import get_direction, nav
 import message_filters
 import time
 import math
+from gazebo_msgs.msg import ModelStates
+from geometry_msgs.msg import Twist, Vector3
+
 import cv2
 import os
 import json
+
 
 class StateMachine():
     def __init__(self):
@@ -96,7 +101,7 @@ class StateMachine():
         self.left_offset_y = 0.82
         self.right_offset_x = 0.85
         self.right_offset_y = 0.573
-        self.intersection_offsets = np.array([[self.left_offset_x,self.left_offset_y],[self.right_offset_x,self.right_offset_y]])
+        self.offsets_x = np.array([self.left_offset_x, self.left_offset_x*1.2, self.right_offset_x])
         self.rotation_matrices = np.array([[[1,0],[0,1]],[[0,-1],[1,0]],[[-1,0],[0,-1]],[[0,1],[-1,0]]]) #E,N,W,S
 
         #carblock
@@ -121,15 +126,15 @@ class StateMachine():
         self.sign_sub = message_filters.Subscriber('sign', Sign, queue_size=3)
         self.localization_sub = message_filters.Subscriber("/automobile/localisation", localisation, queue_size=3)
         self.imu_sub = message_filters.Subscriber("/automobile/IMU", IMU, queue_size=3)
+        # self.encoder_sub = message_filters.Subscriber("/gazebo/model_states", ModelStates, queue_size=3)
         self.subscribers = []
         self.subscribers.append(self.lane_sub)
         self.subscribers.append(self.sign_sub)
         self.subscribers.append(self.localization_sub)
         self.subscribers.append(self.imu_sub)
 
-        # Subscriber("/gazebo/model_states", ModelStates, queue_size=3)
-        # x_speed = ModelStates.twist[72].linear.x
-        # y_speed = ModelStates.twist[72].linear.y
+        # self.subscribers.append(self.encoder_sub)
+
         
         # Create an instance of TimeSynchronizer
         ts = ApproximateTimeSynchronizer(self.subscribers, queue_size=3, slop=0.15)
@@ -219,6 +224,9 @@ class StateMachine():
         self.yaw = imu.yaw if imu.yaw>0 else (6.2831853+imu.yaw)
         self.poses[0] = self.x
         self.poses[1] = self.y
+        # x_speed = encoder.twist[72].linear.x
+        # y_speed = encoder.twist[72].linear.y
+        # print(x_speed, y_speed)
         
         # print("x,y,yaw: ", self.x, self.y, self.yaw)
         self.center = lane.center
@@ -332,7 +340,7 @@ class StateMachine():
                 return 1
             elif self.intersectionDecision <0: 
                 # self.intersectionDecision = np.random.randint(low=0, high=3) #replace this with service call
-                self.intersectionDecision = 0 #always left
+                self.intersectionDecision = 2 #always left
                 print("intersection decision: going " + self.intersectionDecisions[self.intersectionDecision])
                 if self.intersectionDecision == 0: #left
                     self.trajectory = self.left_trajectory
@@ -341,7 +349,6 @@ class StateMachine():
                 else:
                     self.trajectory = self.right_trajectory
             if self.initialPoints is None:
-                print("calculating initial points...")
                 self.set_current_angle()
                 print("current orientation: ", self.directions[self.orientation], self.orientations[self.orientation])
                 print("destination orientation: ", self.destinationOrientation, self.destinationAngle)
@@ -351,9 +358,9 @@ class StateMachine():
                 self.intersectionState = 0 #adjusting angle:0, trajectory following:1, adjusting angle2: 2..
             if self.intersectionState==0: #adjusting
                 error = self.yaw-self.currentAngle 
-                if self.yaw>=5.73: #subtract 2pi to get small error
+                if self.yaw>=5.73: #subtract 2pi to get error between -pi and pi
                     error-=6.28
-                print("yaw, curAngle, error: ", self.yaw, self.currentAngle, error)
+                # print("yaw, curAngle, error: ", self.yaw, self.currentAngle, error)
                 if error <= 0.05:
                     self.intersectionState+=1 #done adjusting
                     print("done adjusting angle. Transitioning to trajectory following")
@@ -375,7 +382,7 @@ class StateMachine():
                 x,y = poses[0], poses[1]
                 desiredY = self.trajectory(x)
                 error = y - desiredY
-                if x>=(self.left_offset_x-0.1) and (abs(error)<=0.0753):
+                if x>=(self.offsets_x[self.intersectionDecision]-0.1) and (abs(error)<=0.0753):
                     print("trajectory done. adjust angle round 2")
                     self.intersectionState += 1
                     self.last_error2 = 0 #reset pid errors
@@ -602,7 +609,7 @@ class StateMachine():
         self.odomX += magnitude * math.cos(self.yaw)
         self.odomY += magnitude * math.sin(self.yaw)
     def left_trajectory(self, x):
-        return math.exp(3.57*x-4.5)
+        return math.exp(3.57*x-4.3)
     def straight_trajectory(self, x):
         return 0
     def right_trajectory(self, x):
@@ -662,7 +669,7 @@ class StateMachine():
 
         return steering_angle
 
-    def publish_cmd_vel(self, steering_angle, velocity = None):
+    def publish_cmd_vel(self, steering_angle, velocity = None, clip = False):
         """
         Publish the steering command to the cmd_vel topic
         :param steering_angle: Steering angle in radians
@@ -674,7 +681,8 @@ class StateMachine():
             self.msg.data = '{"action":"1","speed":'+str(velocity)+'}'
         else:
             self.toggle = True
-            steering_angle = np.clip(steering_angle, -0.4, 0.4)
+            if clip:
+                steering_angle = np.clip(steering_angle, -0.4, 0.4)
             self.msg.data = '{"action":"2","steerAngle":'+str(steering_angle*180/np.pi)+'}'
         self.cmd_vel_pub.publish(self.msg)
 

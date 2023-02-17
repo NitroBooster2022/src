@@ -69,7 +69,7 @@ class LaneDetector():
 
         # Convert the image to the OpenCV format
         # image = self.bridge.compressed_imgmsg_to_cv2(data, "bgr8")
-        image = self.bridge.imgmsg_to_cv2(data, "rgb8")
+        image = self.bridge.imgmsg_to_cv2(data, "bgr8")
 
         # Extract the lanes from the image
         if self.method == 'histogram':

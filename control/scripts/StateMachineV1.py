@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#set a number of goal points for intersection turning
 import rospy
 import numpy as np
 from message_filters import ApproximateTimeSynchronizer
