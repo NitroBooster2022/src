@@ -4,6 +4,8 @@ import rospy
 import numpy as np
 from message_filters import ApproximateTimeSynchronizer
 from std_msgs.msg import String, Byte
+from gazebo_msgs.msg import ModelStates
+from geometry_msgs.msg import Twist, Vector3
 from utils.msg import Lane, Sign, localisation, IMU
 from pynput import keyboard
 from utils.srv import get_direction, nav
@@ -12,6 +14,11 @@ import time
 import math
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Twist, Vector3
+
+import cv2
+import os
+import json
+
 
 class StateMachine():
     def __init__(self):
@@ -122,11 +129,58 @@ class StateMachine():
         self.subscribers.append(self.sign_sub)
         self.subscribers.append(self.localization_sub)
         self.subscribers.append(self.imu_sub)
+
         # self.subscribers.append(self.encoder_sub)
+
         
         # Create an instance of TimeSynchronizer
         ts = ApproximateTimeSynchronizer(self.subscribers, queue_size=3, slop=0.15)
         ts.registerCallback(self.callback)
+
+        self.trackbars()
+
+    def trackbars(self):
+        windowName = "Params"
+        image = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/map.png')
+        cv2.namedWindow(windowName,cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(windowName,480,360)
+        cv2.createTrackbar('Save',windowName,0,1,self.save_object)
+        cv2.createTrackbar('View',windowName,0,1,self.view)
+        cv2.createTrackbar('kp',windowName,int(self.kp*1000),2000,self.changekp)
+        cv2.createTrackbar('kd',windowName,int(self.kd*1000),2000,self.changekd)
+        cv2.createTrackbar('ki',windowName,int(self.ki*1000),2000,self.changeki)
+        cv2.createTrackbar('kp2',windowName,int(self.kp2*1000),2000,self.changekp2)
+        cv2.createTrackbar('kd2',windowName,int(self.kd2*1000),2000,self.changekd2)
+        cv2.createTrackbar('ki2',windowName,int(self.ki2*1000),2000,self.changeki2)
+        cv2.imshow(windowName, image)
+        key = cv2.waitKey(0)
+
+    def save_object(self,v):
+        file = open(os.path.dirname(os.path.realpath(__file__))+'/PID.json', 'w')
+        data = {"kp":self.kp,"kd":self.kd,"ki":self.ki,"kp2":self.kp2,"kd2":self.kd2,"ki2":self.ki2}
+        json.dump(data, file)
+        self.view(0)
+    def view(self,v):
+        print("=========== PIDS ============"+'\n'+
+            "kp           "+str(self.kp)+
+            "\nkd         "+str(self.kd)+
+            "\nki         "+str(self.ki)+
+            "\nkp2        "+str(self.kp2)+
+            "\nkd2        "+str(self.kd2)+
+            "\nki2        "+str(self.ki2)        
+        )
+    def changekp(self,v):
+        self.kp = v/1000
+    def changekd(self,v):
+        self.kd = v/1000
+    def changeki(self,v):
+        self.ki = v/1000
+    def changekp2(self,v):
+        self.kp2 = v/1000
+    def changekd2(self,v):
+        self.kd2 = v/1000
+    def changeki2(self,v):
+        self.ki2 = v/1000
     
     #callback function
     def callback(self,lane,sign, localization, imu):
