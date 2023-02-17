@@ -207,8 +207,10 @@ catkin_install_python(PROGRAMS
   scripts/lane.py
   scripts/sign.py
   scripts/sign_onnx.py
+  scripts/realSensePub.py
+  scripts/trackObjectDistance.py
   scripts/control.py
-  scripts/StateMachine.py
+  scripts/StateMachineV1.py
   scripts/localization.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
