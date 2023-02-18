@@ -30,30 +30,32 @@ class EncoderNode():
         # self.p = Encoder()
         self.rate = rospy.Rate(15)
 
-    def callback(self, data):
+    def callback(self, ModelStates):
         """
         Callback function for the image processed topic
         :param data: Image data in the ROS Image format
         """
-        # header = Header()
-        # print("hi")
+
+        header = Header()
+        print("hi")
+        header.frame_id = 'encoder'
+        header.stamp.secs = int(rospy.get_time())
         # header.seq = ModelStates.header.seq
         # header.stamp = ModelStates.header.stamp
         # header.frame_id = ModelStates.header.frame_id
-        # # Update the header information in the message
-        # self.p.header = header
-        # x_speed = ModelStates.twist[72].linear.x
-        # y_speed = ModelStates.twist[72].linear.y
-        # speed = math.sqrt(x_speed*x_speed+y_speed*y_speed)
-        # self.p.speed = speed
-        # t1 = time.time()
+        # Update the header information in the message
+        self.p.header = header
+        x_speed = ModelStates.twist[72].linear.x
+        y_speed = ModelStates.twist[72].linear.y
+        speed = math.sqrt(x_speed*x_speed+y_speed*y_speed)
+        self.p.speed = speed
+        t1 = time.time()
+
 
         # print(self.p)
         # self.pub.publish(self.p)
         # print("time: ", time.time()-t1)
         print(data.data)
-
-    
 
 if __name__ == '__main__':
     try:
