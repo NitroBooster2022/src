@@ -18,7 +18,7 @@ class LaneFollower():
         self.class_names = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority',
                 'lights','block','pedestrian','car','others','nothing']
         self.min_sizes = [00,00,37-15,00,00,52,00,00,00,150,00,000,90]
-        self.max_sizes = [50,50,44,50,50,65,50,50,60,188,50,100,125]
+        self.max_sizes = [50,50,44-15,50,50,65,50,50,60,188,50,100,125]
         self.center = -1
         self.detected_objects = []
         self.numObj = -1
@@ -28,11 +28,11 @@ class LaneFollower():
         #steering
         self.msg = String()
         self.msg2 = String()
-        self.p = 0.006
+        self.p = 0.005
         self.ArrivedAtStopline = False
-        self.maxspeed = 0.20
+        self.maxspeed = 0.13
         self.i = 0
-        self.d = 0.003
+        self.d = 0
         self.last = 0
         self.center = 0
 
@@ -48,7 +48,7 @@ class LaneFollower():
         """
         rospy.init_node('lane_follower_node', anonymous=True)
         self.cd = rospy.Time.now()
-        self.cmd_vel_pub = rospy.Publisher("/automobile/command", String, queue_size=1)
+        self.cmd_vel_pub = rospy.Publisher("/automobile/command", String, queue_size=3)
         self.rate = rospy.Rate(20)
 
         # Create service proxy
@@ -247,20 +247,22 @@ class LaneFollower():
             return 0
         elif self.state == 6:
             if self.timer is None:
-                self.count = 0
-                self.timer = rospy.Time.now()+rospy.Duration(3)
+                print("initializing...")
+                self.timer = rospy.Time.now() + rospy.Duration(1.57)
+                self.toggle = True
             if rospy.Time.now() >= self.timer:
-                print("done initializing. transitioning to lane following")
+                print("done initializing.")
                 self.timer = None
                 self.state = 0
-                return 0
-            self.count+=1
-            if self.count%2==0:
-                self.msg.data = '{"action":"1","speed":'+str(0.13)+'}'
-            else: 
-                self.msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
-            self.cmd_vel_pub.publish(self.msg)
-            # self.cmd_vel_pub.publish(self.msg2)
+                return 1
+            else:
+                if self.toggle == True:
+                    self.toggle = False
+                    self.msg.data = '{"action":"4","activate": true}'
+                else: 
+                    self.toggle = True
+                    self.msg.data = '{"action":"1","speed":'+str(0.0)+'}'
+                self.cmd_vel_pub.publish(self.msg)
             return 0
         return 0
     #Transition events
@@ -327,7 +329,11 @@ class LaneFollower():
     def idle(self):
         print("idleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
         # self.cmd_vel_pub(0.0, 0.0)
-        self.msg2.data = '{"action":"3","steerAngle":'+str(0.0)+'}'
+        # self.msg2.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
+        # self.cmd_vel_pub.publish(self.msg2)
+        self.msg.data = '{"action":"1","speed":'+str(0.0)+'}'
+        self.msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
+        self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
     def go_back(self):
         # self.cmd_vel_pub(0.0, -0.2)
@@ -385,9 +391,10 @@ class LaneFollower():
         """
         if velocity is None:
             velocity = self.maxspeed + self.maxspeed*abs(steering_angle)/0.4
-        # self.msg.data = '{"action":"1","speed":'+str(velocity)+'}'
+        self.msg.data = '{"action":"1","speed":'+str(velocity)+'}'
+        self.msg.data = '{"action":"1","speed":'+str(self.maxspeed)+'}'
         self.msg2.data = '{"action":"2","steerAngle":'+str(steering_angle*180/np.pi)+'}'
-        # self.cmd_vel_pub.publish(self.msg)
+        self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
 
 if __name__ == '__main__':

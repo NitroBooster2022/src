@@ -13,9 +13,8 @@ from sensor_msgs.msg import Image
 from sensor_msgs.msg import CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
 # from pynput import keyboard
-from std_msgs.msg import String
+from std_msgs.msg import String, Float32
 from std_msgs.msg import Header
-from utils.msg import Encoder
 from message_filters import ApproximateTimeSynchronizer
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Twist, Vector3
@@ -25,10 +24,10 @@ class EncoderNode():
     def __init__(self):
         print("init encoder node")
         rospy.init_node('encoder_node', anonymous=True)
-        self.image_sub = rospy.Subscriber("/gazebo/model_states", ModelStates, callback=self.callback, queue_size=3)
-        # self.image_sub = rospy.Subscriber("automobile/image_raw/compressed", CompressedImage, self.image_callback)
-        self.pub = rospy.Publisher("encoder", Encoder, queue_size = 3)
-        self.p = Encoder()
+        self.image_sub = rospy.Subscriber("/automobile/encoder", Float32, self.callback, queue_size=3)
+        # self.image_sub = rospy.Subscriber("/gazebo/model_states", ModelStates, queue_size=3)
+        # self.pub = rospy.Publisher("encoder", Encoder, queue_size = 3)
+        # self.p = Encoder()
         self.rate = rospy.Rate(15)
 
     def callback(self, ModelStates):
@@ -36,6 +35,7 @@ class EncoderNode():
         Callback function for the image processed topic
         :param data: Image data in the ROS Image format
         """
+
         header = Header()
         print("hi")
         header.frame_id = 'encoder'
@@ -51,9 +51,11 @@ class EncoderNode():
         self.p.speed = speed
         t1 = time.time()
 
-        print(self.p)
-        self.pub.publish(self.p)
-        print("time: ", time.time()-t1)
+
+        # print(self.p)
+        # self.pub.publish(self.p)
+        # print("time: ", time.time()-t1)
+        print(data.data)
 
 if __name__ == '__main__':
     try:
