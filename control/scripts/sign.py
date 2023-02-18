@@ -67,9 +67,9 @@ class ObjectDetector():
         elif self.p.num>=1:
             self.p.box1 = self.boxes[0]
 
-        print(self.p)
+        # print(self.p)
         self.pub.publish(self.p)
-        print("time: ", time.time()-t1)
+        # print("time: ", time.time()-t1)
 
     def detect(self, image, class_list, save=False, show=False):
         input_image = format_yolov5(image) # making the image square
@@ -136,9 +136,13 @@ class ObjectDetector():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--show", type=str, default=False, help="show camera frames")
-    args = parser.parse_args()
+    args = parser.parse_args(rospy.myargv()[1:])
     try:
-        node = ObjectDetector(show = args.show)
+        if args.show=="True":
+            s = True
+        else:
+            s = False
+        node = ObjectDetector(show = s)
         node.rate.sleep()
         rospy.spin()
     except rospy.ROSInterruptException:
