@@ -49,7 +49,9 @@ class LaneDetector():
         self.p = Lane()
         self.bridge = CvBridge()
 
-        self.image_sub = rospy.Subscriber("/automobile/image_raw", Image, self.image_callback)
+        # self.image_sub = rospy.Subscriber("automobile/image_raw", Image, self.image_callback)
+        # self.image_sub = rospy.Subscriber("/camera/color/image_raw", Image, self.image_callback)
+        self.image_sub = rospy.Subscriber("/camera/color/image_raw/compressed", CompressedImage, self.image_callback)
         # self.image_sub = rospy.Subscriber("automobile/image_raw/compressed", CompressedImage, self.image_callback)
         self.rate = rospy.Rate(15)
 
@@ -68,8 +70,8 @@ class LaneDetector():
         self.p.header = header
 
         # Convert the image to the OpenCV format
-        # image = self.bridge.compressed_imgmsg_to_cv2(data, "bgr8")
-        image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+        image = self.bridge.compressed_imgmsg_to_cv2(data, "bgr8")
+        # image = self.bridge.imgmsg_to_cv2(data, "bgr8")
 
         # Extract the lanes from the image
         if self.method == 'histogram':
