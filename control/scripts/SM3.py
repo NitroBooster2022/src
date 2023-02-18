@@ -101,6 +101,7 @@ class StateMachine():
         self.left_offset_y = 0.82
         self.right_offset_x = 0.85
         self.right_offset_y = 0.573
+        self.velocity = self.maxspeed
         self.offsets_x = np.array([self.left_offset_x, self.left_offset_x*1.2, self.right_offset_x])
         self.rotation_matrices = np.array([[[1,0],[0,1]],[[0,-1],[1,0]],[[-1,0],[0,-1]],[[0,1],[-1,0]]]) #E,N,W,S
 
@@ -127,7 +128,7 @@ class StateMachine():
         self.sign_sub = message_filters.Subscriber('sign', Sign, queue_size=3)
         # self.localization_sub = message_filters.Subscriber("/automobile/localisation", localisation, queue_size=3)
         self.imu_sub = message_filters.Subscriber("/automobile/IMU", IMU, queue_size=3)
-        self.encoder_sub = message_filters.Subscriber("/automobile/encoder", Float32, queue_size=3)
+        # self.encoder_sub = message_filters.Subscriber("/automobile/encoder", Float32, queue_size=3)
         # self.encoder_sub = message_filters.Subscriber("/gazebo/model_states", ModelStates, queue_size=3)
         self.subscribers = []
         self.subscribers.append(self.lane_sub)
@@ -136,7 +137,7 @@ class StateMachine():
         self.subscribers.append(self.imu_sub)
 
         # self.subscribers.append(self.encoder_sub)
-        self.subscribers.append(self.encoder_sub)
+        # self.subscribers.append(self.encoder_sub)
 
         
         # Create an instance of TimeSynchronizer
@@ -215,7 +216,7 @@ class StateMachine():
         self.ki2 = v/1000
     
     #callback function
-    def callback(self,lane,sign, imu, encoder):
+    def callback(self,lane,sign, imu):
         self.dt = (rospy.Time.now()-self.timer6).to_sec()
         # rospy.loginfo("time: %.4f", self.dt)
         self.timer6 = rospy.Time.now()
@@ -227,7 +228,6 @@ class StateMachine():
         self.yaw = imu.yaw if imu.yaw>0 else (6.2831853+imu.yaw)
         self.poses[0] = self.x
         self.poses[1] = self.y
-        self.speed = encoder.data
         # x_speed = encoder.twist[72].linear.x
         # y_speed = encoder.twist[72].linear.y
         # print(x_speed, y_speed)
@@ -616,7 +616,7 @@ class StateMachine():
     def odometry(self):
         dt = (rospy.Time.now()-self.odomTimer).to_sec()
         self.odomTimer = rospy.Time.now()
-        magnitude = self.speed*dt
+        magnitude = self.velocity*dt*0.007928
         self.odomX += magnitude * math.cos(self.yaw)
         self.odomY += magnitude * math.sin(self.yaw)
     def left_trajectory(self, x):
@@ -690,6 +690,7 @@ class StateMachine():
         if self.toggle:
             self.toggle = False
             self.msg.data = '{"action":"1","speed":'+str(velocity)+'}'
+            self.velocity = velocity
         else:
             self.toggle = True
             if clip:
