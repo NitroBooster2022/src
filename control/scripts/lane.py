@@ -132,7 +132,7 @@ class LaneDetector():
         poly = alex.array([[(int(0*w),int(0.85*h)),(int(1*w),int(0.85*h)),(w,h),(0,h)]])
         cv2.fillPoly(mask,poly,255)
         img_roi = cv2.bitwise_and(img_gray,mask)
-        ret, thresh = cv2.threshold(img_roi, 120, 255, cv2.THRESH_BINARY)
+        ret, thresh = cv2.threshold(img_roi, 125, 255, cv2.THRESH_BINARY)
         hist=alex.zeros((1,w))
         for i in range(w):
             hist[0,i]=alex.sum(thresh[:,i])
@@ -169,7 +169,7 @@ class LaneDetector():
             center = (centers[len(centers)-1]+centers[len(centers)-2])/2
         if show:
             cv2.line(image,(int(center),int(image.shape[0])),(int(center),int(0.8*image.shape[0])),(255,0,255),5)
-            cv2.imshow('center', image)
+            cv2.imshow('center', thresh)
             cv2.waitKey(1)
         return center
 
