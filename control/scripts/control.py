@@ -249,19 +249,22 @@ class LaneFollower():
             if self.timer is None:
                 print("initializing...")
                 self.timer = rospy.Time.now() + rospy.Duration(1.57)
-                self.toggle = True
+                self.toggle = 0
             if rospy.Time.now() >= self.timer:
                 print("done initializing.")
                 self.timer = None
                 self.state = 0
                 return 1
             else:
-                if self.toggle == True:
-                    self.toggle = False
+                if self.toggle == 0:
+                    self.toggle = 1
                     self.msg.data = '{"action":"4","activate": true}'
-                else: 
-                    self.toggle = True
+                elif self.toggle == 1: 
+                    self.toggle = 2
                     self.msg.data = '{"action":"1","speed":'+str(0.0)+'}'
+                elif self.toggle == 2:
+                    self.toggle = 0
+                    self.msg.data = '{"action":"5","activate": true}'
                 self.cmd_vel_pub.publish(self.msg)
             return 0
         return 0

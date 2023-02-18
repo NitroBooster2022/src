@@ -129,7 +129,7 @@ class LaneDetector():
         h = img_gray.shape[0]
         w = img_gray.shape[1]
         mask = alex.zeros_like(img_gray)
-        poly = alex.array([[(int(0*w),int(0.85*h)),(int(1*w),int(0.85*h)),(w,h),(0,h)]])
+        poly = alex.array([[(int(0*w),int(0.75*h)),(int(1*w),int(0.75*h)),(w,h),(0,h)]])
         cv2.fillPoly(mask,poly,255)
         img_roi = cv2.bitwise_and(img_gray,mask)
         ret, thresh = cv2.threshold(img_roi, 125, 255, cv2.THRESH_BINARY)
@@ -159,16 +159,16 @@ class LaneDetector():
             if centers[0]>w/2:
                 center = (centers[0]-0)/2
             else:
-                center = (centers[0]+600)/2
+                center = (centers[0]+640)/2
         elif abs(centers[len(centers)-1]-centers[len(centers)-2])<200:
             if (centers[len(centers)-1]+centers[len(centers)-2])>w:
                 center = (centers[len(centers)-1]+centers[len(centers)-2]/2+0)/2
             else:
-                center = (centers[len(centers)-1]+centers[len(centers)-2]/2+600)/2
+                center = (centers[len(centers)-1]+centers[len(centers)-2]/2+640)/2
         else:
             center = (centers[len(centers)-1]+centers[len(centers)-2])/2
         if show:
-            cv2.line(image,(int(center),int(image.shape[0])),(int(center),int(0.8*image.shape[0])),(255,0,255),5)
+            cv2.line(thresh,(int(center),int(image.shape[0])),(int(center),int(0.8*image.shape[0])),(100,100,100),5)
             cv2.imshow('center', thresh)
             cv2.waitKey(1)
         return center
