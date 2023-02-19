@@ -139,10 +139,10 @@ class StateMachine():
         self.subscribers.append(self.encoder_sub)
         
         # Create an instance of TimeSynchronizer
-        ts = ApproximateTimeSynchronizer(self.subscribers, queue_size=3, slop=0.15)
+        ts = ApproximateTimeSynchronizer(self.subscribers, queue_size=3, slop=0.15, allow_headerless=True)
         ts.registerCallback(self.callback)
 
-        self.trackbars()
+        # self.trackbars()
         
         # Load data
         file = open(os.path.dirname(os.path.realpath(__file__))+'/PID.json', 'r')
