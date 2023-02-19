@@ -8,6 +8,7 @@ from pynput import keyboard
 from utils.srv import get_direction, nav
 import message_filters
 import time
+
 class LaneFollower():
     def __init__(self):
         #states
@@ -17,8 +18,8 @@ class LaneFollower():
         #sign
         self.class_names = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority',
                 'lights','block','pedestrian','car','others','nothing']
-        self.min_sizes = [00,00,37-15,00,00,52,00,00,00,150,00,000,90]
-        self.max_sizes = [50,50,44-15,50,50,65,50,50,60,188,50,100,125]
+        self.min_sizes = [00,00,20,00,00,52,00,00,00,150,00,000,90]
+        self.max_sizes = [50,50,30,50,50,65,50,50,60,188,50,100,125]
         self.center = -1
         self.detected_objects = []
         self.numObj = -1
@@ -28,7 +29,7 @@ class LaneFollower():
         #steering
         self.msg = String()
         self.msg2 = String()
-        self.p = 0.005
+        self.p = 0.006
         self.ArrivedAtStopline = False
         self.maxspeed = 0.13
         self.i = 0
@@ -249,19 +250,22 @@ class LaneFollower():
             if self.timer is None:
                 print("initializing...")
                 self.timer = rospy.Time.now() + rospy.Duration(1.57)
-                self.toggle = True
+                self.toggle = 0
             if rospy.Time.now() >= self.timer:
                 print("done initializing.")
                 self.timer = None
                 self.state = 0
                 return 1
             else:
-                if self.toggle == True:
-                    self.toggle = False
+                if self.toggle == 0:
+                    self.toggle = 1
                     self.msg.data = '{"action":"4","activate": true}'
-                else: 
-                    self.toggle = True
+                elif self.toggle == 1: 
+                    self.toggle = 2
                     self.msg.data = '{"action":"1","speed":'+str(0.0)+'}'
+                elif self.toggle == 2:
+                    self.toggle = 0
+                    self.msg.data = '{"action":"5","activate": true}'
                 self.cmd_vel_pub.publish(self.msg)
             return 0
         return 0
@@ -327,7 +331,6 @@ class LaneFollower():
         self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
     def idle(self):
-        print("idleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
         # self.cmd_vel_pub(0.0, 0.0)
         # self.msg2.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
         # self.cmd_vel_pub.publish(self.msg2)
@@ -389,9 +392,9 @@ class LaneFollower():
         Publish the steering command to the cmd_vel topic
         :param steering_angle: Steering angle in radians
         """
-        if velocity is None:
-            velocity = self.maxspeed + self.maxspeed*abs(steering_angle)/0.4
-        self.msg.data = '{"action":"1","speed":'+str(velocity)+'}'
+        # if velocity is None:
+        #     velocity = self.maxspeed/2 + (self.maxspeed/2)*abs(steering_angle)/0.4
+        # self.msg.data = '{"action":"1","speed":'+str(velocity)+'}'
         self.msg.data = '{"action":"1","speed":'+str(self.maxspeed)+'}'
         self.msg2.data = '{"action":"2","steerAngle":'+str(steering_angle*180/np.pi)+'}'
         self.cmd_vel_pub.publish(self.msg)

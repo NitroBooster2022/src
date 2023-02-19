@@ -38,9 +38,11 @@ class LaneDetector():
         self.d = 0.003
         self.last = 0
         self.stopline = False
+        self.dotted = False
         self.inter_dec = 'stop'
         self.maxspeed = 0.2
         self.inter_dec = ''
+        self.pl = 0
         """
         Initialize the lane follower node
         """
@@ -49,9 +51,9 @@ class LaneDetector():
         self.p = Lane()
         self.bridge = CvBridge()
 
-        # self.image_sub = rospy.Subscriber("automobile/image_raw", Image, self.image_callback)
+        self.image_sub = rospy.Subscriber("automobile/image_raw", Image, self.image_callback)
         # self.image_sub = rospy.Subscriber("/camera/color/image_raw", Image, self.image_callback)
-        self.image_sub = rospy.Subscriber("/camera/color/image_raw/compressed", CompressedImage, self.image_callback)
+        # self.image_sub = rospy.Subscriber("/camera/color/image_raw/compressed", CompressedImage, self.image_callback)
         # self.image_sub = rospy.Subscriber("automobile/image_raw/compressed", CompressedImage, self.image_callback)
         self.rate = rospy.Rate(15)
 
@@ -70,8 +72,12 @@ class LaneDetector():
         self.p.header = header
 
         # Convert the image to the OpenCV format
-        image = self.bridge.compressed_imgmsg_to_cv2(data, "bgr8")
-        # image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+        # image = self.bridge.compressed_imgmsg_to_cv2(data, "bgr8")
+        image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+
+        #determine whether left lane is dotted
+        # self.dotted = self.dotted_lines(image)
+        # self.p.dotted = dotted
 
         # Extract the lanes from the image
         if self.method == 'histogram':
@@ -80,17 +86,20 @@ class LaneDetector():
             lanes = self.extract_lanes(image, show=self.show)
 
         #Determine the steering angle based on the lanes
-        self.p.center = lanes
 
-        #determine whether left lane is dotted
-        # dotted = self.dotted_lines(image)
-        # self.p.dotted = dotted
+        if lanes==320:
+            self.p.center = self.pl
+            self.pl = lanes
+        else:
+            self.p.center = lanes
+            self.pl = lanes
         
         #determine whether we arrive at intersection
         self.p.stopline = self.stopline
         # print(self.p)
         # Publish the steering command
         self.pub.publish(self.p)
+        # print(self.p)
         # print("time: ", time.time()-t1)
     def dotted_lines(self,image):
         img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -129,7 +138,7 @@ class LaneDetector():
         h = img_gray.shape[0]
         w = img_gray.shape[1]
         mask = alex.zeros_like(img_gray)
-        poly = alex.array([[(int(0*w),int(0.85*h)),(int(1*w),int(0.85*h)),(w,h),(0,h)]])
+        poly = alex.array([[(int(0*w),int(0.75*h)),(int(1*w),int(0.75*h)),(w,h),(0,h)]])
         cv2.fillPoly(mask,poly,255)
         img_roi = cv2.bitwise_and(img_gray,mask)
         ret, thresh = cv2.threshold(img_roi, 125, 255, cv2.THRESH_BINARY)
@@ -159,17 +168,22 @@ class LaneDetector():
             if centers[0]>w/2:
                 center = (centers[0]-0)/2
             else:
-                center = (centers[0]+600)/2
+                center = (centers[0]+640)/2
         elif abs(centers[len(centers)-1]-centers[len(centers)-2])<200:
             if (centers[len(centers)-1]+centers[len(centers)-2])>w:
                 center = (centers[len(centers)-1]+centers[len(centers)-2]/2+0)/2
             else:
-                center = (centers[len(centers)-1]+centers[len(centers)-2]/2+600)/2
+                center = (centers[len(centers)-1]+centers[len(centers)-2]/2+640)/2
         else:
             center = (centers[len(centers)-1]+centers[len(centers)-2])/2
         if show:
-            cv2.line(image,(int(center),int(image.shape[0])),(int(center),int(0.8*image.shape[0])),(255,0,255),5)
-            cv2.imshow('center', thresh)
+            if self.stopline==True:
+                cv2.putText(thresh, 'stopline detected!', (int(w*0.1),int(h*0.1)), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 1, cv2.LINE_AA)
+            if self.dotted==True:
+                cv2.putText(image, 'DottedLine!', (int(w*0.1),int(h*0.3)), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 1, cv2.LINE_AA)
+            cv2.line(thresh,(int(center),int(image.shape[0])),(int(center),int(0.8*image.shape[0])),(100,100,100),5)
+            add = cv2.cvtColor(thresh,cv2.COLOR_GRAY2RGB)
+            cv2.imshow('center', cv2.add(image,add))
             cv2.waitKey(1)
         return center
 

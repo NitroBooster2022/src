@@ -23,8 +23,8 @@ class ObjectDetector():
         self.class_names = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority', 'light', 'block', 'girl', 'car']
         rospy.init_node('object_detection_node', anonymous=True)
         self.bridge = CvBridge()
-        # self.image_sub = rospy.Subscriber("/automobile/image_raw", Image, self.image_callback)
-        self.image_sub = rospy.Subscriber("automobile/image_raw/compressed", CompressedImage, self.image_callback)
+        self.image_sub = rospy.Subscriber("/automobile/image_raw", Image, self.image_callback)
+        # self.image_sub = rospy.Subscriber("automobile/image_raw/compressed", CompressedImage, self.image_callback)
         self.pub = rospy.Publisher("sign", Sign, queue_size = 3)
         self.p = Sign()
         self.rate = rospy.Rate(15)
@@ -36,7 +36,7 @@ class ObjectDetector():
         """
         t1 = time.time()
         # Convert the image to the OpenCV format
-        image = self.bridge.compressed_imgmsg_to_cv2(data, "bgr8")
+        image = self.bridge.imgmsg_to_cv2(data, "rgb8")
 
          # Update the header information
         header = Header()
@@ -73,9 +73,9 @@ class ObjectDetector():
             self.boxes[0][3] = height1
             self.p.box1 = self.boxes[0]
 
-        print(self.p)
+        # print(self.p)
         self.pub.publish(self.p)
-        print("time: ",time.time()-t1)
+        # print("time: ",time.time()-t1)
 
 #detector class
 class InferenceModel:
