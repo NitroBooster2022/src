@@ -12,8 +12,6 @@ from utils.srv import get_direction, nav
 import message_filters
 import time
 import math
-from gazebo_msgs.msg import ModelStates
-from geometry_msgs.msg import Twist, Vector3
 
 import cv2
 import os
@@ -25,14 +23,14 @@ class StateMachine():
         #states
         self.states = ['Lane Following', "Approaching Intersection", "Stopping at Intersection", 
                        "Intersection Maneuvering", "Approaching Crosswalk", "Pedestrian", "Highway",
-                       "Carblock", "Roundabout", "Parking"]
+                       "Carblock", "Roundabout", "Parking", "initial"]
         self.state = 10
 
         #sign
         self.class_names = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority',
                 'lights','block','pedestrian','car','others','nothing']
-        self.min_sizes = [00,00,37,00,00,52,00,00,00,150,00,000,90]
-        self.max_sizes = [50,50,44,50,50,65,50,50,60,188,50,100,125]
+        self.min_sizes = [00,00,20,00,00,52,00,00,00,150,00,000,90]
+        self.max_sizes = [50,50,30,50,50,65,50,50,60,188,50,100,125]
         self.center = -1
         self.detected_objects = []
         self.numObj = -1
@@ -78,7 +76,7 @@ class StateMachine():
         self.timer2 = None
         self.timer3 = None
        
-        self.toggle = False #True: velocity; False: steering angle
+        self.toggle = 0 #True: velocity; False: steering angle
         print("hello world")
 
         #intersection
@@ -101,7 +99,6 @@ class StateMachine():
         self.left_offset_y = 0.82
         self.right_offset_x = 0.85
         self.right_offset_y = 0.573
-        self.velocity = self.maxspeed
         self.offsets_x = np.array([self.left_offset_x, self.left_offset_x*1.2, self.right_offset_x])
         self.rotation_matrices = np.array([[[1,0],[0,1]],[[0,-1],[1,0]],[[-1,0],[0,-1]],[[0,1],[-1,0]]]) #E,N,W,S
 
@@ -116,7 +113,7 @@ class StateMachine():
         self.timer5 = rospy.Time.now()
         self.timer6 = rospy.Time.now()
         self.odomTimer = rospy.Time.now()
-        self.cmd_vel_pub = rospy.Publisher("/automobile/command", String, queue_size=1)
+        self.cmd_vel_pub = rospy.Publisher("/automobile/command", String, queue_size=3)
         self.rate = rospy.Rate(50)
         self.dt = 1/50 #for PID
 
@@ -141,7 +138,7 @@ class StateMachine():
 
         
         # Create an instance of TimeSynchronizer
-        ts = ApproximateTimeSynchronizer(self.subscribers, queue_size=3, slop=0.15)
+        ts = ApproximateTimeSynchronizer(self.subscribers, queue_size=3, slop=1000)
         ts.registerCallback(self.callback)
 
         # self.trackbars()
@@ -216,7 +213,7 @@ class StateMachine():
         self.ki2 = v/1000
     
     #callback function
-    def callback(self,lane,sign, imu):
+    def callback(self,lane,sign,imu):
         self.dt = (rospy.Time.now()-self.timer6).to_sec()
         # rospy.loginfo("time: %.4f", self.dt)
         self.timer6 = rospy.Time.now()
@@ -225,7 +222,10 @@ class StateMachine():
         # Publish the steering angle & linear velocity to the /automobile/command topic
         # self.x = localization.posA
         # self.y = 15.0-localization.posB
+
         self.yaw = imu.yaw if imu.yaw>0 else (6.2831853+imu.yaw)
+        self.yaw = 0
+
         self.poses[0] = self.x
         self.poses[1] = self.y
         # x_speed = encoder.twist[72].linear.x
@@ -616,7 +616,7 @@ class StateMachine():
     def odometry(self):
         dt = (rospy.Time.now()-self.odomTimer).to_sec()
         self.odomTimer = rospy.Time.now()
-        magnitude = self.velocity*dt*0.007928
+        magnitude = self.maxspeed*dt*0.007928
         self.odomX += magnitude * math.cos(self.yaw)
         self.odomY += magnitude * math.sin(self.yaw)
     def left_trajectory(self, x):
@@ -685,18 +685,23 @@ class StateMachine():
         Publish the steering command to the cmd_vel topic
         :param steering_angle: Steering angle in radians
         """
-        if velocity is None:
-            velocity = self.maxspeed + self.maxspeed*abs(steering_angle)/0.4
-        if self.toggle:
-            self.toggle = False
-            self.msg.data = '{"action":"1","speed":'+str(velocity)+'}'
-            self.velocity = velocity
-        else:
-            self.toggle = True
-            if clip:
-                steering_angle = np.clip(steering_angle, -0.4, 0.4)
-            self.msg.data = '{"action":"2","steerAngle":'+str(steering_angle*180/np.pi)+'}'
+        if clip:
+            steering_angle = np.clip(steering_angle, -0.4, 0.4)
+        self.msg.data = '{"action":"1","speed":'+str(self.maxspeed)+'}'
+        self.msg2.data = '{"action":"2","steerAngle":'+str(steering_angle*180/np.pi)+'}'
         self.cmd_vel_pub.publish(self.msg)
+        self.cmd_vel_pub.publish(self.msg2)
+        # if velocity is None:
+        #     velocity = self.maxspeed + self.maxspeed*abs(steering_angle)/0.4
+        # if self.toggle:
+        #     self.toggle = False
+        #     self.msg.data = '{"action":"1","speed":'+str(velocity)+'}'
+        # else:
+        #     self.toggle = True
+        #     if clip:
+        #         steering_angle = np.clip(steering_angle, -0.4, 0.4)
+        #     self.msg.data = '{"action":"2","steerAngle":'+str(steering_angle*180/np.pi)+'}'
+        # self.cmd_vel_pub.publish(self.msg)
 
 if __name__ == '__main__':
     node = StateMachine()
