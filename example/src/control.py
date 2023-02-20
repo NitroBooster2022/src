@@ -44,7 +44,7 @@ class RemoteControlTransmitterProcess():
         
         """
         self.dirKeys   = ['w', 'a', 's', 'd']
-        self.paramKeys = ['t','g','y','h','u','j','i','k', 'r', 'p']
+        self.paramKeys = ['t','g','y','h','u','j','i','k', 'r', 'p', 'q']
         self.pidKeys = ['z','x','v','b','n','m']
 
         self.allKeys = self.dirKeys + self.paramKeys + self.pidKeys
@@ -89,7 +89,7 @@ class RemoteControlTransmitterProcess():
         
         """ 
         if key == keyboard.Key.esc:                        #exit key      
-            self.publisher.publish('{"action":"3","steerAngle":0.0}')   
+            self.publisher.publish('{"action":"3","brake (steerAngle)":0.0}')   
             return False
         try:                                               
             if key.char in self.allKeys:
