@@ -162,24 +162,24 @@ class LaneFollower():
                 self.state = 0 #go back to lane following
                 return 1
             elif self.intersectionDecision <0: 
-                self.intersectionDecision = 1 #replace this with service call
+                self.intersectionDecision = 0 #replace this with service call
                 # self.intersectionDecision = np.random.randint(low=0, high=3) #replace this with service call
                 print("intersection decision: going " + self.intersectionDecisions[self.intersectionDecision])
             if self.intersectionDecision == 0: #left
                 #go straight for 3.5s then left for 4s
                 if self.timer is None and self.timer2 is None: #begin going straight
                     print("begin going straight")
-                    self.timer = rospy.Time.now()+rospy.Duration(5.7)
+                    self.timer = rospy.Time.now()+rospy.Duration(2.5)
                 if self.timer is not None and self.timer2 is None:
                     if rospy.Time.now() >= self.timer: #finished going straight. reset timer to None
                         print("finished going straight. reset timer to None")
                         self.timer = None
-                        self.timer2 = rospy.Time.now()+rospy.Duration(3.0)
+                        self.timer2 = rospy.Time.now()+rospy.Duration(4.5)
                     else:
                         self.straight()
                         return 0
                 if self.timer is None and self.timer2 is not None: #begin going left
-                    if rospy.Time.now() >= self.timer2: #finished going straight
+                    if rospy.Time.now() >= self.timer2: #finished going left
                         print("finished going left. reset timer2 to None. Maneuvering done")
                         self.timer2 = None #finished going left. reset timer2 to None.
                         self.doneManeuvering = True
@@ -315,29 +315,30 @@ class LaneFollower():
     def straight(self):
         # self.cmd_vel_pub(0.0, 0.2)
         self.msg.data = '{"action":"1","speed":'+str(0.2)+'}'
-        self.msg2.data = '{"action":"2","steerAngle":'+str(0.0*180/np.pi)+'}'
+        self.msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
         self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
     def left(self):
+        print("lefttttttttttttttttttt")
         # self.cmd_vel_pub(-23, 0.12)
-        self.msg.data = '{"action":"1","speed":'+str(0.12)+'}'
-        self.msg2.data = '{"action":"2","steerAngle":'+str(-23*180/np.pi)+'}'
-        self.cmd_vel_pub.publish(self.msg)
+        # self.msg.data = '{"action":"1","speed":'+str(0.12)+'}'
+        self.msg2.data = '{"action":"2","steerAngle":'+str(-23.0)+'}'
+        # self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
     def right(self):
         # self.cmd_vel_pub(23, 0.12)
         self.msg.data = '{"action":"1","speed":'+str(0.12)+'}'
-        self.msg2.data = '{"action":"2","steerAngle":'+str(23*180/np.pi)+'}'
+        self.msg2.data = '{"action":"2","steerAngle":'+str(23.0)+'}'
         self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
     def idle(self):
         # self.cmd_vel_pub(0.0, 0.0)
-        # self.msg2.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
-        # self.cmd_vel_pub.publish(self.msg2)
-        self.msg.data = '{"action":"1","speed":'+str(0.0)+'}'
-        self.msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
-        self.cmd_vel_pub.publish(self.msg)
+        self.msg2.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
         self.cmd_vel_pub.publish(self.msg2)
+        # self.msg.data = '{"action":"1","speed":'+str(0.0)+'}'
+        # self.msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
+        # self.cmd_vel_pub.publish(self.msg)
+        # self.cmd_vel_pub.publish(self.msg2)
     def go_back(self):
         # self.cmd_vel_pub(0.0, -0.2)
         self.msg.data = '{"action":"1","speed":'+str(-0.2)+'}'
