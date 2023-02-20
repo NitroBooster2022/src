@@ -53,10 +53,9 @@ class EncoderNode():
         t1 = time.time()
 
 
-        # print(self.p)
-        # self.pub.publish(self.p)
+        print(self.p)
+        self.pub.publish(self.p)
         # print("time: ", time.time()-t1)
-        print(data.data)
 
 if __name__ == '__main__':
     try:
