@@ -19,7 +19,7 @@ from message_filters import ApproximateTimeSynchronizer
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Twist, Vector3
 import math
-from utils.msg import Encoder
+from utils.msg import encoder
 
 class EncoderNode():
     def __init__(self):

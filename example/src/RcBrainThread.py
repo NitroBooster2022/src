@@ -61,6 +61,7 @@ class RcBrainThread:
         self.speed = 0.0
         self.steerAngle = 0.0
         self.pida = False
+        self.encoderA = False
         self.pids_kp = 0.115000
         self.pids_ki = 0.810000
         self.pids_kd = 0.000222
@@ -97,6 +98,7 @@ class RcBrainThread:
             "speed:          "  + str(self.speed) +                     '[W/S]' +
             "\nangle:         " + str(self.steerAngle) +                '[A/D]' +
             "\npid:           " + str(self.pida) +                      '[P]'   +
+            "\nencoder:       " + str(self.encoderA) +                  '[Q]'   +
             "\npid KP:        " + str(self.pids_kp) +                   '[Z/X]' +
             "\npid KI:        " + str(self.pids_ki) +                   '[V/B]' +
             "\npid KD:        " + str(self.pids_kd) +                   '[N/M]' +
@@ -174,6 +176,14 @@ class RcBrainThread:
         self._updateParameters(data)
         self.displayInfo()
         
+        if data == 'p.q':
+            message = {}
+            message['action'] = '5'
+            self.encoderA = not self.encoderA
+            message['activate'] = self.encoderA
+            print(message)
+            return message
+
         return self._stateDict()        
 
     # ===================================== UPDATE SPEED =================================
