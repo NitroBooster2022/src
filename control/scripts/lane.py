@@ -202,7 +202,7 @@ class LaneDetector():
         mask = alex.zeros_like(edges)
         h = image.shape[0]
         w = image.shape[1]
-        vertices = alex.array([[(0,h*0.8),(self.point[0]*w,self.point[1]*h),(w,0.8*h),(w,h),(0,h)]], dtype=alex.int32)
+        vertices = alex.array([[(0,h*0.75),(self.point[0]*w,self.point[1]*h),(w,0.75*h),(w,h),(0,h)]], dtype=alex.int32)
         cv2.fillPoly(mask, vertices, 255)
         masked_edges = cv2.bitwise_and(edges, mask)
 
@@ -227,7 +227,7 @@ class LaneDetector():
                         if p_x < int((1-self.error_p[0])*w) and p_x > int((1-self.error_p[0]-self.error_w)*w):
                             right.append(p_x)
                 else:
-                    if abs(x1-x2)>w/10 and y1>0.85*h:
+                    if abs(x1-x2)>w/10 and y1>0.8*h:
                         # print(x1,y1,x2,y2)
                         # print(len(lines))
                         self.stopline = True

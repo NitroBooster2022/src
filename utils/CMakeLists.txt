@@ -12,7 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
    localisation.msg
    Sign.msg
    Lane.msg
-   Encoder.msg
+   encoder.msg
    ImgInfo.msg
  )
  
