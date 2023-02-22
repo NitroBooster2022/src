@@ -16,8 +16,8 @@
     </xacro:macro>
 
     <!-- 每一个驱动轮都需要配置传动装置 -->
-    <xacro:joint_trans joint_name="left2link" />
-    <xacro:joint_trans joint_name="right2link" />
+    <xacro:joint_trans joint_name="joint_leftfront_steer" />
+    <xacro:joint_trans joint_name="joint_rightfront_steer" />
 
     <!-- 控制器 -->
     <gazebo>
@@ -30,8 +30,8 @@
             <alwaysOn>true</alwaysOn>
             <updateRate>100.0</updateRate>
             <legacyMode>true</legacyMode>
-            <leftJoint>left2link</leftJoint> <!-- 左轮 -->
-            <rightJoint>right2link</rightJoint> <!-- 右轮 -->
+            <leftJoint>joint_leftfront_steer</leftJoint> <!-- 左轮 -->
+            <rightJoint>joint_rightfront_steer</rightJoint> <!-- 右轮 -->
             <wheelSeparation>${base_radius * 2}</wheelSeparation> <!-- 车轮间距 -->
             <wheelDiameter>${wheel_radius * 2}</wheelDiameter> <!-- 车轮直径 -->
             <broadcastTF>1</broadcastTF>
@@ -40,7 +40,7 @@
             <commandTopic>cmd_vel</commandTopic> <!-- 运动控制话题 -->
             <odometryFrame>odom</odometryFrame> 
             <odometryTopic>odom</odometryTopic> <!-- 里程计话题 -->
-            <robotBaseFrame>base_footprint</robotBaseFrame> <!-- 根坐标系 -->
+            <robotBaseFrame>base_link</robotBaseFrame> <!-- 根坐标系 -->
         </plugin>
     </gazebo>
 
