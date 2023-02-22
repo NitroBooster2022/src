@@ -10,10 +10,10 @@ import os
 import time
 import numpy as alex
 from sensor_msgs.msg import Image
-from sensor_msgs.msg import CompressedImage
+# from sensor_msgs.msg import CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
 # from pynput import keyboard
-from std_msgs.msg import String
+# from std_msgs.msg import String
 from std_msgs.msg import Header
 from utils.msg import Lane
 import scipy
@@ -23,26 +23,20 @@ class LaneDetector():
     def __init__(self, method = 'histogram', show=True):
         self.method = method
         self.show = show
-        file = open(os.path.dirname(os.path.realpath(__file__))+'/json-dump.json', 'r')
+        file = open(os.path.dirname(os.path.realpath(__file__))+'/houghlines.json', 'r')
         data = json.load(file)
+        print("houghlines params:")
         print(data)
-        self.allKeys = ['=','-','w','s','r','l','g','p']
+        # self.allKeys = ['=','-','w','s','r','l','g','p']
         self.point = alex.array(data.get('point'))
         self.res = data.get('res')
         self.threshold = data.get('threshold')
         self.minlength = data.get('minlength')
         self.error_p = alex.array(data.get('error_p'))
         self.error_w = data.get('error_w')
-        self.p = 0.006
-        self.i = 0
-        self.d = 0.003
-        self.last = 0
         self.stopline = False
         self.dotted = False
-        self.inter_dec = 'stop'
-        self.maxspeed = 0.2
-        self.inter_dec = ''
-        self.pl = 0
+        self.pl = 320 # previous lane center
         """
         Initialize the lane follower node
         """
@@ -62,18 +56,17 @@ class LaneDetector():
         Callback function for the image processed topic
         :param data: Image data in the ROS Image format
         """
-         # Update the header information
         t1 = time.time()
+         # Update the header information
         header = Header()
         header.seq = data.header.seq
         header.stamp = data.header.stamp
         header.frame_id = data.header.frame_id
-        # Update the header information in the message
         self.p.header = header
 
         # Convert the image to the OpenCV format
         # image = self.bridge.compressed_imgmsg_to_cv2(data, "bgr8")
-        image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+        image = self.bridge.imgmsg_to_cv2(data, "rgb8")
 
         #determine whether left lane is dotted
         # self.dotted = self.dotted_lines(image)
@@ -87,30 +80,37 @@ class LaneDetector():
 
         #Determine the steering angle based on the lanes
 
+        # if there's a big shift in lane center: ignore due to delay
+        if abs(lanes-self.pl)>250:
+            lanes = self.pl
+
+        # ignore one center measurement when we don't detect
         if lanes==320:
             self.p.center = self.pl
             self.pl = lanes
         else:
             self.p.center = lanes
             self.pl = lanes
-        
+
         #determine whether we arrive at intersection
         self.p.stopline = self.stopline
+
         # print(self.p)
         # Publish the steering command
         self.pub.publish(self.p)
         # print(self.p)
         # print("time: ", time.time()-t1)
+
     def dotted_lines(self,image):
         img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         h = img_gray.shape[0]
         w = img_gray.shape[1]
         mask = alex.zeros_like(img_gray)
         # poly = alex.array([[(int(0*w),int(0.8*h)),(int(self.point[0]*w),int(self.point[1]*h)),(int(1*w),int(0.8*h)),(w,h),(0,h)]])
-        poly = alex.array([[(0,int(0.5*h)),(0,h),(int(0.4*w),h),(int(0.4*w),int(0.5*h))]])
+        poly = alex.array([[(0,int(0.5*h)),(0,h),(int(0.4*w),h),(int(0.4*w),int(0.5*h))]]) # poly might need adjustment
         cv2.fillPoly(mask,poly,255)
         img_roi = cv2.bitwise_and(img_gray,mask)
-        ret, thresh = cv2.threshold(img_roi, 150, 255, cv2.THRESH_BINARY)
+        ret, thresh = cv2.threshold(img_roi, 150, 255, cv2.THRESH_BINARY) # threshold might need adjustment
         hist=alex.zeros((int(0.5*h),1))
         v=int(0.5*h)
         for i in range(int(0.5*h)):
@@ -138,17 +138,20 @@ class LaneDetector():
         h = img_gray.shape[0]
         w = img_gray.shape[1]
         mask = alex.zeros_like(img_gray)
-        poly = alex.array([[(int(0*w),int(0.75*h)),(int(1*w),int(0.75*h)),(w,h),(0,h)]])
+        poly = alex.array([[(int(0*w),int(0.8*h)),(int(1*w),int(0.8*h)),(w,h),(0,h)]]) # poly might need adjustment
         cv2.fillPoly(mask,poly,255)
         img_roi = cv2.bitwise_and(img_gray,mask)
-        ret, thresh = cv2.threshold(img_roi, 125, 255, cv2.THRESH_BINARY)
+        ret, thresh = cv2.threshold(img_roi, 110, 255, cv2.THRESH_BINARY) # threshold might need adjustment
+        # thresh = img_roi # might fix brightness issues
         hist=alex.zeros((1,w))
         for i in range(w):
             hist[0,i]=alex.sum(thresh[:,i])
         lanes=[]
         p=0
+        
+        # get lane marking delimiters
         for i in range(w):
-            if hist[0,i]==255 and p==0:
+            if hist[0,i]>=1500 and p==0:
                 lanes.append(i)
                 p=255
             elif hist[0,i]==0 and p==255:
@@ -156,27 +159,39 @@ class LaneDetector():
                 p=0
         if len(lanes)%2==1:
             lanes.append(w-1)
+
+        # get lane markings
         centers=[]
         for i in range(int(len(lanes)/2)):
             if abs(lanes[2*i]-lanes[2*i+1])>350:
                 self.stopline = True
             elif abs(lanes[2*i]-lanes[2*i+1])>3:
                 centers.append((lanes[2*i]+lanes[2*i+1])/2)
-        if len(centers)==0:
+        
+        # get lane centers based on 4 cases
+        if len(centers)==0: # no lane detected
             center = w/2
-        elif len(centers)==1:
+            # case = 0
+        elif len(centers)==1: # one lane detected
+            # case = 1
             if centers[0]>w/2:
                 center = (centers[0]-0)/2
             else:
-                center = (centers[0]+640)/2
-        elif abs(centers[len(centers)-1]-centers[len(centers)-2])<200:
-            if (centers[len(centers)-1]+centers[len(centers)-2])>w:
-                center = (centers[len(centers)-1]+centers[len(centers)-2]/2+0)/2
+                center = (centers[0]*2+640)/2
+        elif abs(centers[0]-centers[len(centers)-1])<200: # the left most lane and the right most lane are close together (fuse them)
+            # case = 2
+            if (centers[0]+centers[len(centers)-1])>w:
+                center = ((centers[0]+centers[len(centers)-1])/2+0)/2
             else:
-                center = (centers[len(centers)-1]+centers[len(centers)-2]/2+640)/2
-        else:
-            center = (centers[len(centers)-1]+centers[len(centers)-2])/2
+                center = ((centers[0]+centers[len(centers)-1])+640)/2
+        else: # the left most lane and the right most lane are far (avg them)
+            # case = 3
+            center = (centers[0]+centers[len(centers)-1])/2
         if show:
+            # print(hist[0,0:5])
+            # print(lanes)
+            # print(centers)
+            # cv2.putText(thresh, str(case), (int(w*0.9),int(h*0.1)), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 1, cv2.LINE_AA)
             if self.stopline==True:
                 cv2.putText(thresh, 'stopline detected!', (int(w*0.1),int(h*0.1)), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 1, cv2.LINE_AA)
             if self.dotted==True:
