@@ -73,7 +73,7 @@ class ObjectDetector():
             self.boxes[0][3] = height1
             self.p.box1 = self.boxes[0]
 
-        # print(self.p)
+        print(self.p)
         self.pub.publish(self.p)
         # print("time: ",time.time()-t1)
 

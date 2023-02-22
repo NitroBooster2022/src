@@ -343,7 +343,7 @@ class StateMachine():
                 return 1
             elif self.intersectionDecision <0: 
                 # self.intersectionDecision = np.random.randint(low=0, high=3) #replace this with service call
-                self.intersectionDecision = 2 #always left
+                self.intersectionDecision = 0 #always left
                 print("intersection decision: going " + self.intersectionDecisions[self.intersectionDecision])
                 if self.intersectionDecision == 0: #left
                     self.trajectory = self.left_trajectory
@@ -359,6 +359,7 @@ class StateMachine():
                 print("initialPoints points: ", self.initialPoints)
                 print("begin adjusting angle...")
                 self.odomX, self.odomY = 0.0, 0.0 #reset x,y
+                self.odomTimer = rospy.Time.now()
                 self.intersectionState = 0 #adjusting angle:0, trajectory following:1, adjusting angle2: 2..
             self.odometry()
             if self.intersectionState==0: #adjusting
@@ -618,6 +619,7 @@ class StateMachine():
         magnitude = self.velocity*dt*0.007928
         self.odomX += magnitude * math.cos(self.yaw)
         self.odomY += magnitude * math.sin(self.yaw)
+        print(f"odometry: speed={self.velocity}, dt={dt}, mag={magnitude}, cos={math.cos(self.yaw)}, X={self.odomX}, Y={self.odomY}")
     def left_trajectory(self, x):
         return math.exp(3.57*x-4.3)
     def straight_trajectory(self, x):

@@ -65,7 +65,7 @@ class StateMachine():
         self.msg2 = String()
         self.p = 0.005
         self.ArrivedAtStopline = False
-        self.maxspeed = 0.08
+        self.maxspeed = 0.15
         self.i = 0
         self.d = 0.000#15
         self.last = 0
@@ -224,10 +224,9 @@ class StateMachine():
         # self.y = 15.0-localization.posB
 
         self.yaw = imu.yaw if imu.yaw>0 else (6.2831853+imu.yaw)
-        self.yaw = 0
 
-        self.poses[0] = self.x
-        self.poses[1] = self.y
+        # self.poses[0] = self.x
+        # self.poses[1] = self.y
         # x_speed = encoder.twist[72].linear.x
         # y_speed = encoder.twist[72].linear.y
         # print(x_speed, y_speed)
@@ -344,7 +343,7 @@ class StateMachine():
                 return 1
             elif self.intersectionDecision <0: 
                 # self.intersectionDecision = np.random.randint(low=0, high=3) #replace this with service call
-                self.intersectionDecision = 2 #always left
+                self.intersectionDecision = 0 #always left
                 print("intersection decision: going " + self.intersectionDecisions[self.intersectionDecision])
                 if self.intersectionDecision == 0: #left
                     self.trajectory = self.left_trajectory
@@ -360,6 +359,7 @@ class StateMachine():
                 print("initialPoints points: ", self.initialPoints)
                 print("begin adjusting angle...")
                 self.odomX, self.odomY = 0.0, 0.0 #reset x,y
+                self.odomTimer = rospy.Time.now()
                 self.intersectionState = 0 #adjusting angle:0, trajectory following:1, adjusting angle2: 2..
             self.odometry()
             if self.intersectionState==0: #adjusting
@@ -370,7 +370,7 @@ class StateMachine():
                 if error <= 0.05:
                     self.intersectionState+=1 #done adjusting
                     print("done adjusting angle. Transitioning to trajectory following")
-                    print(f"current position: ({self.x},{self.y})")
+                    print(f"current position: ({self.odomX},{self.odomY})")
                     self.error_sum = 0 #reset pid errors
                     self.last_error = 0
                     return 0
@@ -616,9 +616,11 @@ class StateMachine():
     def odometry(self):
         dt = (rospy.Time.now()-self.odomTimer).to_sec()
         self.odomTimer = rospy.Time.now()
-        magnitude = self.maxspeed*dt*0.007928
+        magnitude = self.maxspeed*dt*0.75
+        # print(f"magnitude*cos: {magnitude * math.cos(self.yaw)}, odomX: {self.odomX}")
         self.odomX += magnitude * math.cos(self.yaw)
         self.odomY += magnitude * math.sin(self.yaw)
+        # print(f"odometry: speed={self.maxspeed*0.75}, dt={dt}, mag={magnitude}, cos={math.cos(self.yaw)}, X={self.odomX}, Y={self.odomY}")
     def left_trajectory(self, x):
         return math.exp(3.57*x-4.3)
     def straight_trajectory(self, x):
