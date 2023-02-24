@@ -94,7 +94,6 @@ class LaneDetector():
 
         #determine whether we arrive at intersection
         self.p.stopline = self.stopline
-
         # print(self.p)
         # Publish the steering command
         self.pub.publish(self.p)
