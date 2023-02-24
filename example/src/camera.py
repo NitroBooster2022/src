@@ -43,8 +43,6 @@ class CameraHandler():
         """
         self.bridge = CvBridge()
         self.cv_image = np.zeros((640, 480))
-        # print(np.sum(self.cv_image))
-        # self.cv_image+=50
         rospy.init_node('CAMnod', anonymous=True)
         self.image_sub = rospy.Subscriber("/automobile/image_raw", Image, self.callback)
         rospy.spin()

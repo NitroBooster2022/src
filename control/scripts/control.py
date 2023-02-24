@@ -29,11 +29,11 @@ class LaneFollower():
         #steering
         self.msg = String()
         self.msg2 = String()
-        self.p = 0.006
+        self.p = 0.005
         self.ArrivedAtStopline = False
-        self.maxspeed = 0.13
+        self.maxspeed = 0.1
         self.i = 0
-        self.d = 0
+        self.d = 0.001
         self.last = 0
         self.center = 0
 
@@ -89,6 +89,11 @@ class LaneFollower():
 
     #state machine
     def action(self):
+        
+        # activate lane follow only
+        if self.state!=6:
+            self.state = 0
+
         if self.state==0: #lane following
             # Determine the steering angle based on the center
             steering_angle = self.get_steering_angle(self.center)

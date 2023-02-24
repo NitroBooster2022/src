@@ -94,6 +94,7 @@ class LaneDetector():
 
         #determine whether we arrive at intersection
         self.p.stopline = self.stopline
+
         # print(self.p)
         # Publish the steering command
         self.pub.publish(self.p)
@@ -141,59 +142,40 @@ class LaneDetector():
         cv2.fillPoly(mask,poly,255)
         img_roi = cv2.bitwise_and(img_gray,mask)
         ret, thresh = cv2.threshold(img_roi, 110, 255, cv2.THRESH_BINARY) # threshold might need adjustment
-        # thresh = img_roi # might fix brightness issues
-        hist=alex.zeros((1,w))
-        for i in range(w):
-            hist[0,i]=alex.sum(thresh[:,i])
-        lanes=[]
-        p=0
         
-        # get lane marking delimiters
-        for i in range(w):
-            if hist[0,i]>=1500 and p==0:
-                lanes.append(i)
-                p=255
-            elif hist[0,i]==0 and p==255:
-                lanes.append(i)
-                p=0
-        if len(lanes)%2==1:
-            lanes.append(w-1)
-
-        # get lane markings
         centers=[]
-        for i in range(int(len(lanes)/2)):
-            if abs(lanes[2*i]-lanes[2*i+1])>350:
-                self.stopline = True
-            elif abs(lanes[2*i]-lanes[2*i+1])>3:
-                centers.append((lanes[2*i]+lanes[2*i+1])/2)
-        
-        # get lane centers based on 4 cases
-        if len(centers)==0: # no lane detected
+        for i in range(int(w/2)):
+            start=i
+            end=w-i-1
+            sumStart= alex.sum(thresh[:,start])
+            sumEnd=alex.sum(thresh[:,end])
+            flag1 = (sumStart>=1500)
+            flag2 = (sumEnd>=1500)
+            
+            if (flag1 and flag2) and (abs(start-end)>3):
+                centers.append((start+end)/2)
+            
+        # get lane centers based on 3 cases
+        if len(centers) == 0: # no lane detected 
             center = w/2
             # case = 0
-        elif len(centers)==1: # one lane detected
+        elif len(centers) == 1: # one lane detected
             # case = 1
-            if centers[0]>w/2:
+            if centers[0] > w/2:
                 center = (centers[0]-0)/2
             else:
-                center = (centers[0]*2+640)/2
-        elif abs(centers[0]-centers[len(centers)-1])<200: # the left most lane and the right most lane are close together (fuse them)
+                center = (centers[0]*2+640)/2  
+        elif abs(centers[0]-centers[len(centers)-1]) < 200: # the left most lane and the right most lane are close together (fuse them) 
             # case = 2
-            if (centers[0]+centers[len(centers)-1])>w:
-                center = ((centers[0]+centers[len(centers)-1])/2+0)/2
-            else:
-                center = ((centers[0]+centers[len(centers)-1])+640)/2
-        else: # the left most lane and the right most lane are far (avg them)
-            # case = 3
             center = (centers[0]+centers[len(centers)-1])/2
         if show:
             # print(hist[0,0:5])
-            # print(lanes)
+            # print(lanes) 
             # print(centers)
             # cv2.putText(thresh, str(case), (int(w*0.9),int(h*0.1)), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 1, cv2.LINE_AA)
-            if self.stopline==True:
+            if self.stopline == True:
                 cv2.putText(thresh, 'stopline detected!', (int(w*0.1),int(h*0.1)), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 1, cv2.LINE_AA)
-            if self.dotted==True:
+            if self.dotted == True:
                 cv2.putText(image, 'DottedLine!', (int(w*0.1),int(h*0.3)), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 1, cv2.LINE_AA)
             cv2.line(thresh,(int(center),int(image.shape[0])),(int(center),int(0.8*image.shape[0])),(100,100,100),5)
             add = cv2.cvtColor(thresh,cv2.COLOR_GRAY2RGB)
@@ -276,3 +258,4 @@ if __name__ == '__main__':
         rospy.spin()
     except rospy.ROSInterruptException:
         cv2.destroyAllWindows()
+
