@@ -36,7 +36,7 @@ class ObjectDetector():
         """
         t1 = time.time()
         # Convert the image to the OpenCV format
-        image = self.bridge.imgmsg_to_cv2(data, "rgb8")
+        image = self.bridge.imgmsg_to_cv2(data, "bgr8")
 
          # Update the header information
         header = Header()
@@ -60,6 +60,7 @@ class ObjectDetector():
             width1 = self.boxes[0][2]-self.boxes[0][0]
             self.boxes[0][2] = width1
             self.boxes[0][3] = height1
+            print("height1, width1: ", height1, width1, self.class_ids[0])
             height2 = self.boxes[1][3]-self.boxes[1][1]
             width2 = self.boxes[1][2]-self.boxes[1][0]
             self.boxes[1][2] = width2
@@ -71,9 +72,10 @@ class ObjectDetector():
             width1 = self.boxes[0][2]-self.boxes[0][0]
             self.boxes[0][2] = width1
             self.boxes[0][3] = height1
+            print("height1, width1: ", height1, width1, self.class_ids[0])
             self.p.box1 = self.boxes[0]
 
-        print(self.p)
+        # print(self.p)
         self.pub.publish(self.p)
         # print("time: ",time.time()-t1)
 
