@@ -27,8 +27,8 @@ class EncoderNode():
         rospy.init_node('encoder_node', anonymous=True)
         # self.image_sub = rospy.Subscriber("/automobile/encoder", Float32, self.callback, queue_size=3)
         self.image_sub = rospy.Subscriber("/gazebo/model_states", ModelStates, self.callback, queue_size=3)
-        self.pub = rospy.Publisher("encoder", encoder, queue_size = 3)
-        self.p = encoder()
+        self.pub = rospy.Publisher("/automobile/encoder", Encoder, queue_size = 3)
+        self.p = Encoder()
         self.rate = rospy.Rate(15)
 
     def callback(self, ModelStates):
@@ -36,9 +36,7 @@ class EncoderNode():
         Callback function for the image processed topic
         :param data: Image data in the ROS Image format
         """
-
         header = Header()
-        print("hi")
         header.frame_id = 'encoder'
         header.stamp = rospy.Time.now()
         # header.seq = ModelStates.header.seq
@@ -46,12 +44,15 @@ class EncoderNode():
         # header.frame_id = ModelStates.header.frame_id
         # Update the header information in the message
         self.p.header = header
-        x_speed = ModelStates.twist[72].linear.x
-        y_speed = ModelStates.twist[72].linear.y
+        try:
+            i = ModelStates.name.index("automobile") # index of the car
+        except:
+            return
+        x_speed = ModelStates.twist[i].linear.x
+        y_speed = ModelStates.twist[i].linear.y
         speed = math.sqrt(x_speed*x_speed+y_speed*y_speed)
         self.p.speed = speed
-        t1 = time.time()
-
+        # t1 = time.time()
 
         print(self.p)
         self.pub.publish(self.p)
