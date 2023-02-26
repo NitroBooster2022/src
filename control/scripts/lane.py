@@ -99,7 +99,7 @@ class LaneDetector():
         print(self.p)
         # Publish the steering command
         self.pub.publish(self.p)
-        # print(self.p)
+        print(self.p)
         # print("time: ", time.time()-t1)
     def dotted_lines(self,image):
         img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -133,6 +133,12 @@ class LaneDetector():
             return False
 
     def histogram(self, image, show=False):
+        """
+        Extract the lanes from the image using the histogram method
+        :param image: Image to extract the lanes from
+        :param show: Boolean to show the image
+        :return: The steering angle
+        """
         self.stopline = False
         img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         h = img_gray.shape[0]
