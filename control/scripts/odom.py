@@ -24,7 +24,7 @@ class StateMachine():
         self.states = ['Lane Following', "Approaching Intersection", "Stopping at Intersection", 
                        "Intersection Maneuvering", "Approaching Crosswalk", "Pedestrian", "Highway",
                        "Carblock", "Roundabout", "Parking", "Initial", "Parked"]
-        self.state = 10
+        self.state = 15
 
         #sign
         self.class_names = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority',
@@ -45,7 +45,6 @@ class StateMachine():
         self.speed = 0
         self.odomX = 0
         self.odomY = 0
-        self.initialYaw = 0
 
         #PID
         #for initial angle adjustment
@@ -160,6 +159,7 @@ class StateMachine():
         self.kp2 = data.get('kp2')
         self.kd2 = data.get('kd2')
         self.ki2 = data.get('ki2')
+        self.initialYaw = 0
 
     def trackbars(self):
         windowName = "Params"
@@ -226,8 +226,9 @@ class StateMachine():
         # Publish the steering angle & linear velocity to the /automobile/command topic
         # self.x = localization.posA
         # self.y = 15.0-localization.posB
-        self.yaw = imu.yaw*3.14159/180 - self.initialYaw
+        self.yaw = imu.yaw*3.14159/180-self.initialYaw
         self.yaw = self.yaw if self.yaw>0 else (6.2831853+self.yaw)
+
         # self.poses[0] = self.x
         # self.poses[1] = self.y
         # x_speed = encoder.twist[72].linear.x
@@ -257,6 +258,14 @@ class StateMachine():
 
     #state machine
     def action(self):
+        if self.state == 15:
+            if self.initialPoints is None:
+                self.odomX, self.odomY = 0.0, 0.0 #reset x,y
+                self.odomTimer = rospy.Time.now()
+                self.initialYaw = self.yaw
+                self.initialPoints = 1
+            self.odometry()
+            print("x, y, yaw: ", self.odomX, self.odomY, self.yaw)
         if self.state==0: #lane following
             # Determine the steering angle based on the center
             steering_angle = self.get_steering_angle(self.center)
@@ -399,7 +408,7 @@ class StateMachine():
                     self.error_sum2 = 0
                     return 0
                 steering_angle = self.pid2(error)
-                print("x, y, desiredY, angle: ", x, y, desiredY, self.yaw)
+                # print("x, y, desiredY, angle: ", x, y, desiredY, steering_angle*57.29578)
                 self.publish_cmd_vel(steering_angle, self.maxspeed*0.75)
                 return 0
             elif self.intersectionState == 2: #adjust angle 2
@@ -578,7 +587,6 @@ class StateMachine():
                 print("initializing...")
                 self.toggle = 0
                 self.timer = rospy.Time.now() + rospy.Duration(1.57)
-                self.initialYaw = self.yaw
             if rospy.Time.now() >= self.timer:
                 print("done initializing.")
                 self.timer = None
