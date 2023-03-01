@@ -27,8 +27,8 @@ class EncoderNode():
         rospy.init_node('encoder_node', anonymous=True)
         self.image_sub = rospy.Subscriber("/automobile/encoder", Float32, self.callback, queue_size=3)
         # self.image_sub = rospy.Subscriber("/gazebo/model_states", ModelStates, queue_size=3)
-        self.pub = rospy.Publisher("encoder", Encoder, queue_size = 3)
-        self.p = Encoder()
+        self.pub = rospy.Publisher("encoder", encoder, queue_size = 3)
+        self.p = encoder()
         self.rate = rospy.Rate(15)
 
     def callback(self, enc):

@@ -4,7 +4,7 @@ import rospy
 import numpy as np
 from message_filters import ApproximateTimeSynchronizer
 from std_msgs.msg import String, Float32
-from utils.msg import Lane, Sign, localisation, IMU, Encoder
+from utils.msg import Lane, Sign, localisation, IMU, encoder
 from pynput import keyboard
 from utils.srv import get_direction, nav
 import message_filters
@@ -65,7 +65,7 @@ class StateMachine():
         self.msg2 = String()
         self.p = 0.005
         self.ArrivedAtStopline = False
-        self.maxspeed = 0.15
+        self.maxspeed = 0.1
         self.i = 0
         self.d = 0.000#15
         self.last = 0
@@ -130,7 +130,7 @@ class StateMachine():
         self.sign_sub = message_filters.Subscriber('sign', Sign, queue_size=3)
         # self.localization_sub = message_filters.Subscriber("/automobile/localisation", localisation, queue_size=3)
         self.imu_sub = message_filters.Subscriber("/automobile/IMU", IMU, queue_size=3)
-        self.encoder_sub = message_filters.Subscriber("/automobile/encoder", Encoder, queue_size=3)
+        self.encoder_sub = message_filters.Subscriber("/automobile/encoder", encoder, queue_size=3)
         # self.encoder_sub = message_filters.Subscriber("/gazebo/model_states", ModelStates, queue_size=3)
         self.subscribers = []
         self.subscribers.append(self.lane_sub)
@@ -141,7 +141,7 @@ class StateMachine():
         self.subscribers.append(self.encoder_sub)
         
         # Create an instance of TimeSynchronizer
-        ts = ApproximateTimeSynchronizer(self.subscribers, queue_size=3, slop=0.15)
+        ts = ApproximateTimeSynchronizer(self.subscribers, queue_size=3, slop=3.15)
         ts.registerCallback(self.callback)
 
         # self.trackbars()
