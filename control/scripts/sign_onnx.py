@@ -36,7 +36,7 @@ class ObjectDetector():
         """
         t1 = time.time()
         # Convert the image to the OpenCV format
-        image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+        image = self.bridge.imgmsg_to_cv2(data, "rgb8")
 
          # Update the header information
         header = Header()
@@ -82,7 +82,7 @@ class ObjectDetector():
 #detector class
 class InferenceModel:
 
-    def __init__(self, path, conf_thres=0.7, iou_thres=0.5, official_nms=False):
+    def __init__(self, path, conf_thres=0.5, iou_thres=0.5, official_nms=False):
         self.conf_threshold = conf_thres
         self.iou_threshold = iou_thres
         self.official_nms = official_nms
