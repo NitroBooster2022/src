@@ -49,7 +49,7 @@ class LaneDetector():
         # self.image_sub = rospy.Subscriber("/camera/color/image_raw", Image, self.image_callback)
         # self.image_sub = rospy.Subscriber("/camera/color/image_raw/compressed", CompressedImage, self.image_callback)
         # self.image_sub = rospy.Subscriber("automobile/image_raw/compressed", CompressedImage, self.image_callback)
-        self.rate = rospy.Rate(50)
+        self.rate = rospy.Rate(15)
 
     def image_callback(self, data):
         """
@@ -97,7 +97,7 @@ class LaneDetector():
         # print(self.p)
         # Publish the steering command
         self.pub.publish(self.p)
-        print(self.p)
+        # print(self.p)
         # print("time: ", time.time()-t1)
 
     def dotted_lines(self,image):
@@ -146,7 +146,11 @@ class LaneDetector():
         poly = alex.array([[(int(0*w),int(0.8*h)),(int(1*w),int(0.8*h)),(w,h),(0,h)]]) # poly might need adjustment
         cv2.fillPoly(mask,poly,255)
         img_roi = cv2.bitwise_and(img_gray,mask)
-        ret, thresh = cv2.threshold(img_roi, 110, 255, cv2.THRESH_BINARY) # threshold might need adjustment
+        t = alex.max(img_roi)-35
+        if t>150:
+            t=150
+        # print(t)
+        ret, thresh = cv2.threshold(img_roi, t, 255, cv2.THRESH_BINARY) # threshold might need adjustment
         # thresh = img_roi # might fix brightness issues
         hist=alex.zeros((1,w))
         for i in range(w):

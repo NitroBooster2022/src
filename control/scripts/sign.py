@@ -9,8 +9,7 @@ import cv2
 import os
 import time
 import numpy as alex
-from sensor_msgs.msg import Image
-from sensor_msgs.msg import CompressedImage
+from sensor_msgs.msg import Image, CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
 # from pynput import keyboard
 from std_msgs.msg import String
