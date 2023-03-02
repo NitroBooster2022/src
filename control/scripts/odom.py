@@ -226,7 +226,7 @@ class StateMachine():
         # Publish the steering angle & linear velocity to the /automobile/command topic
         # self.x = localization.posA
         # self.y = 15.0-localization.posB
-        self.yaw = imu.yaw*3.14159/180-self.initialYaw
+        self.yaw = -(imu.yaw*3.14159/180)-self.initialYaw
         self.yaw = self.yaw if self.yaw>0 else (6.2831853+self.yaw)
 
         # self.poses[0] = self.x

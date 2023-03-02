@@ -226,8 +226,11 @@ class StateMachine():
         # Publish the steering angle & linear velocity to the /automobile/command topic
         # self.x = localization.posA
         # self.y = 15.0-localization.posB
-        self.yaw = imu.yaw*3.14159/180 - self.initialYaw
+        # if self.initialYaw is None:
+        #     self.initialYaw = imu.yaw
+        self.yaw = -((imu.yaw)*3.14159/180 )-self.initialYaw
         self.yaw = self.yaw if self.yaw>0 else (6.2831853+self.yaw)
+        # print("yaw: ", self.yaw)
         # self.poses[0] = self.x
         # self.poses[1] = self.y
         # x_speed = encoder.twist[72].linear.x
@@ -381,7 +384,7 @@ class StateMachine():
                 else:
                     print("yaw, currentAngle, error: ", self.yaw, self.currentAngle, error)
                     steering_angle = self.pid(error)
-                    self.publish_cmd_vel(steering_angle, self.maxspeed*0.3)
+                    self.publish_cmd_vel(steering_angle, self.maxspeed*0.7)
                     return 0
             elif self.intersectionState==1: #trajectory following
                 poses = np.array([self.odomX,self.odomY])
@@ -392,7 +395,8 @@ class StateMachine():
                 desiredY = self.trajectory(x)
                 error = y - desiredY
                 # print("x, y error: ",x,abs(error) )
-                if x>=(self.offsets_x[self.intersectionDecision]-0.1) and (abs(error)<=0.26):
+                # if x>=(self.offsets_x[self.intersectionDecision]-0.1) and (abs(error)<=0.35):
+                if (x>=(self.offsets_x[self.intersectionDecision]) and abs(y)>=self.offsets_y[self.intersectionDecision]) or abs(self.yaw-self.destinationAngle)<= 0.32:
                     print("trajectory done. adjust angle round 2")
                     self.intersectionState += 1
                     self.last_error2 = 0 #reset pid errors
@@ -415,7 +419,7 @@ class StateMachine():
                     return 0
                 else:
                     steering_angle = self.pid(error)
-                    self.publish_cmd_vel(steering_angle, self.maxspeed*0.5)
+                    self.publish_cmd_vel(steering_angle, self.maxspeed*0.7)
                     return 0
         elif self.state == 4: #Approaching Crosswalk
             #Transition events
@@ -591,7 +595,7 @@ class StateMachine():
                     self.msg.data = '{"action":"4","activate": true}'
                 elif self.toggle == 1: 
                     self.toggle = 2
-                    self.msg.data = '{"action":"1","speed":'+str(0.0)+'}'
+                    self.publish_cmd_vel(0, 0)
                 elif self.toggle == 2:
                     self.toggle = 0
                     self.msg.data = '{"action":"5","activate": true}'
@@ -716,7 +720,7 @@ class StateMachine():
     def right_trajectory(self, x):
         return -math.exp(3.75*x-3.33)
     def leftpark_trajectory(self, x):
-        return math.exp(3.57*x-4.2)
+        return math.exp(3.57*x-4.2) #real dimensions
     def set_current_angle(self):
         self.orientation = np.argmin([abs(self.yaw),abs(self.yaw-1.5708),abs((self.yaw)-3.14159),abs(self.yaw-4.71239),abs(self.yaw-6.28319)])%4
         self.currentAngle = self.orientations[self.orientation]
