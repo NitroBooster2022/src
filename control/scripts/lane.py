@@ -49,7 +49,7 @@ class LaneDetector():
         # self.image_sub = rospy.Subscriber("/camera/color/image_raw", Image, self.image_callback)
         # self.image_sub = rospy.Subscriber("/camera/color/image_raw/compressed", CompressedImage, self.image_callback)
         # self.image_sub = rospy.Subscriber("automobile/image_raw/compressed", CompressedImage, self.image_callback)
-        self.rate = rospy.Rate(15)
+        self.rate = rospy.Rate(50)
 
     def image_callback(self, data):
         """
