@@ -62,9 +62,11 @@ class ObjectDetector():
         self.p.num = len(self.class_ids)
         if self.p.num>=2:
             self.p.box1 = self.boxes[0]
+            # print("obj: ", self.class_ids[0], self.class_ids[1])
             self.p.box2 = self.boxes[1]
         elif self.p.num>=1:
             self.p.box1 = self.boxes[0]
+            # print("obj: ", self.class_ids[0])
 
         # print(self.p)
         self.pub.publish(self.p)

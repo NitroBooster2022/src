@@ -16,7 +16,7 @@ from cv_bridge import CvBridge, CvBridgeError
 # from std_msgs.msg import String
 from std_msgs.msg import Header
 from utils.msg import Lane
-import scipy
+# import scipy
 # from message_filters import ApproximateTimeSynchronizer
 
 class LaneDetector():
@@ -82,15 +82,18 @@ class LaneDetector():
 
         # if there's a big shift in lane center: ignore due to delay
         if abs(lanes-self.pl)>250:
+            # print("ignored")
             lanes = self.pl
 
         # ignore one center measurement when we don't detect
         if lanes==320:
             self.p.center = self.pl
+            # print("ignored")
             self.pl = lanes
         else:
             self.p.center = lanes
             self.pl = lanes
+            # print("center: ",self.p.center)
 
         #determine whether we arrive at intersection
         self.p.stopline = self.stopline
@@ -146,9 +149,9 @@ class LaneDetector():
         poly = alex.array([[(int(0*w),int(0.8*h)),(int(1*w),int(0.8*h)),(w,h),(0,h)]]) # poly might need adjustment
         cv2.fillPoly(mask,poly,255)
         img_roi = cv2.bitwise_and(img_gray,mask)
-        t = alex.max(img_roi)-35
-        if t>150:
-            t=150
+        t = alex.max(img_roi)-50
+        if t>125:
+            t=125
         # print(t)
         ret, thresh = cv2.threshold(img_roi, t, 255, cv2.THRESH_BINARY) # threshold might need adjustment
         # thresh = img_roi # might fix brightness issues
