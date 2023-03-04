@@ -29,8 +29,8 @@ class StateMachine():
         #sign
         self.class_names = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority',
                 'lights','block','pedestrian','car','others','nothing']
-        self.min_sizes = [25,25,20,25,57,52,25,25,25,150,25,000,90]
-        self.max_sizes = [50,50,40,50,70,65,50,50,60,188,50,100,125]
+        self.min_sizes = [25,25,20,25,57,52,25,25,25,150,40,000,90]
+        self.max_sizes = [50,50,40,50,70,65,50,50,60,188,60,100,125]
         self.center = -1
         self.detected_objects = []
         self.numObj = -1
@@ -306,6 +306,10 @@ class StateMachine():
                 print("about to park -> 9")
                 self.state = 9
                 return 1
+            elif self.object_detected(10):
+                print("Block!!!")
+                self.state = 11
+                return 1
             return 0
         elif self.state == 1: #Approaching Intersection
             #Transition events
@@ -350,7 +354,7 @@ class StateMachine():
                 return 1
             elif self.intersectionDecision <0: 
                 # self.intersectionDecision = np.random.randint(low=0, high=3) 
-                self.intersectionDecision = 0 #replace this with service call
+                self.intersectionDecision = 2 #replace this with service call
                 print("intersection decision: going " + self.intersectionDecisions[self.intersectionDecision])
                 if self.intersectionDecision == 0: #left
                     self.trajectory = self.left_trajectory
