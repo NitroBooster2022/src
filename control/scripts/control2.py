@@ -24,8 +24,8 @@ class StateMachine():
         #sign
         self.class_names = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority',
                 'lights','block','pedestrian','car','others','nothing']
-        self.min_sizes = [25,25,20,25,57,45,25,25,25,150,100,000,90]
-        self.max_sizes = [50,50,40,50,70,85,50,50,60,188,150,100,125]
+        self.min_sizes = [25,15,20,25,45,40,25,15,25,150,100,50,250]
+        self.max_sizes = [50,70,70,50,70,70,50,70,50,200,150,150,400]
         self.detected_objects = []
         self.numObj = -1
         self.box1 = []
@@ -133,9 +133,10 @@ class StateMachine():
         ts = ApproximateTimeSynchronizer(self.subscribers, queue_size=3, slop=1.15)
         ts.registerCallback(self.callback)
         
-        # Load data
+        # Load PIDs data
         file = open(os.path.dirname(os.path.realpath(__file__))+'/PID.json', 'r')
         data = json.load(file)
+        print("PIDs params:")
         print(data)
         self.p = data.get('p')
         self.d = data.get('d')
@@ -147,17 +148,24 @@ class StateMachine():
         self.kd2 = data.get('kd2')
         self.ki2 = data.get('ki2')
 
+        #pedestrian semaphore
         self.pedestrian_sem = 20
 
+        # get initial yaw from IMU
         imu = rospy.wait_for_message("/automobile/IMU",IMU)
         self.initialYaw = imu.yaw
 
+        #stop at shutdown
         def shutdown():
             pub = rospy.Publisher("/automobile/command", String, queue_size=3)
             msg = String()
             msg.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
             pub.publish(msg)
         rospy.on_shutdown(shutdown)
+
+        #enable encoder at the start to get messages from automobile/encoder
+        self.msg.data = '{"action":"5","activate": true}'
+        self.cmd_vel_pub.publish(self.msg)
     
     #callback function
     def callback(self,lane,sign, imu, encoder):
@@ -201,7 +209,8 @@ class StateMachine():
         elif self.state == 2: #Stopping at Intersection
             self.stopInt()
         elif self.state == 3: #Intersection Maneuvering
-            self.maneuverInt()
+            # self.maneuverInt()
+            self.maneuverIntHC()
         elif self.state == 4: #Approaching Crosswalk
             self.approachCrosswalk()
         elif self.state == 5: #Pedestrian
@@ -213,7 +222,8 @@ class StateMachine():
         elif self.state == 8: #Roundabout
             self.state = 0#not implemented yet
         elif self.state == 9: #Parking
-            self.park()
+            # self.park()
+            self.maneuverIntHC()
         elif self.state == 10: #initialization state
             if self.timer is None:
                 print("initializing...")
@@ -411,9 +421,78 @@ class StateMachine():
                 self.publish_cmd_vel(steering_angle, self.maxspeed*0.7)
                 return 0
             
+    def maneuverIntHC(self):
+        if self.doneManeuvering:
+            self.doneManeuvering = False #reset
+            self.intersectionDecision = -1 #reset
+            self.state = 0 #go back to lane following
+            return 1
+        elif self.intersectionDecision <0: 
+            self.intersectionDecision = 2 #replace this with service call
+            # self.intersectionDecision = np.random.randint(low=0, high=3) #replace this with service call
+            print("intersection decision: going " + self.intersectionDecisions[self.intersectionDecision])
+        if self.intersectionDecision == 0: #left
+            #go straight for 2.5s then left for 4.5s
+            if self.timer is None and self.timer2 is None: #begin going straight
+                print("begin going straight")
+                self.timer = rospy.Time.now()+rospy.Duration(2.5)
+            if self.timer is not None and self.timer2 is None:
+                if rospy.Time.now() >= self.timer: #finished going straight. reset timer to None
+                    print("finished going straight. reset timer to None")
+                    self.timer = None
+                    self.timer2 = rospy.Time.now()+rospy.Duration(4.5)
+                else:
+                    self.straight(0.2)
+                    return 0
+            if self.timer is None and self.timer2 is not None: #begin going left
+                if rospy.Time.now() >= self.timer2: #finished going left
+                    print("finished going left. reset timer2 to None. Maneuvering done")
+                    self.timer2 = None #finished going left. reset timer2 to None.
+                    self.doneManeuvering = True
+                    return 0
+                else: 
+                    self.left(0.12)
+                    return 0 
+        elif self.intersectionDecision == 1: #straight
+            #go straight for 3.7s
+            if self.timer is None: #begin going straight
+                print("begin going straight")
+                self.timer = rospy.Time.now()+rospy.Duration(3.7)
+            if rospy.Time.now() >= self.timer: #finished going straight. reset timer to None
+                print("finished going straight. reset timer to None")
+                self.timer = None
+                self.doneManeuvering = True
+                return 0
+            else:
+                self.straight(0.2)
+                return 0
+        elif self.intersectionDecision == 2: #right
+            #go straight for 0.5s then right for 3s
+            if self.timer is None and self.timer2 is None: #begin going straight
+                print("begin going straight")
+                self.timer = rospy.Time.now()+rospy.Duration(0.5)
+            if self.timer is not None and self.timer2 is None:
+                if rospy.Time.now() >= self.timer: #finished going straight. reset timer to None
+                    print("finished going straight. reset timer to None")
+                    self.timer = None
+                    self.timer2 = rospy.Time.now()+rospy.Duration(3)
+                else:
+                    self.straight(0.2)
+                    return 0
+            if self.timer is None and self.timer2 is not None: #begin going left
+                if rospy.Time.now() >= self.timer2: #finished going straight
+                    print("finished going left. reset timer2 to None. Maneuvering done")
+                    self.timer2 = None #finished going left. reset timer2 to None.
+                    self.doneManeuvering = True
+                    return 0
+                else: 
+                    self.right(0.12)
+                    return 0
+            
     def approachCrosswalk(self):
         #Transition events
         if self.timer is None: #start timer. ~13 seconds to pass crosswalk
+            print("slowing down to 0.66*speed")
             self.timer = rospy.Time.now() + rospy.Duration(13)
         if rospy.Time.now() >= self.timer:
             self.timer = None #reset timer
@@ -428,7 +507,7 @@ class StateMachine():
         #Action: slow down
         steering_angle = self.get_steering_angle()
         # Publish the steering command
-        self.publish_cmd_vel(steering_angle, self.maxspeed*0.65) #Slower
+        self.publish_cmd_vel(steering_angle, self.maxspeed*0.66) #Slower
         return 0
     
     def stopPedestrian(self):
@@ -597,7 +676,7 @@ class StateMachine():
     def crosswalk_sign_detected(self):
         return self.object_detected(5)
     def pedestrian_appears(self):# change that
-        return self.object_detected(7)
+        return self.object_detected(7) or self.object_detected(1)
     def pedestrian_clears(self):# change that
         return (not self.object_detected(7))
 
@@ -675,7 +754,6 @@ class StateMachine():
             self.destinationOrientation = self.directions[(self.orientation-1)%4]
             self.destinationAngle = self.orientations[(self.orientation-1)%4]
             return
-    
     def object_detected(self, obj_id):
         if self.numObj >= 2:
             if self.detected_objects[0]==obj_id: 
@@ -694,7 +772,6 @@ class StateMachine():
         box = self.box1 if index==0 else self.box2
         size = max(box[2], box[3])
         return size >= self.min_sizes[obj_id] and size <= self.max_sizes[obj_id]
-    
     def get_steering_angle(self):
         """
         Determine the steering angle based on the lane center
@@ -707,9 +784,7 @@ class StateMachine():
         d_error = (error-self.last)/self.dt
         self.last = error
         steering_angle = (error * self.p+d_error*self.d)
-
         return steering_angle
-
     def publish_cmd_vel(self, steering_angle, velocity = None, clip = True):
         """
         Publish the steering command to the cmd_vel topic

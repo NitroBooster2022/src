@@ -4,18 +4,14 @@
 # from yolov7 import YOLOv7
 import argparse
 import rospy
-import json
 import cv2
 import os
 import time
 import numpy as alex
 from sensor_msgs.msg import Image, CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
-# from pynput import keyboard
-from std_msgs.msg import String
 from std_msgs.msg import Header
 from utils.msg import Sign
-from message_filters import ApproximateTimeSynchronizer
 
 def format_yolov5(frame):
     row, col, _ = frame.shape
@@ -29,7 +25,6 @@ class ObjectDetector():
         self.show = show
         self.model = os.path.dirname(os.path.realpath(__file__)).replace("scripts", "models/alex12s2.onnx")
         self.net = cv2.dnn.readNet(self.model)
-        # self.net = cv2.dnn.readNet('/home/simonli/Documents/Simulator/src/control/models/alex12s2.onnx')
         self.class_list = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority', 'light', 'block', 'girl', 'car']
         rospy.init_node('object_detection_node', anonymous=True)
         self.bridge = CvBridge()
@@ -44,12 +39,12 @@ class ObjectDetector():
         Callback function for the image processed topic
         :param data: Image data in the ROS Image format
         """
-        t1 = time.time()
+        # t1 = time.time()
         # Convert the image to the OpenCV format
         image = self.bridge.imgmsg_to_cv2(data, "rgb8")
         # image = self.bridge.compressed_imgmsg_to_cv2(data, "bgr8")
 
-         # Update the header information
+        # Update the header information
         header = Header()
         header.seq = data.header.seq
         header.stamp = data.header.stamp
