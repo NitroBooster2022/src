@@ -125,7 +125,7 @@ class ObjectDetector():
         if save:
             cv2.imwrite("test/"+str(alex)+".png", image)
         if show:
-            cv2.imshow("output", image)
+            cv2.imshow("Sign", image)
             cv2.waitKey(1)
         return result_class_ids, result_confidences, result_boxes
 

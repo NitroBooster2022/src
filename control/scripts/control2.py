@@ -24,8 +24,8 @@ class StateMachine():
         #sign
         self.class_names = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority',
                 'lights','block','pedestrian','car','others','nothing']
-        self.min_sizes = [25,15,20,25,45,40,25,15,25,150,100,50,250]
-        self.max_sizes = [50,70,70,50,70,70,50,70,50,200,150,150,400]
+        self.min_sizes = [25,25,20,000,45,35,25,25,25,125,100,50,250]
+        self.max_sizes = [50,75,55,000,70,55,50,75,50,250,150,150,400]
         self.detected_objects = []
         self.numObj = -1
         self.box1 = []
@@ -58,7 +58,7 @@ class StateMachine():
         self.msg2 = String()
         self.p = 0.005
         self.ArrivedAtStopline = False
-        self.maxspeed = 0.12
+        self.maxspeed = 0.13
         self.i = 0
         self.d = 0.000#15
         self.last = 0
@@ -161,6 +161,9 @@ class StateMachine():
             msg = String()
             msg.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
             pub.publish(msg)
+            pub.publish(msg)
+            pub.publish(msg)
+            pub.publish(msg)
         rospy.on_shutdown(shutdown)
 
         #enable encoder at the start to get messages from automobile/encoder
@@ -196,39 +199,41 @@ class StateMachine():
         #         print(f"{self.class_names[self.detected_objects[i]]} detected! width, height: {self.box2[2]}, {self.box2[3]}")
         #     else:
         #         print(f"{self.class_names[self.detected_objects[i]]} detected!")
-        act = self.action()
-        if int(act)==1:
+        if int(self.action())==1:
             print(f"transitioning to '{self.states[self.state]}'")
+            if self.state==0:
+                print("Speed is at"+str(self.maxspeed)+"m/s")
 
     #state machine
     def action(self):
         if self.state==0: #lane following
-            self.lanefollow()
+            return self.lanefollow()
         elif self.state == 1: #Approaching Intersection
-            self.approachInt()
+            return self.approachInt()
         elif self.state == 2: #Stopping at Intersection
-            self.stopInt()
+            return self.stopInt()
         elif self.state == 3: #Intersection Maneuvering
             # self.maneuverInt()
-            self.maneuverIntHC()
+            return self.maneuverIntHC()
         elif self.state == 4: #Approaching Crosswalk
-            self.approachCrosswalk()
+            return self.approachCrosswalk()
         elif self.state == 5: #Pedestrian
-            self.stopPedestrian()
+            return self.stopPedestrian()
         elif self.state == 6: #Highway
-            self.highway()
+            return self.highway()
         elif self.state == 7: #Carblock
-            self.carBlock()
+            return self.carBlock()
         elif self.state == 8: #Roundabout
             self.state = 0#not implemented yet
+            return 1
         elif self.state == 9: #Parking
             # self.park()
-            self.maneuverIntHC()
+            return self.maneuverIntHC()
         elif self.state == 10: #initialization state
             if self.timer is None:
                 print("initializing...")
                 self.toggle = 0
-                self.timer = rospy.Time.now() + rospy.Duration(1.57)
+                self.timer = rospy.Time.now() + rospy.Duration(3.57)
             if rospy.Time.now() >= self.timer:
                 print("done initializing.")
                 self.timer = None
@@ -268,7 +273,7 @@ class StateMachine():
             self.intersectionStop = True
             self.state = 1
             return 1
-        elif self.light_detected():
+        elif self.light_detected(): #change this to stop till light turns green
             #call service to check light color
             if self.is_green():
                 print("green light detected -> state 1")
@@ -470,12 +475,12 @@ class StateMachine():
             #go straight for 0.5s then right for 3s
             if self.timer is None and self.timer2 is None: #begin going straight
                 print("begin going straight")
-                self.timer = rospy.Time.now()+rospy.Duration(0.5)
+                self.timer = rospy.Time.now()+rospy.Duration(0.1)
             if self.timer is not None and self.timer2 is None:
                 if rospy.Time.now() >= self.timer: #finished going straight. reset timer to None
                     print("finished going straight. reset timer to None")
                     self.timer = None
-                    self.timer2 = rospy.Time.now()+rospy.Duration(3)
+                    self.timer2 = rospy.Time.now()+rospy.Duration(4.5)
                 else:
                     self.straight(0.2)
                     return 0
@@ -492,13 +497,15 @@ class StateMachine():
     def approachCrosswalk(self):
         #Transition events
         if self.timer is None: #start timer. ~13 seconds to pass crosswalk
-            print("slowing down to 0.66*speed")
+            print("slowing down to "+str(0.66*self.maxspeed)+"m/s")
             self.timer = rospy.Time.now() + rospy.Duration(13)
         if rospy.Time.now() >= self.timer:
+            print("crosswalk passed, speed back up to "+str(self.maxspeed)+"m/s")
             self.timer = None #reset timer
             self.state = 0
             return 1
         elif self.pedestrian_appears():
+            print("pedestrian appears!!! -> state 5")
             self.timer = None #reset timer
             self.pedestrian_sem = 20 #set semaphore for pedestrian
             self.history = self.state
@@ -683,20 +690,23 @@ class StateMachine():
     #controller functions
     def straight(self,speed):
         # self.cmd_vel_pub(0.0, speed)
+        # print("straight at: "+str(speed))
         self.msg.data = '{"action":"1","speed":'+str(speed)+'}'
-        self.msg2.data = '{"action":"2","steerAngle":'+str(0.0*180/np.pi)+'}'
+        self.msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
         self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
     def left(self,speed):
         # self.cmd_vel_pub(-23, speed)
+        # print("left at: "+str(speed))
         self.msg.data = '{"action":"1","speed":'+str(speed)+'}'
-        self.msg2.data = '{"action":"2","steerAngle":'+str(-23*180/np.pi)+'}'
+        self.msg2.data = '{"action":"2","steerAngle":'+str(-23.0)+'}'
         self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
     def right(self,speed):
         # self.cmd_vel_pub(23, speed)
+        # print("right at: "+str(speed))
         self.msg.data = '{"action":"1","speed":'+str(speed)+'}'
-        self.msg2.data = '{"action":"2","steerAngle":'+str(23*180/np.pi)+'}'
+        self.msg2.data = '{"action":"2","steerAngle":'+str(23.0)+'}'
         self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
     def idle(self):
