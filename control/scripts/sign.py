@@ -33,6 +33,8 @@ class ObjectDetector():
         self.pub = rospy.Publisher("sign", Sign, queue_size = 3)
         self.p = Sign()
         self.rate = rospy.Rate(10)
+        self.colorThresholds = [alex.array([0,0,30],dtype="uint8"),alex.array([20,20,255],dtype="uint8"),alex.array([0,10,0],dtype="uint8"),
+                                alex.array([30,255,30],dtype="uint8"),alex.array([30,0,0],dtype="uint8"),alex.array([255,20,20],dtype="uint8")]
 
     def image_callback(self, data):
         """
@@ -124,10 +126,23 @@ class ObjectDetector():
                 cv2.putText(image, class_list[class_id], (box[0], box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, .5, (0,0,0))
         if save:
             cv2.imwrite("test/"+str(alex)+".png", image)
+        if len(result_class_ids)!=0: #traffic light color check
+            if result_class_ids[0]==9:
+                image = self.detectColor(result_boxes[0],image)
         if show:
             cv2.imshow("Sign", image)
             cv2.waitKey(1)
         return result_class_ids, result_confidences, result_boxes
+    
+    def detectColor(self,box,image):
+        poly = alex.array([[(box[0],box[1]),(box[0]+box[2],box[1]),(box[0]+box[2],box[1]+box[3]),(box[0],box[1]+box[3])]])
+        mask = alex.zeros((480,640),dtype='uint8')
+        cv2.fillPoly(mask,poly,255)
+        add = cv2.cvtColor(mask,cv2.COLOR_GRAY2RGB)
+        image = cv2.bitwise_and(image,add)
+        mask = cv2.inRange(image,self.colorThresholds[0],self.colorThresholds[1])
+        return mask
+        # return cv2.bitwise_and(image, image, mask = mask) 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

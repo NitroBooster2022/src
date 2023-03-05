@@ -164,11 +164,16 @@ class StateMachine():
             pub.publish(msg)
             pub.publish(msg)
             pub.publish(msg)
+        
         rospy.on_shutdown(shutdown)
 
         #enable encoder at the start to get messages from automobile/encoder
         self.msg.data = '{"action":"5","activate": true}'
         self.cmd_vel_pub.publish(self.msg)
+        self.cmd_vel_pub.publish(self.msg)
+        self.cmd_vel_pub.publish(self.msg)
+
+        self.timerP = None
     
     #callback function
     def callback(self,lane,sign, imu, encoder):
@@ -202,7 +207,7 @@ class StateMachine():
         if int(self.action())==1:
             print(f"transitioning to '{self.states[self.state]}'")
             if self.state==0:
-                print("Speed is at"+str(self.maxspeed)+"m/s")
+                print("Speed is at "+str(self.maxspeed)+"m/s")
 
     #state machine
     def action(self):
@@ -213,8 +218,8 @@ class StateMachine():
         elif self.state == 2: #Stopping at Intersection
             return self.stopInt()
         elif self.state == 3: #Intersection Maneuvering
-            # self.maneuverInt()
-            return self.maneuverIntHC()
+            self.maneuverInt()
+            # return self.maneuverIntHC()
         elif self.state == 4: #Approaching Crosswalk
             return self.approachCrosswalk()
         elif self.state == 5: #Pedestrian
@@ -228,12 +233,23 @@ class StateMachine():
             return 1
         elif self.state == 9: #Parking
             # self.park()
-            return self.maneuverIntHC()
+            #Transition events
+            if self.timerP is None:
+                self.timerP = rospy.Time.now() + rospy.Duration(3.57)
+                print("prepare to park")
+            elif rospy.Time.now() >= self.timerP:
+                if int(self.maneuverIntHC())==1:
+                    self.state = 11
+                    return 1
+                else:
+                    return 0
+            self.idle()
+            return 0
         elif self.state == 10: #initialization state
             if self.timer is None:
                 print("initializing...")
                 self.toggle = 0
-                self.timer = rospy.Time.now() + rospy.Duration(3.57)
+                self.timer = rospy.Time.now() + rospy.Duration(5.57)
             if rospy.Time.now() >= self.timer:
                 print("done initializing.")
                 self.timer = None
@@ -254,14 +270,12 @@ class StateMachine():
             self.idle()
             self.idle()
             self.idle()
-            rospy.signal_shutdown()
+            rospy.signal_shutdown("Parked")
         return 0
     
     def lanefollow(self):
-        # Determine the steering angle based on the center
-        steering_angle = self.get_steering_angle()
-        # Publish the steering command
-        self.publish_cmd_vel(steering_angle) 
+        # Determine the steering angle based on the center and publish the steering command
+        self.publish_cmd_vel(self.get_steering_angle()) 
         #transition events
         if self.ArrivedAtStopline:
             print("signless intersection detected... -> state 3")
@@ -323,10 +337,8 @@ class StateMachine():
                 self.doneManeuvering = False #set to false before entering state 3
                 self.state = 3
                 return 1
-        # Determine the steering angle based on the center
-        steering_angle = self.get_steering_angle()
-        # Publish the steering command
-        self.publish_cmd_vel(steering_angle) 
+        # Determine the steering angle based on the center publish the steering command
+        self.publish_cmd_vel(self.get_steering_angle()) 
         return 0
 
     def stopInt(self):
@@ -386,8 +398,7 @@ class StateMachine():
                 return 0
             else:
                 # print("yaw, currentAngle, error: ", self.yaw, self.currentAngle, error)
-                steering_angle = self.pid(error)
-                self.publish_cmd_vel(steering_angle, self.maxspeed*0.7)
+                self.publish_cmd_vel(self.pid(error), self.maxspeed*0.7)
                 return 0
         elif self.intersectionState==1: #trajectory following
             poses = np.array([self.odomX,self.odomY])
@@ -415,7 +426,7 @@ class StateMachine():
             if self.yaw>=5.73: #subtract 2pi to get small error
                 error-=6.28
             # print("yaw, destAngle, error: ", self.yaw, self.destinationAngle, error)
-            if abs(error) <= 0.25:
+            if abs(error) <= 0.15:
                 print("done adjusting angle!!")
                 self.doneManeuvering = True
                 self.error_sum = 0 #reset pid errors
@@ -480,19 +491,20 @@ class StateMachine():
                 if rospy.Time.now() >= self.timer: #finished going straight. reset timer to None
                     print("finished going straight. reset timer to None")
                     self.timer = None
-                    self.timer2 = rospy.Time.now()+rospy.Duration(4.5)
+                    self.timer2 = rospy.Time.now()+rospy.Duration(8.5)
                 else:
-                    self.straight(0.2)
+                    self.straight(self.maxspeed)
                     return 0
             if self.timer is None and self.timer2 is not None: #begin going left
                 if rospy.Time.now() >= self.timer2: #finished going straight
-                    print("finished going left. reset timer2 to None. Maneuvering done")
+                    print("finished going right. reset timer2 to None. Maneuvering done")
                     self.timer2 = None #finished going left. reset timer2 to None.
                     self.doneManeuvering = True
                     return 0
                 else: 
                     self.right(0.12)
                     return 0
+        return 0
             
     def approachCrosswalk(self):
         #Transition events
@@ -512,9 +524,8 @@ class StateMachine():
             self.state = 5
             return 1
         #Action: slow down
-        steering_angle = self.get_steering_angle()
         # Publish the steering command
-        self.publish_cmd_vel(steering_angle, self.maxspeed*0.66) #Slower
+        self.publish_cmd_vel(self.get_steering_angle(), self.maxspeed*0.66) #Slower
         return 0
     
     def stopPedestrian(self):
@@ -536,8 +547,7 @@ class StateMachine():
                 self.state = 8
             else:
                 self.state = 0
-        steering_angle = self.get_steering_angle()
-        self.publish_cmd_vel(steering_angle, self.maxspeed*1.33) 
+        self.publish_cmd_vel(self.get_steering_angle(), self.maxspeed*1.33) 
 
     def carBlock(self):
         #/entry: checkDotted
@@ -625,8 +635,7 @@ class StateMachine():
                 self.last_error = 0
                 return 0
             else:
-                steering_angle = self.get_steering_angle()
-                self.publish_cmd_vel(steering_angle, self.maxspeed)
+                self.publish_cmd_vel(self.get_steering_angle(), self.maxspeed)
                 return 0
         elif self.intersectionState==1: #trajectory following
             poses = np.array([self.odomX,self.odomY])
@@ -659,8 +668,7 @@ class StateMachine():
                 self.last_error = 0
                 return 0
             else:
-                steering_angle = self.pid(error)
-                self.publish_cmd_vel(steering_angle, self.maxspeed*0.5)
+                self.publish_cmd_vel(self.pid(error), self.maxspeed*0.5)
                 return 0
 
     #Transition events
@@ -793,7 +801,7 @@ class StateMachine():
         error = (self.center - image_center)
         d_error = (error-self.last)/self.dt
         self.last = error
-        steering_angle = (error * self.p+d_error*self.d)
+        steering_angle = (error*self.p+d_error*self.d)
         return steering_angle
     def publish_cmd_vel(self, steering_angle, velocity = None, clip = True):
         """
