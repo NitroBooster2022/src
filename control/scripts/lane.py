@@ -58,8 +58,8 @@ class LaneDetector():
         Callback function for the image processed topic
         :param data: Image data in the ROS Image format
         """
-        t1 = time.time()
-         # Update the header information
+        # t1 = time.time()
+        # Update the header information
         header = Header()
         header.seq = data.header.seq
         header.stamp = data.header.stamp
@@ -99,7 +99,7 @@ class LaneDetector():
 
         #determine whether we arrive at intersection
         self.p.stopline = self.stopline
-        # print(self.p)
+
         # Publish the steering command
         self.pub.publish(self.p)
         # print(self.p)
@@ -147,7 +147,7 @@ class LaneDetector():
         if t>125:
             t=125
         # print(t)
-        ret, thresh = cv2.threshold(img_roi, t, 255, cv2.THRESH_BINARY) # threshold might need adjustment
+        ret, thresh = cv2.threshold(img_roi, t, 255, cv2.THRESH_BINARY)
         hist=alex.zeros((1,w))
         for i in range(w):
             hist[0,i]=alex.sum(thresh[:,i])
