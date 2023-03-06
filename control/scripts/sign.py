@@ -126,9 +126,9 @@ class ObjectDetector():
                 cv2.putText(image, class_list[class_id], (box[0], box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, .5, (0,0,0))
         if save:
             cv2.imwrite("test/"+str(alex)+".png", image)
-        if len(result_class_ids)!=0: #traffic light color check
-            if result_class_ids[0]==9:
-                image = self.detectColor(result_boxes[0],image)
+        # if len(result_class_ids)!=0: #traffic light color check
+        #     if result_class_ids[0]==9:
+        #         image = self.detectColor(result_boxes[0],image)
         if show:
             cv2.imshow("Sign", image)
             cv2.waitKey(1)

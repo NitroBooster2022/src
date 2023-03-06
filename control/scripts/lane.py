@@ -14,6 +14,7 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from std_msgs.msg import Header
 from utils.msg import Lane
+from utils.srv import *
 # import scipy
 
 class LaneDetector():
@@ -30,6 +31,7 @@ class LaneDetector():
         self.minlength = data.get('minlength')
         self.error_p = alex.array(data.get('error_p'))
         self.error_w = data.get('error_w')
+        self.image = alex.zeros((480,640))
         self.stopline = False
         self.dotted = False
         self.pl = 320 # previous lane center
@@ -53,6 +55,11 @@ class LaneDetector():
         # self.image_sub = rospy.Subscriber("automobile/image_raw/compressed", CompressedImage, self.image_callback)
         self.rate = rospy.Rate(15)
 
+        self.server = rospy.Service("dotted", dotted, self.doDotted, buff_size=3)
+
+    def doDotted(self,request):
+        return self.dotted_lines(self.image)
+
     def image_callback(self, data):
         """
         Callback function for the image processed topic
@@ -68,17 +75,17 @@ class LaneDetector():
 
         # Convert the image to the OpenCV format
         # image = self.bridge.compressed_imgmsg_to_cv2(data, "bgr8")
-        image = self.bridge.imgmsg_to_cv2(data, "rgb8")
+        self.image = self.bridge.imgmsg_to_cv2(data, "rgb8")
 
         #determine whether left lane is dotted (will make it a service)
-        self.dotted = self.dotted_lines(image)
+        self.dotted = self.dotted_lines(self.image)
         # self.p.dotted = self.dotted
 
         # Extract the lanes from the image
         if self.method == 'histogram':
-            lanes = self.histogram(image, show=self.show)
+            lanes = self.histogram(self.image, show=self.show)
         else:
-            lanes = self.extract_lanes(image, show=self.show)
+            lanes = self.extract_lanes(self.image, show=self.show)
 
         #Determine the steering angle based on the lanes
 
@@ -143,9 +150,8 @@ class LaneDetector():
         h = 480
         w = 640
         img_roi = cv2.bitwise_and(img_gray,self.maskh)
-        t = alex.max(img_roi)-50
-        if t>125:
-            t=125
+        t = alex.max(img_roi)-30
+        alex.clip(t,50,150)
         # print(t)
         ret, thresh = cv2.threshold(img_roi, t, 255, cv2.THRESH_BINARY)
         hist=alex.zeros((1,w))
@@ -211,7 +217,8 @@ class LaneDetector():
             #     self.pl = center
             cv2.line(image,(int(center),int(image.shape[0])),(int(center),int(0.8*image.shape[0])),(0,0,255),5)
             add = cv2.cvtColor(thresh,cv2.COLOR_GRAY2RGB)
-            cv2.imshow('Lane', cv2.add(image,add))
+            # cv2.imshow('Lane', cv2.add(image,add))
+            cv2.imshow('Lane', image)
             cv2.waitKey(1)
         return center
 

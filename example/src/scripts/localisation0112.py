@@ -36,8 +36,8 @@ class Localiser():
         cv2.resizeWindow(windowName,700,700)
 
         rospy.init_node('localisation_node', anonymous=True)
-        self.localisation_sub = rospy.Subscriber("/automobile/localisation", localisation, self.callback)
-        self.server = rospy.Service("get_direction", get_direction, self.doDir)
+        self.localisation_sub = rospy.Subscriber("/automobile/localisation", localisation, self.callback())
+        self.server = rospy.Service("get_direction", get_direction, self.doDir())
         self.rate = rospy.Rate(5)
         # self.keyInput()
 
