@@ -17,7 +17,7 @@ import onnxruntime
 class ObjectDetector():
     def __init__(self, show):
         self.show = show
-        self.model = os.path.dirname(os.path.realpath(__file__)).replace("scripts", "models/alex12s2.onnx")
+        self.model = os.path.dirname(os.path.realpath(__file__)).replace("scripts", "models/sissi9.onnx")
         self.detector = InferenceModel(self.model, conf_thres=0.75, iou_thres=0.57)
         # self.net = cv2.dnn.readNet(self.model)
         self.class_names = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority', 'light', 'block', 'girl', 'car']
@@ -36,7 +36,7 @@ class ObjectDetector():
         """
         t1 = time.time()
         # Convert the image to the OpenCV format
-        image = self.bridge.imgmsg_to_cv2(data, "rgb8")
+        image = self.bridge.imgmsg_to_cv2(data, "bgr8")
 
          # Update the header information
         header = Header()
