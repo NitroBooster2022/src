@@ -324,11 +324,10 @@ class LaneFollower():
         self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
     def left(self):
-        print("lefttttttttttttttttttt")
         # self.cmd_vel_pub(-23, 0.12)
-        # self.msg.data = '{"action":"1","speed":'+str(0.12)+'}'
+        self.msg.data = '{"action":"1","speed":'+str(0.12)+'}'
         self.msg2.data = '{"action":"2","steerAngle":'+str(-23.0)+'}'
-        # self.cmd_vel_pub.publish(self.msg)
+        self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
     def right(self):
         # self.cmd_vel_pub(23, 0.12)
