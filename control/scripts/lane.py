@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-# import onnxruntime
-# from yolov7 import YOLOv7
 import argparse
 import rospy
 import json
@@ -164,7 +162,7 @@ class LaneDetector():
         h = 480
         w = 640
         img_roi = cv2.bitwise_and(img_gray,self.maskh)
-        t = alex.max(img_roi)-45
+        t = alex.max(img_roi)-55
         if t<30:
             t=30
         alex.clip(t,30,200)
@@ -176,7 +174,7 @@ class LaneDetector():
 
         #stopline
         img_rois = cv2.bitwise_and(img_gray,self.masks)
-        t = alex.max(img_roi)-45
+        t = alex.max(img_roi)-65
         if t<30:
             t=30
         alex.clip(t,30,200)
@@ -191,12 +189,12 @@ class LaneDetector():
                 lanes.append(i)
                 p=255
             elif hists[0,i]==0 and p==255:
-                lanes.append(i)                
+                lanes.append(i)
                 p=0
         if len(lanes)%2==1:
             lanes.append(w-1)
         for i in range(int(len(lanes)/2)):
-            if abs(lanes[2*i]-lanes[2*i+1])>350 and t>50:
+            if abs(lanes[2*i]-lanes[2*i+1])>320 and t>30:
                 self.stopline = True
 
         # get lane marking delimiters
@@ -217,7 +215,7 @@ class LaneDetector():
         for i in range(int(len(lanes)/2)):
             if abs(lanes[2*i]-lanes[2*i+1])>350 and t>50:
                 self.stopline = True
-            elif abs(lanes[2*i]-lanes[2*i+1])>3:
+            elif abs(lanes[2*i]-lanes[2*i+1])>3: # and abs(lanes[2*i]-lanes[2*i+1])<100: #exclude large lanes
                 centers.append((lanes[2*i]+lanes[2*i+1])/2)
         
         # get lane centers based on 4 cases

@@ -6,7 +6,7 @@ import argparse
 import rospy
 import cv2
 import os
-import time
+# import time
 import numpy as alex
 from sensor_msgs.msg import Image, CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
