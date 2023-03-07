@@ -24,6 +24,8 @@ class ObjectDetector():
     def __init__(self, show):
         self.show = show
         self.model = os.path.dirname(os.path.realpath(__file__)).replace("scripts", "models/alex12s2.onnx")
+        # self.model = os.path.dirname(os.path.realpath(__file__)).replace("scripts", "models/sissi9.onnx")
+        print("Object detection using opencv dnn with: "+self.model)
         self.net = cv2.dnn.readNet(self.model)
         self.class_list = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority', 'light', 'block', 'girl', 'car']
         rospy.init_node('object_detection_node', anonymous=True)

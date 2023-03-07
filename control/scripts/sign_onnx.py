@@ -16,7 +16,9 @@ import onnxruntime
 class ObjectDetector():
     def __init__(self, show):
         self.show = show
-        self.model = os.path.dirname(os.path.realpath(__file__)).replace("scripts", "models/alex12s2.onnx")
+        # self.model = os.path.dirname(os.path.realpath(__file__)).replace("scripts", "models/alex12s2.onnx")
+        self.model = os.path.dirname(os.path.realpath(__file__)).replace("scripts", "models/sissi9s.onnx")
+        print("Object detection using onnxruntime with: "+self.model)
         self.detector = InferenceModel(self.model, conf_thres=0.45, iou_thres=0.35)
         # self.net = cv2.dnn.readNet(self.model)
         self.class_names = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority', 'light', 'block', 'girl', 'car']
