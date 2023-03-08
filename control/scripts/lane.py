@@ -62,6 +62,7 @@ class LaneDetector():
         # self.image_sub = rospy.Subscriber("automobile/image_raw/compressed", CompressedImage, self.image_callback)
         self.rate = rospy.Rate(15)
 
+        # dotted line service
         self.server = rospy.Service("dotted", dotted, self.doDotted, buff_size=3)
 
     def doDotted(self,request):
