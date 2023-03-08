@@ -45,7 +45,7 @@ class CameraHandler():
         self.bridge = CvBridge()
         self.cv_image = np.zeros((640, 480))
         rospy.init_node('CAMnod', anonymous=True)
-        r = rospy.Rate(5)
+        r = rospy.Rate(2)
         self.save_path = os.path.dirname(os.path.realpath(__file__))+'/images/'
         self.i = 1
         self.image_sub = rospy.Subscriber("/automobile/image_raw", Image, self.callback)
