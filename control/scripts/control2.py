@@ -24,14 +24,14 @@ class StateMachine():
         #sign
         self.class_names = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority',
                 'lights','block','pedestrian','car','others','nothing']
-        self.min_sizes = [25,25,20,000,40,35,25,25,25,100,100,50,250]
-        self.max_sizes = [50,75,55,000,70,55,50,75,50,250,150,150,400]
+        self.min_sizes = [25,25,35,000,65,45,25,25,25,80,100,75,200]
+        self.max_sizes = [50,75,70,000,90,80,50,75,50,200,150,100,300]
         self.detected_objects = []
         self.numObj = -1
         self.box1 = []
         self.box2 = []
 
-        #pose
+        #pose (will get them from localisation)
         self.x = 0.82
         self.y = 14.91
         self.yaw = 1.5707
@@ -56,7 +56,7 @@ class StateMachine():
         #steering
         self.msg = String()
         self.msg2 = String()
-        self.maxspeed = 0.13
+        self.maxspeed = 0.12
         # self.p = 0.005
         # self.i = 0
         # self.d = 0.000#15
@@ -72,9 +72,9 @@ class StateMachine():
         #intersection & parking
         self.intersectionStop = None
         self.intersectionDecision = -1 #0:left, 1:straight, 2:right
-        self.intersectionDecisions = ["left", "straight", "right"] #0:left, 1:straight, 2:right
-        self.parkingDecision = -1 
-        self.parkingDecisions = ["leftParking", "noParking","rightParking", "leftParallel", "rightParallel"] 
+        self.intersectionDecisions = ["left", "straight", "right"]
+        self.parkingDecision = -1 #0:leftParking, 1:noParking, 2:rightParking, 3:rightParallel, 4:leftParallel
+        self.parkingDecisions = ["leftParking", "noParking","rightParking", "rightParallel", "leftParallel"] 
         self.doneManeuvering = False
         self.doneParking = False
         self.destination_x = None
@@ -180,7 +180,18 @@ class StateMachine():
         self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg)
 
+        # timer to stop before parking
         self.timerP = None
+
+        self.parkAdjust = True
+        self.offset = 0.3
+
+        #decisions
+        #get them from localisation/path planner
+        self.interDec=[2,0,1,1,1,1,1] #0:left, 1:straight, 2:right
+        self.interDecI=1
+        self.parkDec=[2,3,1,1,1,1,1] #0:leftParking, 1:noParking, 2:rightParking, 3:rightParallel, 4:leftParallel
+        self.parkDecI=1
     
     #callback function
     def callback(self,lane,sign,imu,encoder):
@@ -216,7 +227,7 @@ class StateMachine():
             print(f"transitioning to '{self.states[self.state]}'")
             if self.state==0:
                 print("Speed is at "+str(self.maxspeed)+"m/s")
-
+    
     #state machine
     def action(self):
         if self.state==0: #lane following
@@ -237,27 +248,21 @@ class StateMachine():
         elif self.state == 7: #Carblock
             return self.carBlock()
         elif self.state == 8: #Roundabout
-            self.state = 0#not implemented yet
+            self.state = 0 #not implemented yet
             return 1
         elif self.state == 9: #Parking
-            # self.park()
-            #Transition events
             if self.timerP is None:
-                self.timerP = rospy.Time.now() + rospy.Duration(3.57)
+                self.timerP = rospy.Time.now() + rospy.Duration(1.57) # stop before parking
                 print("prepare to park")
             elif rospy.Time.now() >= self.timerP:
-                if int(self.maneuverIntHC())==1:
-                    self.state = 11
-                    return 1
-                else:
-                    return 0
+                return self.park()
             self.idle()
             return 0
         elif self.state == 10: #initialization state
             if self.timer is None:
-                print("initializing...")
+                print("Initializing controller...")
                 self.toggle = 0
-                self.timer = rospy.Time.now() + rospy.Duration(5.57)
+                self.timer = rospy.Time.now() + rospy.Duration(3.57)
             if rospy.Time.now() >= self.timer:
                 print("done initializing.")
                 self.timer = None
@@ -291,7 +296,7 @@ class StateMachine():
             self.doneManeuvering = False #set to false before entering state 3
             self.state = 3
             return 1
-        if self.stop_sign_detected():
+        elif self.stop_sign_detected():
             print("stop sign detected -> state 1")
             self.intersectionStop = True
             self.state = 1
@@ -360,8 +365,6 @@ class StateMachine():
             return 1
         return 0
     def maneuverInt(self):
-        #go left, straight or right
-        #Transition Events
         if self.doneManeuvering:
             print("done intersection maneuvering. Back to lane following...")
             self.doneManeuvering = False #reset
@@ -369,9 +372,9 @@ class StateMachine():
             self.state = 0 #go back to lane following
             self.initialPoints = None #reset initial points
             return 1
-        elif self.intersectionDecision <0: 
-            # self.intersectionDecision = np.random.randint(low=0, high=3) 
-            self.intersectionDecision = 2 #replace this with service call
+        elif self.intersectionDecision <0:
+            self.intersectionDecision = self.interDec[self.interDecI] #replace this with service call
+            self.interDecI+=1
             print("intersection decision: going " + self.intersectionDecisions[self.intersectionDecision])
             if self.intersectionDecision == 0: #left
                 self.trajectory = self.left_trajectory
@@ -384,12 +387,16 @@ class StateMachine():
             print("current orientation: ", self.directions[self.orientation], self.orientations[self.orientation])
             print("destination orientation: ", self.destinationOrientation, self.destinationAngle)
             self.initialPoints = np.array([self.x, self.y])
-            print("initialPoints points: ", self.initialPoints)
-            print("begin adjusting angle...")
+            # print("initialPoints points: ", self.initialPoints)
+            # print("begin adjusting angle...")
             self.odomX, self.odomY = 0.0, 0.0 #reset x,y
             self.odomTimer = rospy.Time.now()
-            self.intersectionState = 0 if self.intersectionDecision!=2 else 0#adjusting angle:0, trajectory following:1, adjusting angle2: 2..
+            self.intersectionState = 1 if self.intersectionDecision!=2 else 1#adjusting angle:0, trajectory following:1, adjusting angle2: 2..
         self.odometry()
+        poses = np.array([self.odomX,self.odomY])
+        poses = poses.dot(self.rotation_matrices[self.orientation])
+        x,y = poses[0], poses[1]
+        print("position: ",x,y)
         if self.intersectionState==0: #adjusting
             error = self.yaw-self.currentAngle
             if self.yaw>=5.73: #subtract 2pi to get error between -pi and pi
@@ -397,41 +404,32 @@ class StateMachine():
             # print("yaw, curAngle, error: ", self.yaw, self.currentAngle, error)
             if abs(error) <= 0.05:
                 self.intersectionState+=1 #done adjusting
-                self.intersectionState=3 #done adjusting
                 print("done adjusting angle. Transitioning to trajectory following")
                 print(f"current position: ({self.odomX},{self.odomY})")
                 self.error_sum = 0 #reset pid errors
                 self.last_error = 0
                 return 0
             else:
-                self.publish_cmd_vel(self.pid(error), self.maxspeed*0.7)
+                self.publish_cmd_vel(self.pid(error), self.maxspeed*0.75)
                 return 0
-        elif self.intersectionState==3: #go back till detect stopline again
-            if self.ArrivedAtStopline:
-                self.intersectionState=1
-                print("done going back. Transitioning to trajectory following")
-                print(f"current position: ({self.odomX},{self.odomY})")
-            else:
-                self.straight(-self.maxspeed*0.7)
         elif self.intersectionState==1: #trajectory following
-            poses = np.array([self.odomX,self.odomY])
-            # print("subtracted by offsets: ", poses)
-            poses = poses.dot(self.rotation_matrices[self.orientation])
-            # print("after transformation: ", poses)
-            x,y = poses[0], poses[1]
             desiredY = self.trajectory(x)
             error = y - desiredY
-            # print("x, y error: ",x,abs(error) )
+            # print("x, y_error: ",x,abs(error) )
             # if x>=(self.offsets_x[self.intersectionDecision]-0.1) and (abs(error)<=0.35):
-            arrived = (x>=(self.offsets_x[self.intersectionDecision]) and abs(y)>=self.offsets_y[self.intersectionDecision]) or abs(self.yaw-self.destinationAngle)<= 0.32
+            # arrived = (x>=(self.offsets_x[self.intersectionDecision]) and abs(y)>=self.offsets_y[self.intersectionDecision]) or abs(self.yaw-self.destinationAngle)<= 0.32
+            arrived = abs(self.yaw-self.destinationAngle) <= 0.15
+            # print("yaw_error: ")
+            # print(str(self.yaw-self.destinationAngle))
             if arrived:
-                print("trajectory done. adjust angle round 2")
+                # print("trajectory done. adjust angle round 2")s
                 self.intersectionState += 1
                 self.last_error2 = 0 #reset pid errors
                 self.error_sum2 = 0
                 return 0
             steering_angle = self.pid2(error)
-            print("x, y, desiredY, angle, steer: ", x, y, desiredY, self.yaw, steering_angle*180/3.14159)
+            print("steering: ",steering_angle)
+            # print("x, y, desiredY, angle, steer: ", x, y, desiredY, self.yaw, steering_angle*180/3.14159)
             self.publish_cmd_vel(steering_angle, self.maxspeed*0.75)
             return 0
         elif self.intersectionState == 2: #adjust angle 2
@@ -439,7 +437,7 @@ class StateMachine():
             if self.yaw>=5.73: #subtract 2pi to get small error
                 error-=6.28
             # print("yaw, destAngle, error: ", self.yaw, self.destinationAngle, error)
-            if abs(error) <= 1.25:
+            if abs(error) <= 0.15:
                 print("done adjusting angle!!")
                 self.doneManeuvering = True
                 self.error_sum = 0 #reset pid errors
@@ -447,7 +445,7 @@ class StateMachine():
                 return 0
             else:
                 steering_angle = self.pid(error)
-                self.publish_cmd_vel(steering_angle, self.maxspeed*0.7)
+                self.publish_cmd_vel(steering_angle, self.maxspeed*0.75)
                 return 0
     def maneuverIntHC(self):
         if self.doneManeuvering:
@@ -606,9 +604,9 @@ class StateMachine():
             self.state = 11 #parked
             self.initialPoints = None #reset initial points
             return 1
-        elif self.parkingDecision <0: 
-            # self.intersectionDecision = np.random.randint(low=0, high=3) 
-            self.parkingDecision = 2 #replace this with service call
+        elif self.parkingDecision <0:
+            self.parkingDecision = self.parkDec[self.parkDecI] #replace this with service call
+            self.parkDecI+=1
             print("parking decision: going " + self.parkingDecisions[self.parkingDecision])
             if self.parkingDecision == 0: #leftParking
                 self.trajectory = self.leftpark_trajectory
@@ -617,66 +615,147 @@ class StateMachine():
                 self.state = 0 #lane Following
                 self.initialPoints = None #reset initial points
                 return 1
-            else:
+            elif self.parkingDecision == 2: #rightParking
                 self.trajectory = self.right_trajectory
-        if self.initialPoints is None:
-            self.set_current_angle()
-            print("current orientation: ", self.directions[self.orientation], self.orientations[self.orientation])
-            print("destination orientation: ", self.destinationOrientation, self.destinationAngle)
-            self.initialPoints = np.array([self.x, self.y])
-            print("initialPoints points: ", self.initialPoints)
-            print("begin going straight for 0.45m...")
-            self.odomX, self.odomY = 0.0, 0.0 #reset x,y
-            self.odomTimer = rospy.Time.now()
-            self.intersectionState = 0 #going straight:0, trajectory following:1, adjusting angle2: 2..
-        self.odometry()
-        if self.intersectionState==0: #adjusting
-            # print("odomX, odomY: ", self.odomX, self.odomY)
-            if abs(self.odomX)>=0.45:
-                self.intersectionState+=1 #done adjusting
+        if self.parkingDecision == 3:
+            if self.initialPoints is None:
+                self.set_current_angle()
+                print("current orientation: ", self.directions[self.orientation], self.orientations[self.orientation])
+                print("destination orientation: ", self.destinationOrientation, self.destinationAngle)
+                self.initialPoints = np.array([self.x, self.y])
+                # print("initialPoints points: ", self.initialPoints)
+                print("begin going straight for 0.75m...")
                 self.odomX, self.odomY = 0.0, 0.0 #reset x,y
                 self.odomTimer = rospy.Time.now()
-                print("done going straight. Transitioning to trajectory following")
-                print(f"current position: ({self.odomX},{self.odomY})")
-                self.error_sum = 0 #reset pid errors
-                self.last_error = 0
-                return 0
-            else:
-                self.publish_cmd_vel(self.get_steering_angle(), self.maxspeed)
-                return 0
-        elif self.intersectionState==1: #trajectory following
-            poses = np.array([self.odomX,self.odomY])
+                self.intersectionState = 0 #going straight:0, trajectory following:1, adjusting angle2: 2..
+            self.odometry()
+            poses = np.array([self.odomX, self.odomY])
             poses = poses.dot(self.rotation_matrices[self.orientation])
-            # print("subtracted by offsets: ", poses)
-            # print("after transformation: ", poses)
-            x,y = poses[0], poses[1]
-            desiredY = self.trajectory(x)
-            error = y - desiredY
-            # print("x, y error: ",x,abs(error) )
-            if x>=(self.offsets_x[self.intersectionDecision]-0.1) and abs(y)>=self.offsets_y[self.intersectionDecision]:
-                print("trajectory done. adjust angle round 2")
-                self.intersectionState += 1
-                self.last_error2 = 0 #reset pid errors
-                self.error_sum2 = 0
+            x, y = poses[0], poses[1]
+            print("position: ",x,y)
+            if self.intersectionState==0: #going straight
+                error = self.yaw-self.currentAngle
+                if x >= 0.75:
+                    self.intersectionState = 1
+                    print("done going straight. begin adjusting angle...")
+                    print("current angle, destination: ", self.yaw, self.destinationAngle)
+                self.publish_cmd_vel(self.pid(error), self.maxspeed*0.75)
                 return 0
-            steering_angle = self.pid2(error)
-            # print("x, y, desiredY, angle: ", x, y, desiredY, steering_angle*57.29578)
-            self.publish_cmd_vel(steering_angle, self.maxspeed*0.75)
-            return 0
-        elif self.intersectionState == 2: #adjust angle 2
-            error = self.yaw-self.destinationAngle
-            if self.yaw>=5.73: #subtract 2pi to get small error
-                error-=6.28
-            # print("yaw, destAngle, error: ", self.yaw, self.destinationAngle, error)
-            if abs(error) <= 0.25:
-                print("done adjusting angle!!")
-                self.doneParking = True
-                self.error_sum = 0 #reset pid errors
-                self.last_error = 0
+            if self.intersectionState==1: #adjusting
+                error = self.yaw - self.destinationAngle
+                if self.yaw>=5.73: #subtract 2pi to get small error
+                    error-=6.28
+                # print("yaw, error: ", self.yaw, error)
+                if abs(error) >= 35*np.pi/180:
+                    self.intersectionState = 3 # skip adjusting 2
+                    print("35 degrees...")
+                    # print("going back for 0.3m...")
+                    self.timer5 = rospy.Time.now()+rospy.Duration(3) #change to odom
+                self.publish_cmd_vel(23, -self.maxspeed*0.75)
                 return 0
-            else:
-                self.publish_cmd_vel(self.pid(error), self.maxspeed*0.5)
+            elif self.intersectionState==2: #adjusting
+                if rospy.Time.now() >= self.timer5:
+                    self.intersectionState = 3
+                    self.timer5 = None
+                    print("done going back. begin adjusting angle round2...")
+                self.straight(-self.maxspeed*0.75)
                 return 0
+            elif self.intersectionState==3: #adjusting
+                error = self.yaw - self.destinationAngle
+                if self.yaw>=5.73: #subtract 2pi to get small error
+                    error-=6.28
+                if abs(error) < 0.05:
+                    print("done")
+                    self.doneParking = True
+                    return 0
+                self.publish_cmd_vel(-23, -self.maxspeed*0.75)
+                return 0
+        elif self.parkingDecision == 2:
+            if self.initialPoints is None:
+                self.set_current_angle()
+                print("current orientation: ", self.directions[self.orientation], self.orientations[self.orientation])
+                print("destination orientation: ", self.destinationOrientation, self.destinationAngle)
+                self.initialPoints = np.array([self.x, self.y])
+                print("initialPoints points: ", self.initialPoints)
+                self.offset = 0.1
+                print("begin going straight for "+str(self.offset)+"m")
+                self.odomX, self.odomY = 0.0, 0.0 #reset x,y
+                self.odomTimer = rospy.Time.now()
+                self.intersectionState = 0 #going straight:0, trajectory following:1, adjusting angle2: 2..
+            self.odometry()
+            poses = np.array([self.odomX, self.odomY])
+            poses = poses.dot(self.rotation_matrices[self.orientation])
+            x, y = poses[0], poses[1]
+            print("position: ",x,y)
+            if self.intersectionState==0: #adjusting
+                if abs(x)>=self.offset:
+                    self.intersectionState+=1 #done adjusting
+                    self.odomX, self.odomY = 0.0, 0.0 #reset x,y
+                    self.odomTimer = rospy.Time.now()
+                    print("done going straight. Transitioning to trajectory following")
+                    print(f"current odom position: ({self.odomX},{self.odomY})")
+                    self.error_sum = 0 #reset pid errors
+                    self.last_error = 0
+                    return 0
+                else:
+                    self.publish_cmd_vel(self.get_steering_angle(), self.maxspeed)
+                    print(str(x))
+                    return 0
+            elif self.intersectionState==1: #trajectory following
+                # poses = np.array([self.odomX,self.odomY])
+                # poses = poses.dot(self.rotation_matrices[self.orientation])
+                # print("subtracted by offsets: ", poses)
+                # print("after transformation: ", poses)
+                # x,y = poses[0], poses[1]
+                desiredY = self.trajectory(x)
+                error = y - desiredY
+                # print("x, y error: ",x,abs(error) )
+                if x>=(self.offsets_x[self.intersectionDecision]-0.1) and abs(y)>=(self.offsets_y[self.intersectionDecision]-0.2):# might need to change
+                    print("trajectory done. adjust angle round 2")
+                    self.intersectionState += 1
+                    self.last_error2 = 0 #reset pid errors
+                    self.error_sum2 = 0
+                    return 0
+                steering_angle = self.pid2(error)
+                # print("x, y, desiredY, angle: ", x, y, desiredY, steering_angle*57.29578)
+                self.publish_cmd_vel(steering_angle, self.maxspeed*0.75)
+                return 0
+            elif self.intersectionState == 2: #adjust angle 2
+                error = self.yaw-self.destinationAngle
+                if self.yaw>=5.73: #subtract 2pi to get small error
+                    error-=6.28
+                # print("yaw, destAngle, error: ", self.yaw, self.destinationAngle, error)
+                if abs(error) <= 0.05:
+                    print("done adjusting angle!!")
+                    print("adjusting position to y between 0.3-0.4")
+                    self.intersectionState += 1
+                    self.error_sum = 0 #reset pid errors
+                    self.last_error = 0
+                    return 0
+                else:
+                    if abs(y)<0.3: #adjust forward
+                        self.publish_cmd_vel(self.pid(error), self.maxspeed*0.7)
+                        self.parkAdjust = True
+                    elif abs(y)>0.4: #adjust backward
+                        self.publish_cmd_vel(-self.pid(error), -self.maxspeed*0.7)
+                        self.parkAdjust = False
+                    elif self.parkAdjust:
+                        self.publish_cmd_vel(self.pid(error), self.maxspeed*0.7)
+                    else:
+                        self.publish_cmd_vel(-self.pid(error), -self.maxspeed*0.7)
+                    return 0
+            elif self.intersectionState == 3: #adjust position
+                if abs(y)<0.3:
+                    self.straight(self.maxspeed*0.7)
+                    return 0
+                elif abs(y)>0.4:
+                    self.straight(-self.maxspeed*0.7)
+                    return 0
+                else:
+                    print("done adjusting position.")
+                    print(f"current odom position: ({self.odomX},{self.odomY})")
+                    self.doneParking = True
+                    return 0
 
     #transition events
     def can_park(self):#not implemented yet
@@ -698,9 +777,9 @@ class StateMachine():
     def crosswalk_sign_detected(self):
         return self.object_detected(5)
     def pedestrian_appears(self):# change that
-        return self.object_detected(7) or self.object_detected(1)
+        return self.object_detected(11)
     def pedestrian_clears(self):# change that
-        return (not self.object_detected(7))
+        return self.object_detected(11)
 
     #controller functions
     def straight(self,speed):
@@ -755,15 +834,6 @@ class StateMachine():
         self.odomX += magnitude * math.cos(self.yaw)
         self.odomY += magnitude * math.sin(self.yaw)
         # print(f"odometry: speed={self.velocity}, dt={dt}, mag={magnitude}, cos={math.cos(self.yaw)}, X={self.odomX}, Y={self.odomY}")
-    def left_trajectory(self, x):
-        return math.exp(3.57*x-4.3)
-    def straight_trajectory(self, x):
-        return 0
-    def right_trajectory(self, x):
-        return -math.exp(4*x-2)
-        # return -math.exp(3.75*x-3.33)
-    def leftpark_trajectory(self, x):
-        return math.exp(3.57*x-4.2) #real dimensions
     def set_current_angle(self):
         self.orientation = np.argmin([abs(self.yaw),abs(self.yaw-1.5708),abs((self.yaw)-3.14159),abs(self.yaw-4.71239),abs(self.yaw-6.28319)])%4
         self.currentAngle = self.orientations[self.orientation]
@@ -779,6 +849,19 @@ class StateMachine():
             self.destinationOrientation = self.directions[(self.orientation-1)%4]
             self.destinationAngle = self.orientations[(self.orientation-1)%4]
             return
+        elif self.parkingDecision ==3:
+            self.destinationOrientation = self.directions[(self.orientation)%4]
+            self.destinationAngle = self.orientations[(self.orientation)%4]
+            return
+    def left_trajectory(self, x):
+        return math.exp(3.57*x-4.3)
+    def straight_trajectory(self, x):
+        return 0
+    def right_trajectory(self, x):
+        return -math.exp(4*x-3)
+        # return -math.exp(3.75*x-3.33)
+    def leftpark_trajectory(self, x):
+        return math.exp(3.57*x-4.2) #real dimensions
     def object_detected(self, obj_id):
         if self.numObj >= 2:
             if self.detected_objects[0]==obj_id: 

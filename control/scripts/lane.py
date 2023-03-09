@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-# import onnxruntime
-# from yolov7 import YOLOv7
 import argparse
 import rospy
 import json
@@ -21,25 +19,33 @@ class LaneDetector():
     def __init__(self, method = 'histogram', show=True):
         self.method = method
         self.show = show
-        file = open(os.path.dirname(os.path.realpath(__file__))+'/houghlines.json', 'r')
-        data = json.load(file)
-        print("houghlines params:")
-        print(data)
-        self.point = alex.array(data.get('point'))
-        self.res = data.get('res')
-        self.threshold = data.get('threshold')
-        self.minlength = data.get('minlength')
-        self.error_p = alex.array(data.get('error_p'))
-        self.error_w = data.get('error_w')
+        if self.method != 'histogram':
+            print("Lane detection using houghline transform")
+            file = open(os.path.dirname(os.path.realpath(__file__))+'/houghlines.json', 'r')
+            data = json.load(file)
+            print("houghlines params:")
+            print(data)
+            self.point = alex.array(data.get('point'))
+            self.res = data.get('res')
+            self.threshold = data.get('threshold')
+            self.minlength = data.get('minlength')
+            self.error_p = alex.array(data.get('error_p'))
+            self.error_w = data.get('error_w')
+        else:
+            print("Lane detection using histogram filter")
+            self.maskh = alex.zeros((480,640),dtype='uint8')
+            h=int(0.8*480)
+            polyh = alex.array([[(0,h),(640,h),(640,480),(0,480)]]) # polyh might need adjustment
+            cv2.fillPoly(self.maskh,polyh,255)
+            self.masks = alex.zeros((480,640),dtype='uint8')
+            polys = alex.array([[(0,300),(640,300),(640,340),(0,340)]]) # polys might need adjustment
+            cv2.fillPoly(self.masks,polys,255)
         self.image = alex.zeros((480,640))
         self.stopline = False
         self.dotted = False
         self.pl = 320 # previous lane center
-        self.maskh = alex.zeros((480,640),dtype='uint8')
         self.maskd = alex.zeros((480,640),dtype='uint8')
-        polyh = alex.array([[(0,384),(640,384),(640,480),(0,480)]]) # polyh might need adjustment
         polyd = alex.array([[(0,240),(0,480),(256,480),(256,240)]]) # polyd might need adjustment
-        cv2.fillPoly(self.maskh,polyh,255)
         cv2.fillPoly(self.maskd,polyd,255)
         """
         Initialize the lane follower node
@@ -55,6 +61,7 @@ class LaneDetector():
         # self.image_sub = rospy.Subscriber("automobile/image_raw/compressed", CompressedImage, self.image_callback)
         self.rate = rospy.Rate(15)
 
+        # dotted line service
         self.server = rospy.Service("dotted", dotted, self.doDotted, buff_size=3)
 
     def doDotted(self,request):
@@ -79,15 +86,12 @@ class LaneDetector():
 
         #determine whether left lane is dotted (will make it a service)
         self.dotted = self.dotted_lines(self.image)
-        # self.p.dotted = self.dotted
 
         # Extract the lanes from the image
         if self.method == 'histogram':
             lanes = self.histogram(self.image, show=self.show)
         else:
             lanes = self.extract_lanes(self.image, show=self.show)
-
-        #Determine the steering angle based on the lanes
 
         # if there's a big shift in lane center: ignore due to delay
         if abs(lanes-self.pl)>250:
@@ -107,12 +111,17 @@ class LaneDetector():
         #determine whether we arrive at intersection
         self.p.stopline = self.stopline
 
-        # Publish the steering command
+        # Publish the lane message
         self.pub.publish(self.p)
         # print(self.p)
         # print("time: ", time.time()-t1)
 
     def dotted_lines(self,image):
+        """
+        Check for dotted lines for left lane using the histogram method
+        :param image: Image to extract the lanes from
+        :return: Boolean signaling detection
+        """
         img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         h = img_gray.shape[0]
         img_roi = cv2.bitwise_and(img_gray,self.maskd)
@@ -150,17 +159,44 @@ class LaneDetector():
         h = 480
         w = 640
         img_roi = cv2.bitwise_and(img_gray,self.maskh)
-        t = alex.max(img_roi)-30
-        alex.clip(t,50,150)
+        t = alex.max(img_roi)-55
+        if t<30:
+            t=30
+        alex.clip(t,30,200)
         # print(t)
         ret, thresh = cv2.threshold(img_roi, t, 255, cv2.THRESH_BINARY)
         hist=alex.zeros((1,w))
         for i in range(w):
             hist[0,i]=alex.sum(thresh[:,i])
+
+        #stopline
+        img_rois = cv2.bitwise_and(img_gray,self.masks)
+        t = alex.max(img_roi)-65
+        if t<30:
+            t=30
+        alex.clip(t,30,200)
+        ret, threshs = cv2.threshold(img_rois, t, 255, cv2.THRESH_BINARY)
+        hists=alex.zeros((1,w))
+        for i in range(w):
+            hists[0,i]=alex.sum(threshs[:,i])
         lanes=[]
         p=0
-        
+        for i in range(w):
+            if hists[0,i]>=1500 and p==0:
+                lanes.append(i)
+                p=255
+            elif hists[0,i]==0 and p==255:
+                lanes.append(i)
+                p=0
+        if len(lanes)%2==1:
+            lanes.append(w-1)
+        for i in range(int(len(lanes)/2)):
+            if abs(lanes[2*i]-lanes[2*i+1])>320 and t>30:
+                self.stopline = True
+
         # get lane marking delimiters
+        lanes=[]
+        p=0
         for i in range(w):
             if hist[0,i]>=1500 and p==0:
                 lanes.append(i)
@@ -174,9 +210,9 @@ class LaneDetector():
         # get lane markings
         centers=[]
         for i in range(int(len(lanes)/2)):
-            if abs(lanes[2*i]-lanes[2*i+1])>350:
+            if abs(lanes[2*i]-lanes[2*i+1])>350 and t>50:
                 self.stopline = True
-            elif abs(lanes[2*i]-lanes[2*i+1])>3:
+            elif abs(lanes[2*i]-lanes[2*i+1])>3: # and abs(lanes[2*i]-lanes[2*i+1])<100: #exclude large lanes
                 centers.append((lanes[2*i]+lanes[2*i+1])/2)
         
         # get lane centers based on 4 cases
@@ -207,6 +243,7 @@ class LaneDetector():
                 cv2.putText(thresh, 'Stopline detected!', (int(w*0.1),int(h*0.1)), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 1, cv2.LINE_AA)
             if self.dotted==True:
                 cv2.putText(image, 'DottedLine!', (int(w*0.1),int(h*0.3)), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 1, cv2.LINE_AA)
+            
             # if abs(center-self.pl)>250:
             #     center = self.pl
             # if center==320:
@@ -215,10 +252,11 @@ class LaneDetector():
             # else:
             #     self.p.center = center
             #     self.pl = center
+
             cv2.line(image,(int(center),int(image.shape[0])),(int(center),int(0.8*image.shape[0])),(0,0,255),5)
             add = cv2.cvtColor(thresh,cv2.COLOR_GRAY2RGB)
-            # cv2.imshow('Lane', cv2.add(image,add))
-            cv2.imshow('Lane', image)
+            cv2.imshow('Lane', cv2.add(image,add))
+            # cv2.imshow('Lane', image)
             cv2.waitKey(1)
         return center
 
