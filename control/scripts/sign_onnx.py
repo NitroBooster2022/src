@@ -385,7 +385,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--show", type=str, default=False, help="show camera frames")
     args = parser.parse_args(rospy.myargv()[1:])
-    print(args.show)
     try:
         if args.show=="True":
             s = True

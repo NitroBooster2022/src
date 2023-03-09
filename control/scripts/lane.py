@@ -34,12 +34,11 @@ class LaneDetector():
         else:
             print("Lane detection using histogram filter")
             self.maskh = alex.zeros((480,640),dtype='uint8')
-            h=384
+            h=int(0.8*480)
             polyh = alex.array([[(0,h),(640,h),(640,480),(0,480)]]) # polyh might need adjustment
             cv2.fillPoly(self.maskh,polyh,255)
             self.masks = alex.zeros((480,640),dtype='uint8')
-            h=300
-            polys = alex.array([[(0,h),(640,h),(640,340),(0,340)]]) # polys might need adjustment
+            polys = alex.array([[(0,300),(640,300),(640,340),(0,340)]]) # polys might need adjustment
             cv2.fillPoly(self.masks,polys,255)
         self.image = alex.zeros((480,640))
         self.stopline = False
@@ -87,15 +86,12 @@ class LaneDetector():
 
         #determine whether left lane is dotted (will make it a service)
         self.dotted = self.dotted_lines(self.image)
-        # self.p.dotted = self.dotted
 
         # Extract the lanes from the image
         if self.method == 'histogram':
             lanes = self.histogram(self.image, show=self.show)
         else:
             lanes = self.extract_lanes(self.image, show=self.show)
-
-        #Determine the steering angle based on the lanes
 
         # if there's a big shift in lane center: ignore due to delay
         if abs(lanes-self.pl)>250:
@@ -115,7 +111,7 @@ class LaneDetector():
         #determine whether we arrive at intersection
         self.p.stopline = self.stopline
 
-        # Publish the steering command
+        # Publish the lane message
         self.pub.publish(self.p)
         # print(self.p)
         # print("time: ", time.time()-t1)
@@ -247,6 +243,7 @@ class LaneDetector():
                 cv2.putText(thresh, 'Stopline detected!', (int(w*0.1),int(h*0.1)), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 1, cv2.LINE_AA)
             if self.dotted==True:
                 cv2.putText(image, 'DottedLine!', (int(w*0.1),int(h*0.3)), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 1, cv2.LINE_AA)
+            
             # if abs(center-self.pl)>250:
             #     center = self.pl
             # if center==320:
@@ -255,6 +252,7 @@ class LaneDetector():
             # else:
             #     self.p.center = center
             #     self.pl = center
+
             cv2.line(image,(int(center),int(image.shape[0])),(int(center),int(0.8*image.shape[0])),(0,0,255),5)
             add = cv2.cvtColor(thresh,cv2.COLOR_GRAY2RGB)
             cv2.imshow('Lane', cv2.add(image,add))
