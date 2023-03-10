@@ -93,20 +93,22 @@ class LaneDetector():
         else:
             lanes = self.extract_lanes(self.image, show=self.show)
 
-        # if there's a big shift in lane center: ignore due to delay
-        if abs(lanes-self.pl)>250:
-            # print("ignored")
-            lanes = self.pl
+        # # if there's a big shift in lane center: ignore due to delay
+        # if abs(lanes-self.pl)>250:
+        #     # print("ignored")
+        #     lanes = self.pl
 
-        # ignore one center measurement when we don't detect
-        if lanes==320:
-            self.p.center = self.pl
-            # print("ignored")
-            self.pl = lanes
-        else:
-            self.p.center = lanes
-            self.pl = lanes
-            # print("center: ",self.p.center)
+        # # ignore one center measurement when we don't detect
+        # if lanes==320:
+        #     self.p.center = self.pl
+        #     # print("ignored")
+        #     self.pl = lanes
+        # else:
+        #     self.p.center = lanes
+        #     self.pl = lanes
+        #     # print("center: ",self.p.center)
+
+        self.p.center = lanes
 
         #determine whether we arrive at intersection
         self.p.stopline = self.stopline
@@ -191,7 +193,7 @@ class LaneDetector():
         if len(lanes)%2==1:
             lanes.append(w-1)
         for i in range(int(len(lanes)/2)):
-            if abs(lanes[2*i]-lanes[2*i+1])>320 and t>30:
+            if abs(lanes[2*i]-lanes[2*i+1])>370 and t>30:
                 self.stopline = True
 
         # get lane marking delimiters

@@ -24,8 +24,8 @@ class StateMachine():
         #sign
         self.class_names = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority',
                 'lights','block','pedestrian','car','others','nothing']
-        self.min_sizes = [25,25,22,000,57,45,25,25,25,80,100,75,200]
-        self.max_sizes = [50,75,70,000,90,80,50,75,50,200,150,100,300]
+        self.min_sizes = [25,25,22,000,45,42,25,25,25,80,100,75,200]
+        self.max_sizes = [50,75,70,000,75,80,50,75,50,200,150,100,300]
         self.detected_objects = []
         self.numObj = -1
         self.box1 = []
@@ -189,12 +189,18 @@ class StateMachine():
         #decisions
         #get them from localisation/path planner
         self.interDec=[2,0,1,1,1,1,1] #0:left, 1:straight, 2:right
-        self.interDecI=1
+        self.interDecI=0
+        print("Intersection decisions: [right,left]")
         self.parkDec=[2,3,1,1,1,1,1] #0:leftParking, 1:noParking, 2:rightParking, 3:rightParallel, 4:leftParallel
-        self.parkDecI=1
+        self.parkDecI=0
+        print("Parking decisions: [rightPark,rightParallelPark]")
         self.exitDec=[0,1,1,1,1,1] #0:leftParking, 1:noParking, 2:rightParking, 3:rightParallel, 4:leftParallel
         self.exitDecI=0
         self.exitDecision = -1
+
+        self.parksize = 0
+
+        self.pl = 320 # previous lane center
     
     #callback function
     def callback(self,lane,sign,imu,encoder):
@@ -217,6 +223,20 @@ class StateMachine():
         self.numObj = sign.num
         self.box1 = sign.box1
         self.box2 = sign.box2
+
+        # if there's a big shift in lane center: ignore due to delay
+        if abs(self.center-self.pl)>250:
+            self.center = self.pl
+
+        # ignore one center measurement when we don't detect
+        if self.center==320:
+            c = self.center
+            self.center = self.pl
+            self.pl = c
+        else:
+            self.pl = self.center
+        # print(self.center)
+
         # print("x,y,yaw,velocity,center,stopline: ", self.x, self.y, self.yaw, self.velocity, self.center, self.ArrivedAtStopline)
         # for i in range(self.numObj):
         #     if i == 0:
@@ -342,6 +362,11 @@ class StateMachine():
             self.state = 8
             return 1
         elif self.parking_detected():
+            if self.detected_objects[0] == 4:
+                self.parksize = max(self.box1[2], self.box1[3])
+            else:
+                self.parksize = max(self.box2[2], self.box2[3])
+            self.parksize = self.parksize*0.00263
             print("about to park -> 9")
             self.state = 9
             return 1
@@ -350,6 +375,7 @@ class StateMachine():
             self.state = 11
             return 1
         return 0
+    
     def approachInt(self):
         #Transition events
         if self.ArrivedAtStopline:
@@ -365,6 +391,7 @@ class StateMachine():
         # Determine the steering angle based on the center publish the steering command
         self.publish_cmd_vel(self.get_steering_angle()) 
         return 0
+    
     def stopInt(self):
         self.idle()
         #Transition events
@@ -376,6 +403,7 @@ class StateMachine():
             self.state = 3
             return 1
         return 0
+    
     def maneuverInt(self):
         if self.doneManeuvering:
             print("done intersection maneuvering. Back to lane following...")
@@ -383,6 +411,7 @@ class StateMachine():
             self.intersectionDecision = -1 #reset
             self.state = 0 #go back to lane following
             self.initialPoints = None #reset initial points
+            self.pl = 320
             return 1
         elif self.intersectionDecision <0:
             self.intersectionDecision = self.interDec[self.interDecI] #replace this with service call
@@ -459,6 +488,7 @@ class StateMachine():
                 steering_angle = self.pid(error)
                 self.publish_cmd_vel(steering_angle, self.maxspeed*0.75)
                 return 0
+    
     def maneuverIntHC(self):
         if self.doneManeuvering:
             self.doneManeuvering = False #reset
@@ -527,6 +557,7 @@ class StateMachine():
                     self.right(0.12)
                     return 0
         return 0       
+    
     def approachCrosswalk(self):
         #Transition events
         if self.timer is None: #start timer. ~13 seconds to pass crosswalk
@@ -548,6 +579,7 @@ class StateMachine():
         # Publish the steering command
         self.publish_cmd_vel(self.get_steering_angle(), self.maxspeed*0.66) #Slower
         return 0
+    
     def stopPedestrian(self):
         if self.pedestrian_clears():
             self.pedestrian_sem-=1
@@ -561,6 +593,7 @@ class StateMachine():
         #Action: idle
         self.idle()
         return 0 
+    
     def highway(self):
         if self.highway_exit_detected():
             if self.entering_roundabout():
@@ -568,6 +601,7 @@ class StateMachine():
             else:
                 self.state = 0
         self.publish_cmd_vel(self.get_steering_angle(), self.maxspeed*1.33) 
+    
     def carBlock(self):
         #/entry: checkDotted
         #action: overtake or wait
@@ -610,6 +644,7 @@ class StateMachine():
             else:
                 self.carCleared = True
             return 0
+    
     def park(self):
         if self.doneParking:
             print("done parking maneuvering. Stopping vehicle...")
@@ -639,7 +674,8 @@ class StateMachine():
                 print("destination orientation: ", self.destinationOrientation, self.destinationAngle)
                 self.initialPoints = np.array([self.x, self.y])
                 # print("initialPoints points: ", self.initialPoints)
-                print("begin going straight for 0.75m...")
+                self.offset = 1.6 + self.parksize
+                print("begin going straight for "+str(self.offset)+"m")
                 self.odomX, self.odomY = 0.0, 0.0 #reset x,y
                 self.odomTimer = rospy.Time.now()
                 self.intersectionState = 0 #going straight:0, trajectory following:1, adjusting angle2: 2..
@@ -650,7 +686,7 @@ class StateMachine():
             print("position: ",x,y)
             if self.intersectionState==0: #going straight
                 error = self.yaw-self.currentAngle
-                if x >= 1.6:
+                if x >= self.offset:
                     self.intersectionState = 1
                     print("done going straight. begin adjusting angle...")
                     print("current angle, destination: ", self.yaw, self.destinationAngle)
@@ -692,7 +728,7 @@ class StateMachine():
                 print("destination orientation: ", self.destinationOrientation, self.destinationAngle)
                 self.initialPoints = np.array([self.x, self.y])
                 print("initialPoints points: ", self.initialPoints)
-                self.offset = 0.15
+                self.offset = 0.15 + self.parksize
                 print("begin going straight for "+str(self.offset)+"m")
                 self.odomX, self.odomY = 0.0, 0.0 #reset x,y
                 self.odomTimer = rospy.Time.now()
@@ -713,7 +749,9 @@ class StateMachine():
                     self.last_error = 0
                     return 0
                 else:
+                    error = self.yaw-self.currentAngle
                     self.publish_cmd_vel(self.get_steering_angle(), self.maxspeed)
+                    # self.publish_cmd_vel(self.pid(error), self.maxspeed)
                     print(str(x))
                     return 0
             elif self.intersectionState==1: #trajectory following
@@ -750,10 +788,10 @@ class StateMachine():
                     self.last_error = 0
                     return 0
                 else:
-                    if abs(y)<0.3: #adjust forward
+                    if abs(y)<0.4: #adjust forward
                         self.publish_cmd_vel(self.pid(error), self.maxspeed*0.7)
                         self.parkAdjust = True
-                    elif abs(y)>0.4: #adjust backward
+                    elif abs(y)>0.5: #adjust backward
                         self.publish_cmd_vel(-self.pid(error), -self.maxspeed*0.7)
                         self.parkAdjust = False
                     elif self.parkAdjust:
@@ -762,10 +800,10 @@ class StateMachine():
                         self.publish_cmd_vel(-self.pid(error), -self.maxspeed*0.7)
                     return 0
             elif self.intersectionState == 3: #adjust position
-                if abs(y)<0.3:
+                if abs(y)<0.4:
                     self.straight(self.maxspeed*0.7)
                     return 0
-                elif abs(y)>0.4:
+                elif abs(y)>0.5:
                     self.straight(-self.maxspeed*0.7)
                     return 0
                 else:
@@ -773,6 +811,7 @@ class StateMachine():
                     print(f"current odom position: ({self.odomX},{self.odomY})")
                     self.doneParking = True
                     return 0
+    
     def exitPark(self):
         if self.doneManeuvering:
             print("done exit maneuvering. Back to lane following...")
@@ -781,6 +820,7 @@ class StateMachine():
             self.state = 0 #go back to lane following
             self.initialPoints = None #reset initial points
             self.exitDecI+=1
+            self.timerP = None
             return 1
         elif self.exitDecision <0:
             self.exitDecision = self.exitDec[self.exitDecI] #replace this with service call
@@ -876,9 +916,9 @@ class StateMachine():
         return False #call service or message
     def crosswalk_sign_detected(self):
         return self.object_detected(5)
-    def pedestrian_appears(self):# change that
+    def pedestrian_appears(self):
         return self.object_detected(11)
-    def pedestrian_clears(self):# change that
+    def pedestrian_clears(self):
         return not self.object_detected(11)
 
     #controller functions
@@ -945,16 +985,16 @@ class StateMachine():
             self.destinationOrientation = self.orientation
             self.destinationAngle = self.currentAngle
             return
-        elif self.intersectionDecision == 2 or self.parkingDecision == 2: #right
+        elif self.intersectionDecision == 2 or self.parkingDecision == 2 or self.exitDecision == 0: #right
             self.destinationOrientation = self.directions[(self.orientation-1)%4]
             self.destinationAngle = self.orientations[(self.orientation-1)%4]
             return
-        elif self.parkingDecision ==3 or self.exitDecision == 0:
+        elif self.parkingDecision ==3:
             self.destinationOrientation = self.directions[(self.orientation)%4]
             self.destinationAngle = self.orientations[(self.orientation)%4]
             return
     def left_trajectory(self, x):
-        return math.exp(3.57*x-4.5)
+        return math.exp(3.57*x-4.3)
     def straight_trajectory(self, x):
         return 0
     def right_trajectory(self, x):
@@ -978,6 +1018,8 @@ class StateMachine():
         #checks whether a detected object is within a certain min and max sizes defined by the obj type
         box = self.box1 if index==0 else self.box2
         size = max(box[2], box[3])
+        if obj_id==12:
+            size = min(box[2], box[3])
         return size >= self.min_sizes[obj_id] and size <= self.max_sizes[obj_id]
     def get_steering_angle(self):
         """
