@@ -1,3 +1,4 @@
 string req
 ---
 bool dotted
+float32 dist
