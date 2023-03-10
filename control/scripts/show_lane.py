@@ -41,6 +41,7 @@ class LaneDetector():
             polys = alex.array([[(0,300),(640,300),(640,340),(0,340)]]) # polys might need adjustment
             cv2.fillPoly(self.masks,polys,255)
         self.image = alex.zeros((480,640))
+        self.img_show = alex.zeros((480,640))
         self.stopline = False
         self.dotted = False
         self.pl = 320 # previous lane center
@@ -51,8 +52,6 @@ class LaneDetector():
         Initialize the lane follower node
         """
         rospy.init_node('lane_detector_node', anonymous=True)
-        # self.pub = rospy.Publisher("lane", Lane, queue_size=3)
-        self.p = Lane()
         self.bridge = CvBridge()
 
         self.image_sub = rospy.Subscriber("automobile/image_raw", Image, self.image_callback)
@@ -73,12 +72,6 @@ class LaneDetector():
         :param data: Image data in the ROS Image format
         """
         # t1 = time.time()
-        # Update the header information
-        # header = Header()
-        # header.seq = data.header.seq
-        # header.stamp = data.header.stamp
-        # header.frame_id = data.header.frame_id
-        # self.p.header = header
 
         # Convert the image to the OpenCV format
         # image = self.bridge.compressed_imgmsg_to_cv2(data, "bgr8")
@@ -92,28 +85,23 @@ class LaneDetector():
             lanes = self.histogram(self.image, show=self.show)
         else:
             lanes = self.extract_lanes(self.image, show=self.show)
-
+        
         # if there's a big shift in lane center: ignore due to delay
-        # if abs(lanes-self.pl)>250:
-        #     # print("ignored")
-        #     lanes = self.pl
+        if abs(lanes-self.pl)>250:
+            lanes = self.pl
 
-        # # ignore one center measurement when we don't detect
-        # if lanes==320:
-        #     self.p.center = self.pl
-        #     # print("ignored")
-        #     self.pl = lanes
-        # else:
-        #     self.p.center = lanes
-        #     self.pl = lanes
-        #     # print("center: ",self.p.center)
+        # ignore one center measurement when we don't detect
+        if lanes==320:
+            c = lanes
+            lanes = self.pl
+            self.pl = c
+        else:
+            self.pl = lanes
 
-        #determine whether we arrive at intersection
-        # self.p.stopline = self.stopline
+        cv2.putText(self.img_show, 'Steeting: '+str(self.get_steering_angle(lanes)), (64,48), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,255), 1, cv2.LINE_AA)
+        cv2.imshow('Lane', self.img_show)
+        cv2.waitKey(1)
 
-        # Publish the lane message
-        # self.pub.publish(self.p)
-        # print(self.p)
         # print("time: ", time.time()-t1)
 
     def dotted_lines(self,image):
@@ -240,24 +228,16 @@ class LaneDetector():
             # print(centers)
             # cv2.putText(thresh, str(case), (int(w*0.9),int(h*0.1)), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 1, cv2.LINE_AA)
             if self.stopline==True:
-                cv2.putText(thresh, 'Stopline detected!', (int(w*0.1),int(h*0.1)), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 1, cv2.LINE_AA)
+                cv2.putText(thresh, 'Stopline detected!', (int(w*0.1),int(h*0.2)), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 1, cv2.LINE_AA)
             if self.dotted==True:
                 cv2.putText(image, 'DottedLine!', (int(w*0.1),int(h*0.3)), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 1, cv2.LINE_AA)
-            
-            # if abs(center-self.pl)>250:
-            #     center = self.pl
-            # if center==320:
-            #     self.p.center = self.pl
-            #     self.pl = center
-            # else:
-            #     self.p.center = center
-            #     self.pl = center
 
             cv2.line(image,(int(center),int(image.shape[0])),(int(center),int(0.8*image.shape[0])),(0,0,255),5)
             add = cv2.cvtColor(thresh,cv2.COLOR_GRAY2RGB)
-            cv2.imshow('Lane', cv2.add(image,add))
+            # cv2.imshow('Lane', cv2.add(image,add))
+            self.img_show = cv2.add(image,add)
             # cv2.imshow('Lane', image)
-            cv2.waitKey(1)
+            # cv2.waitKey(1)
         return center
 
     def extract_lanes(self, image, show=False): #hough transform
@@ -319,6 +299,18 @@ class LaneDetector():
             cv2.imshow('center', image)
             cv2.waitKey(1)
         return (left_lane+right_lane)/2
+    
+    def get_steering_angle(self,center):
+        """
+        Determine the steering angle based on the lane center
+        :param center: lane center
+        :return: Steering angle in radians
+        """
+        # Calculate the steering angle in radians
+        image_center = 640 / 2 
+        error = (center - image_center)
+        steering_angle = (error*0.005)
+        return steering_angle
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
