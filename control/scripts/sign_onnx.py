@@ -21,7 +21,7 @@ class ObjectDetector():
         # self.model = os.path.dirname(os.path.realpath(__file__)).replace("scripts", "models/ningp10.onnx")
         self.model = os.path.dirname(os.path.realpath(__file__)).replace("scripts", "models/amy9.onnx")
         print("Object detection using onnxruntime with: "+self.model)
-        self.detector = InferenceModel(self.model, conf_thres=0.48, iou_thres=0.35)
+        self.detector = InferenceModel(self.model, conf_thres=0.45, iou_thres=0.35)
         # self.net = cv2.dnn.readNet(self.model)
         self.class_names = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority', 'light', 'block', 'girl', 'car']
         rospy.init_node('object_detection_node', anonymous=True)

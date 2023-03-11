@@ -10,8 +10,6 @@ import numpy as alex
 from sensor_msgs.msg import Image
 # from sensor_msgs.msg import CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
-from std_msgs.msg import Header
-from utils.msg import Lane
 from utils.srv import *
 # import scipy
 
@@ -98,7 +96,7 @@ class LaneDetector():
         else:
             self.pl = lanes
 
-        cv2.putText(self.img_show, 'Steeting: '+str(self.get_steering_angle(lanes)), (64,48), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,255), 1, cv2.LINE_AA)
+        cv2.putText(self.img_show, 'Steering: '+str(self.get_steering_angle(lanes)/2/alex.pi*360), (64,48), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,255), 1, cv2.LINE_AA)
         cv2.imshow('Lane', self.img_show)
         cv2.waitKey(1)
 
@@ -236,7 +234,6 @@ class LaneDetector():
             add = cv2.cvtColor(thresh,cv2.COLOR_GRAY2RGB)
             # cv2.imshow('Lane', cv2.add(image,add))
             self.img_show = cv2.add(image,add)
-            # cv2.imshow('Lane', image)
             # cv2.waitKey(1)
         return center
 
@@ -318,11 +315,7 @@ if __name__ == '__main__':
     parser.add_argument("--show", type=str, default=True, help="show camera frames")
     args = parser.parse_args(rospy.myargv()[1:])
     try:
-        if args.show=="True":
-            s = True
-        else:
-            s = False
-        node = LaneDetector(method=args.method, show = s)
+        node = LaneDetector(method=args.method, show = True)
         node.rate.sleep()
         rospy.spin()
     except rospy.ROSInterruptException:

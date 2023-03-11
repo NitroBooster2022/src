@@ -11,6 +11,7 @@ import message_filters
 import math
 import os
 import json
+# import cv2
 
 class StateMachine():
     #initialization
@@ -203,7 +204,65 @@ class StateMachine():
         self.parksize = 0
 
         self.pl = 320 # previous lane center
+
+        # self.trackbars()
     
+    #PID tuning
+    # def trackbars(self):
+    #     windowName = "Params"
+    #     image = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/map.png')
+    #     cv2.namedWindow(windowName,cv2.WINDOW_NORMAL)
+    #     cv2.resizeWindow(windowName,480,360)
+    #     cv2.createTrackbar('Save',windowName,0,1,self.save_object)
+    #     cv2.createTrackbar('View',windowName,0,1,self.view)
+    #     cv2.createTrackbar('p',windowName,int(self.p*100000),600,self.changep)
+    #     cv2.createTrackbar('d',windowName,int(self.d*100000),50,self.changed)
+    #     cv2.createTrackbar('i',windowName,int(self.i*100000),100,self.changei)
+    #     # cv2.createTrackbar('kp',windowName,int(self.kp*1000),2000,self.changekp)
+    #     # cv2.createTrackbar('kd',windowName,int(self.kd*1000),1000,self.changekd)
+    #     # cv2.createTrackbar('ki',windowName,int(self.ki*1000),1000,self.changeki)
+    #     # cv2.createTrackbar('kp2',windowName,int(self.kp2*1000),2000,self.changekp2)
+    #     # cv2.createTrackbar('kd2',windowName,int(self.kd2*1000),2000,self.changekd2)
+    #     # cv2.createTrackbar('ki2',windowName,int(self.ki2*1000),2000,self.changeki2)
+    #     cv2.imshow(windowName, image)
+    #     key = cv2.waitKey(0)
+
+    # def save_object(self,v):
+    #     file = open(os.path.dirname(os.path.realpath(__file__))+'/PID.json', 'w')
+    #     data = {"p":self.p,"d":self.d,"i":self.i,"kp":self.kp,"kd":self.kd,"ki":self.ki,"kp2":self.kp2,"kd2":self.kd2,"ki2":self.ki2}
+    #     json.dump(data, file)
+    #     self.view(0)
+    # def view(self,v):
+    #     print("=========== PIDS ============"+'\n'+
+    #         "p           "+str(self.p)+
+    #         "\nd         "+str(self.d)+
+    #         "\ni         "+str(self.i)+
+    #         "\nkp         "+str(self.kp)+
+    #         "\nkd         "+str(self.kd)+
+    #         "\nki         "+str(self.ki)+
+    #         "\nkp2        "+str(self.kp2)+
+    #         "\nkd2        "+str(self.kd2)+
+    #         "\nki2        "+str(self.ki2)        
+    #     )
+    # def changep(self,v):
+    #     self.p = v/100000
+    # def changed(self,v):
+    #     self.d = v/100000
+    # def changei(self,v):
+    #     self.i = v/100000
+    # def changekp(self,v):
+    #     self.kp = v/1000
+    # def changekd(self,v):
+    #     self.kd = v/1000
+    # def changeki(self,v):
+    #     self.ki = v/1000
+    # def changekp2(self,v):
+    #     self.kp2 = v/1000
+    # def changekd2(self,v):
+    #     self.kd2 = v/1000
+    # def changeki2(self,v):
+    #     self.ki2 = v/1000
+
     #callback function
     def callback(self,lane,sign,imu,encoder):
 
@@ -355,7 +414,7 @@ class StateMachine():
             # self.pedestrian_sem = 20 #set semaphore for pedestrian
             self.history = self.state
             self.state = 5
-            self.timer3 = rospy.Time.now()+rospy.Duration(1.5)
+            self.timer3 = rospy.Time.now()+rospy.Duration(2.5)
             return 1
         elif self.highway_entrance_detected():
             print("entering highway -> 6")
@@ -578,7 +637,7 @@ class StateMachine():
             # self.pedestrian_sem = 20 #set semaphore for pedestrian
             self.history = self.state
             self.state = 5
-            self.timer3 = rospy.Time.now()+rospy.Duration(1.5)
+            self.timer3 = rospy.Time.now()+rospy.Duration(2.5)
             return 1
         #Action: slow down
         # Publish the steering command
@@ -597,7 +656,7 @@ class StateMachine():
         else:
             print("pedestrian appears!!!")
             # self.pedestrian_sem=20
-            self.timer3 = rospy.Time.now()+rospy.Duration(1.5)
+            self.timer3 = rospy.Time.now()+rospy.Duration(2.5)
         #Action: idle
         self.idle()
         return 0 
@@ -736,7 +795,7 @@ class StateMachine():
                 print("destination orientation: ", self.destinationOrientation, self.destinationAngle)
                 self.initialPoints = np.array([self.x, self.y])
                 print("initialPoints points: ", self.initialPoints)
-                self.offset = 0.1 + self.parksize
+                self.offset = 0.12 + self.parksize
                 print("begin going straight for "+str(self.offset)+"m")
                 self.odomX, self.odomY = 0.0, 0.0 #reset x,y
                 self.odomTimer = rospy.Time.now()
@@ -772,7 +831,7 @@ class StateMachine():
                 error = y - desiredY
                 # print("x, y error: ",x,abs(error) )
                 # arrived = x>=(self.offsets_x[self.intersectionDecision]-0.1) and abs(y)>=(self.offsets_y[self.intersectionDecision]-0.2)
-                arrived = abs(self.yaw-self.destinationAngle) <= 0.25
+                arrived = abs(self.yaw-self.destinationAngle) <= 0.3
                 if arrived:# might need to change
                     print("trajectory done. adjust angle round 2")
                     self.intersectionState += 1
@@ -819,7 +878,7 @@ class StateMachine():
                     print(f"current odom position: ({self.odomX},{self.odomY})")
                     self.doneParking = True
                     return 0
-    
+
     def exitPark(self):
         if self.doneManeuvering:
             print("done exit maneuvering. Back to lane following...")
@@ -1050,9 +1109,9 @@ class StateMachine():
         if velocity is None:
             velocity = self.maxspeed
         if clip:
-            steering_angle = np.clip(steering_angle, -0.4, 0.4)
+            steering_angle = np.clip(steering_angle*180/np.pi, -22.9, 22.9)
         self.msg.data = '{"action":"1","speed":'+str(velocity)+'}'
-        self.msg2.data = '{"action":"2","steerAngle":'+str(steering_angle*180/np.pi)+'}'
+        self.msg2.data = '{"action":"2","steerAngle":'+str(steering_angle)+'}'
         self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
 
