@@ -68,6 +68,7 @@ add_service_files(
   Localization.srv
   nav.srv
   get_direction.srv
+  dotted.srv
 )
 
 ## Generate actions in the 'action' folder

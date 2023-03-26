@@ -22,6 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
   Localization.srv
   nav.srv
   get_direction.srv
+  dotted.srv
 )
 
  generate_messages(

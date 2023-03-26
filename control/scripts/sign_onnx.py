@@ -6,8 +6,7 @@ import cv2
 import os
 import time
 import numpy as alex
-from sensor_msgs.msg import Image
-from sensor_msgs.msg import CompressedImage
+from sensor_msgs.msg import Image, CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
 # from pynput import keyboard
 from std_msgs.msg import Header
@@ -17,8 +16,12 @@ import onnxruntime
 class ObjectDetector():
     def __init__(self, show):
         self.show = show
-        self.model = os.path.dirname(os.path.realpath(__file__)).replace("scripts", "models/sissi9.onnx")
-        self.detector = InferenceModel(self.model, conf_thres=0.75, iou_thres=0.57)
+        # self.model = os.path.dirname(os.path.realpath(__file__)).replace("scripts", "models/alex12s2.onnx")
+        # self.model = os.path.dirname(os.path.realpath(__file__)).replace("scripts", "models/sissi9s.onnx")
+        # self.model = os.path.dirname(os.path.realpath(__file__)).replace("scripts", "models/ningp10.onnx")
+        self.model = os.path.dirname(os.path.realpath(__file__)).replace("scripts", "models/amy9.onnx")
+        print("Object detection using onnxruntime with: "+self.model)
+        self.detector = InferenceModel(self.model, conf_thres=0.45, iou_thres=0.35)
         # self.net = cv2.dnn.readNet(self.model)
         self.class_names = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority', 'light', 'block', 'girl', 'car']
         rospy.init_node('object_detection_node', anonymous=True)
@@ -60,7 +63,7 @@ class ObjectDetector():
             width1 = self.boxes[0][2]-self.boxes[0][0]
             self.boxes[0][2] = width1
             self.boxes[0][3] = height1
-            print("height1, width1: ", height1, width1, self.class_ids[0])
+            # print("height1, width1: ", height1, width1, self.class_names[self.class_ids[0]])
             height2 = self.boxes[1][3]-self.boxes[1][1]
             width2 = self.boxes[1][2]-self.boxes[1][0]
             self.boxes[1][2] = width2
@@ -72,7 +75,7 @@ class ObjectDetector():
             width1 = self.boxes[0][2]-self.boxes[0][0]
             self.boxes[0][2] = width1
             self.boxes[0][3] = height1
-            print("height1, width1: ", height1, width1, self.class_ids[0])
+            # print("height1, width1: ", height1, width1, self.class_names[self.class_ids[0]])
             self.p.box1 = self.boxes[0]
 
         # print(self.p)
@@ -384,7 +387,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--show", type=str, default=False, help="show camera frames")
     args = parser.parse_args(rospy.myargv()[1:])
-    print(args.show)
     try:
         if args.show=="True":
             s = True
