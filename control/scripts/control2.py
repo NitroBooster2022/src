@@ -160,9 +160,6 @@ class StateMachine():
         self.kd2 = data.get('kd2')
         self.ki2 = data.get('ki2')
 
-        #pedestrian semaphore
-        self.pedestrian_sem = 20
-
         #stop at shutdown
         def shutdown():
             pub = rospy.Publisher("/automobile/command", String, queue_size=3)
@@ -211,7 +208,6 @@ class StateMachine():
     def callback(self,lane,sign,imu,encoder):
 
         self.dt = (rospy.Time.now()-self.timer6).to_sec()
-        # rospy.loginfo("time: %.4f", self.dt)
         self.timer6 = rospy.Time.now()
 
         # Perform decision making tasks
@@ -355,7 +351,6 @@ class StateMachine():
             return 1
         elif self.pedestrian_appears():
             print("pedestrian appears!!! -> state 5")
-            # self.pedestrian_sem = 20 #set semaphore for pedestrian
             self.history = self.state
             self.state = 5
             self.timer3 = rospy.Time.now()+rospy.Duration(2.5)
@@ -578,7 +573,6 @@ class StateMachine():
         elif self.pedestrian_appears():
             print("pedestrian appears!!! -> state 5")
             self.timer = None #reset timer
-            # self.pedestrian_sem = 20 #set semaphore for pedestrian
             self.history = self.state
             self.state = 5
             self.timer3 = rospy.Time.now()+rospy.Duration(2.5)
@@ -590,8 +584,6 @@ class StateMachine():
     
     def stopPedestrian(self):
         if self.pedestrian_clears():
-            # self.pedestrian_sem-=1
-            # if self.pedestrian_sem<=0:
             if rospy.Time.now() > self.timer3:
                 self.timer3 = None
                 self.state = self.history if self.history is not None else 0
@@ -599,7 +591,6 @@ class StateMachine():
                 return 1
         else:
             print("pedestrian appears!!!")
-            # self.pedestrian_sem=20
             self.timer3 = rospy.Time.now()+rospy.Duration(2.5)
         #Action: idle
         self.idle()
