@@ -97,6 +97,7 @@ class StateMachine():
         self.intersectionState = 0
         self.numIntersectionStates = 0
         self.trajectory = None
+
         #constants
         self.orientation = 1 #0,1,2,3=east,north,west,south
         self.directions = ["east", "north", "west", "south"]
@@ -633,7 +634,7 @@ class StateMachine():
             if rospy.Time.now() >= self.timer:
                 print("done initializing.")
                 self.timer = None
-                self.state = 11
+                self.state = 0
                 self.toggle = True
                 return 1
             else:

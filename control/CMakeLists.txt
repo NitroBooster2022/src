@@ -155,6 +155,9 @@ include_directories(
 add_executable(camera
   src/camera.cpp
 )
+add_executable(cameraExample
+  src/cameraExample.cpp
+)
 # add_executable(lane
 #   src/lane.cpp
 # )
@@ -183,6 +186,9 @@ add_executable(sign
 #   ${catkin_LIBRARIES}
 # )
 target_link_libraries(camera
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(cameraExample
   ${catkin_LIBRARIES}
 )
 # target_link_libraries(lane
