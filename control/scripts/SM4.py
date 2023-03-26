@@ -37,6 +37,8 @@ class StateMachine():
         self.box1 = []
         self.box2 = []
 
+        self.parkCount = 0
+
         #pose
         self.x = 0.82
         self.y = 14.91
@@ -223,11 +225,11 @@ class StateMachine():
         self.timer6 = rospy.Time.now()
 
         #yaw for real car
-        self.yaw = -((imu.yaw)*3.14159/180 )-self.initialYaw
-        self.yaw = self.yaw if self.yaw>0 else (6.2831853+self.yaw)
+        # self.yaw = -((imu.yaw)*3.14159/180 )-self.initialYaw
+        # self.yaw = self.yaw if self.yaw>0 else (6.2831853+self.yaw)
 
         #yaw for simulation
-        # self.yaw = imu.yaw if imu.yaw>0 else (6.2831853+imu.yaw)
+        self.yaw = imu.yaw if imu.yaw>0 else (6.2831853+imu.yaw)
 
         self.velocity = encoder.speed
         
@@ -627,7 +629,7 @@ class StateMachine():
             if rospy.Time.now() >= self.timer:
                 print("done initializing.")
                 self.timer = None
-                self.state = 0
+                self.state = 11
                 self.toggle = True
                 return 1
             else:
@@ -641,8 +643,62 @@ class StateMachine():
                     self.toggle = 0
                     self.msg.data = '{"action":"5","activate": true}'
                 self.cmd_vel_pub.publish(self.msg)
+                return 0
         elif self.state == 11: #parked
-            self.publish_cmd_vel(0, 0) 
+            if self.parkCount == 1:
+                print("park count 1, stay idle")
+                self.publish_cmd_vel(0, 0)
+                return 0
+            if self.doneManeuvering:
+                self.parkCount += 1
+                self.doneManeuvering = False
+                self.state = 0
+                return 1
+            elif self.parkingDecision <0: 
+                # self.intersectionDecision = np.random.randint(low=0, high=3) 
+                self.parkingDecision = 4 #replace this with service call
+                print("parked decision is 4")
+            if self.parkingDecision == 4:
+                if self.initialPoints is None:
+                    self.set_current_angle()
+                    print("current orientation: ", self.directions[self.orientation], self.orientations[self.orientation])
+                    print("destination orientation: ", self.destinationOrientation, self.destinationAngle)
+                    self.initialPoints = np.array([self.x, self.y])
+                    print("initialPoints points: ", self.initialPoints)
+                    print("begin going straight for 0.573m...")
+                    self.timer5 = rospy.Time.now() + rospy.Duration(3)
+                    self.intersectionState = 0 #going straight:0, trajectory following:1, adjusting angle2: 2..
+                if self.intersectionState==0: #going straight back
+                    if rospy.Time.now() >= self.timer5:
+                        print("done waiting")
+                        self.intersectionState = 1
+                        self.timer5 = None 
+                        self.odomX, self.odomY = 0.0, 0.0 #reset x,y
+                        self.odomTimer = rospy.Time.now()
+                        print("x,y: ",self.odomX, self.odomY)
+                        return 0
+                    self.publish_cmd_vel(0, 0)
+                if self.intersectionState==1: #going straight back
+                    self.odometry()
+                    poses = np.array([self.odomX,self.odomY])
+                    poses = poses.dot(self.rotation_matrices[self.orientation])
+                    print("x,y: ",poses)
+                    if poses[0] >= 0.27:
+                        self.intersectionState = 2
+                        print("done going back. begin adjusting angle...")
+                        print("current angle, destination: ", self.yaw, self.destinationAngle)
+                    self.publish_cmd_vel(0, -self.maxspeed)
+                if self.intersectionState==2: #adjusting
+                    error = self.yaw - self.destinationAngle
+                    if self.yaw>=5.73: #subtract 2pi to get small error
+                        error-=6.28
+                    # print("yaw, error: ", self.yaw, error)
+                    if abs(error) <= 0.15:
+                        self.intersectionState = 2
+                        print("done adjusting angle. back to Lane follow")
+                        self.doneManeuvering = True
+                        return 0
+                    self.publish_cmd_vel(-23, -self.maxspeed)   
         return 0
     #Transition events
     def can_park(self):
@@ -750,10 +806,10 @@ class StateMachine():
     def odometry(self):
         dt = (rospy.Time.now()-self.odomTimer).to_sec()
         self.odomTimer = rospy.Time.now()
-        magnitude = self.velocity*dt*0.0066
+        magnitude = self.velocity*dt#*0.0066
         self.odomX += magnitude * math.cos(self.yaw)
         self.odomY += magnitude * math.sin(self.yaw)
-        # print(f"odometry: speed={self.velocity}, dt={dt}, mag={magnitude}, cos={math.cos(self.yaw)}, X={self.odomX}, Y={self.odomY}")
+        # print(f"odometry: yaw={self.yaw}, mag={magnitude}, cos={math.cos(self.yaw)}, X={self.odomX}, Y={self.odomY}")
     def left_trajectory(self, x):
         return math.exp(3.57*x-4.3)
     def straight_trajectory(self, x):
@@ -780,6 +836,9 @@ class StateMachine():
         elif self.parkingDecision == 3: #left
             self.destinationOrientation = self.directions[(self.orientation)%4]
             self.destinationAngle = self.orientations[(self.orientation)%4]
+        elif self.parkingDecision == 4: #left
+            self.destinationOrientation = self.directions[(self.orientation-1)%4]
+            self.destinationAngle = self.orientations[(self.orientation-1)%4]
     def object_detected(self, obj_id):
         if self.numObj >= 2:
             if self.detected_objects[0]==obj_id: 
@@ -820,7 +879,7 @@ class StateMachine():
 
         return steering_angle
 
-    def publish_cmd_vel(self, steering_angle, velocity = None, clip = False):
+    def publish_cmd_vel(self, steering_angle, velocity = None, clip = True):
         """
         Publish the steering command to the cmd_vel topic
         :param steering_angle: Steering angle in radians
