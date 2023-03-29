@@ -20,12 +20,23 @@ class StateMachine():
         #simulation
         self.simulation = simulation
         if self.simulation:
+            print("Simulation mode")
             self.odomRatio = 1
             self.process_yaw = self.process_yaw_sim
+            self.left_trajectory = self.left_trajectory_sim
+            self.right_trajectory = self.right_trajectory_sim
+            self.parallelParkAngle = 45
+            self.initializationTime = 2
+            self.maxspeed = 0.175
         else:
+            print("Real mode")
             self.odomRatio = 0.0066
             self.process_yaw = self.process_yaw_real
-
+            self.left_trajectory = self.left_trajectory_real
+            self.right_trajectory = self.right_trajectory_real
+            self.parallelParkAngle = 35
+            self.initializationTime = 10
+            self.maxspeed = 0.125
         #states
         self.states = ['Lane Following', "Approaching Intersection", "Stopping at Intersection", 
                        "Intersection Maneuvering", "Approaching Crosswalk", "Pedestrian", "Highway",
@@ -67,7 +78,6 @@ class StateMachine():
         #steering
         self.msg = String()
         self.msg2 = String()
-        self.maxspeed = 0.125
         # self.p = 0.005
         # self.i = 0
         # self.d = 0.000#15
@@ -126,8 +136,8 @@ class StateMachine():
 
         # Create service proxy
         # self.get_dir = rospy.ServiceProxy('get_direction',get_direction)
-        self.get_dotted = rospy.ServiceProxy('dotted',dotted)
-        rospy.wait_for_service('dotted')
+        # self.get_dotted = rospy.ServiceProxy('dotted',dotted)
+        # rospy.wait_for_service('dotted')
         # how to use:
         # d = self.get_dotted("dotted").dotted
 
@@ -174,11 +184,14 @@ class StateMachine():
         def shutdown():
             pub = rospy.Publisher("/automobile/command", String, queue_size=3)
             msg = String()
-            msg.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
-            pub.publish(msg)
-            pub.publish(msg)
-            pub.publish(msg)
-            pub.publish(msg)
+            msg2 = String()
+            # msg.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
+            msg.data = '{"action":"1","speed":'+str(0.0)+'}'
+            msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
+            for haha in range(3):
+                pub.publish(msg2)
+                pub.publish(msg)
+                self.rate.sleep()
         
         rospy.on_shutdown(shutdown)
 
@@ -233,7 +246,7 @@ class StateMachine():
         # if imu.yaw!=0:
         #     yaw = -((imu.yaw-self.initialYaw)*3.14159/180)
         #     self.yaw = yaw if yaw>0 else (6.2831853+yaw)
-        self.process_yaw()
+        self.process_yaw(imu.yaw)
         self.velocity = encoder.speed
         self.center = lane.center
         self.ArrivedAtStopline = lane.stopline
@@ -304,7 +317,7 @@ class StateMachine():
             if self.timer is None:
                 print("Initializing controller...")
                 self.toggle = 0
-                self.timer = rospy.Time.now() + rospy.Duration(10)
+                self.timer = rospy.Time.now() + rospy.Duration(self.initializationTime)
             if rospy.Time.now() >= self.timer:
                 print("done initializing.")
                 self.timer = None
@@ -693,7 +706,7 @@ class StateMachine():
                 print("destination orientation: ", self.destinationOrientation, self.destinationAngle)
                 self.initialPoints = np.array([self.x, self.y])
                 # print("initialPoints points: ", self.initialPoints)
-                self.offset = 1.6 + self.parksize
+                self.offset = 0.573 if self.simulation else 1.6 + self.parksize 
                 print("begin going straight for "+str(self.offset)+"m")
                 self.odomX, self.odomY = 0.0, 0.0 #reset x,y
                 self.odomTimer = rospy.Time.now()
@@ -702,7 +715,7 @@ class StateMachine():
             poses = np.array([self.odomX, self.odomY])
             poses = poses.dot(self.rotation_matrices[self.orientation])
             x, y = poses[0], poses[1]
-            print("position: ",x,y)
+            # print("position: ",x,y)
             if self.intersectionState==0: #going straight
                 error = self.yaw-self.currentAngle
                 if x >= self.offset:
@@ -716,9 +729,9 @@ class StateMachine():
                 if self.yaw>=5.73: #subtract 2pi to get small error
                     error-=6.28
                 # print("yaw, error: ", self.yaw, error)
-                if abs(error) >= 35*np.pi/180:
+                if abs(error) >= self.parallelParkAngle*np.pi/180:
                     self.intersectionState = 3 # skip adjusting 2
-                    print("35 degrees...")
+                    print(f"{self.parallelParkAngle} degrees...")
                     # print("going back for 0.3m...")
                     self.timer5 = rospy.Time.now()+rospy.Duration(3) #change to odom
                 self.publish_cmd_vel(23, -self.maxspeed*0.9)
@@ -738,7 +751,7 @@ class StateMachine():
                     print("done")
                     self.doneParking = True
                     return 0
-                self.publish_cmd_vel(-23, -self.maxspeed*0.75)
+                self.publish_cmd_vel(-23, -self.maxspeed*0.9)
                 return 0
         elif self.parkingDecision == 2:
             if self.initialPoints is None:
@@ -756,7 +769,7 @@ class StateMachine():
             poses = np.array([self.odomX, self.odomY])
             poses = poses.dot(self.rotation_matrices[self.orientation])
             x, y = poses[0], poses[1]
-            print("position: ",x,y)
+            # print("position: ",x,y)
             if self.intersectionState==0: #adjusting
                 if abs(x)>=self.offset:
                     self.intersectionState+=1 #done adjusting
@@ -864,7 +877,7 @@ class StateMachine():
         poses = np.array([self.odomX,self.odomY])
         poses = poses.dot(self.rotation_matrices[self.orientation])
         x,y = -poses[0], -poses[1]
-        print("position: ",x,y)
+        # print("position: ",x,y)
         if self.intersectionState==0: #adjusting
             error = self.yaw-self.currentAngle
             if self.yaw>=5.73: #subtract 2pi to get error between -pi and pi
@@ -964,9 +977,13 @@ class StateMachine():
         self.cmd_vel_pub.publish(self.msg2)
     def idle(self):
         # self.cmd_vel_pub(0.0, 0.0)
-        self.msg.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
+        # self.msg.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
+        # self.cmd_vel_pub.publish(self.msg)
+        self.msg.data = '{"action":"1","speed":'+str(0.0)+'}'
+        self.msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
         self.cmd_vel_pub.publish(self.msg)
-
+        self.cmd_vel_pub.publish(self.msg2)
+        
     #helper functions
     def pid(self, error):
         # self.error_sum += error * self.dt
@@ -1012,14 +1029,19 @@ class StateMachine():
             self.destinationOrientation = self.directions[(self.orientation)%4]
             self.destinationAngle = self.orientations[(self.orientation)%4]
             return
-    def left_trajectory(self, x):
-        return math.exp(3.57*x-4.3)
+
     def straight_trajectory(self, x):
         return 0
-    def right_trajectory(self, x):
+    def left_trajectory_real(self, x):
+        return math.exp(3.57*x-4.3)
+    def right_trajectory_real(self, x):
         return -math.exp(4*x-3.05)
     def leftpark_trajectory(self, x):
         return math.exp(3.57*x-4.2) #real dimensions
+    def left_trajectory_sim(self, x):
+        return math.exp(3.57*x-4.3)
+    def right_trajectory_sim(self, x):
+        return -math.exp(3.75*x-3.33)
     def object_detected(self, obj_id):
         if self.numObj >= 2:
             if self.detected_objects[0]==obj_id: 
