@@ -12,10 +12,20 @@ import math
 import os
 import json
 # import cv2
+import argparse
 
 class StateMachine():
     #initialization
-    def __init__(self):
+    def __init__(self, simulation = False):
+        #simulation
+        self.simulation = simulation
+        if self.simulation:
+            self.odomRatio = 1
+            self.process_yaw = self.process_yaw_sim
+        else:
+            self.odomRatio = 0.0066
+            self.process_yaw = self.process_yaw_real
+
         #states
         self.states = ['Lane Following', "Approaching Intersection", "Stopping at Intersection", 
                        "Intersection Maneuvering", "Approaching Crosswalk", "Pedestrian", "Highway",
@@ -204,6 +214,12 @@ class StateMachine():
 
         # self.trackbars()
     
+    def process_yaw_sim(self, yaw):
+        self.yaw = yaw if yaw>0 else (6.2831853+yaw)
+    def process_yaw_real(self, yaw):
+        if yaw!=0:
+            newYaw = -((yaw-self.initialYaw)*3.14159/180)
+            self.yaw = newYaw if newYaw>0 else (6.2831853+newYaw)
     #callback function
     def callback(self,lane,sign,imu,encoder):
 
@@ -214,9 +230,10 @@ class StateMachine():
 
         # self.x = localization.posA
         # self.y = 15.0-localization.posB
-        if imu.yaw!=0:
-            yaw = -((imu.yaw-self.initialYaw)*3.14159/180)
-            self.yaw = yaw if yaw>0 else (6.2831853+yaw)
+        # if imu.yaw!=0:
+        #     yaw = -((imu.yaw-self.initialYaw)*3.14159/180)
+        #     self.yaw = yaw if yaw>0 else (6.2831853+yaw)
+        self.process_yaw()
         self.velocity = encoder.speed
         self.center = lane.center
         self.ArrivedAtStopline = lane.stopline
@@ -972,7 +989,7 @@ class StateMachine():
     def odometry(self):
         dt = (rospy.Time.now()-self.odomTimer).to_sec()
         self.odomTimer = rospy.Time.now()
-        magnitude = self.velocity*dt*0.0066
+        magnitude = self.velocity*dt*self.odomRatio
         self.odomX += magnitude * math.cos(self.yaw)
         self.odomY += magnitude * math.sin(self.yaw)
         # print(f"odometry: speed={self.velocity}, dt={dt}, mag={magnitude}, cos={math.cos(self.yaw)}, X={self.odomX}, Y={self.odomY}")
@@ -1106,7 +1123,10 @@ class StateMachine():
     #     self.ki2 = v/1000
 
 if __name__ == '__main__':
-    node = StateMachine()
+    parser = argparse.ArgumentParser(description='State Machine for Robot Control.')
+    parser.add_argument("--simulation", help="Run the robot in simulation or real life", action="store_true")
+    args, unknown = parser.parse_known_args()
+    node = StateMachine(simulation=args.simulation)
     while not rospy.is_shutdown():
         node.rate.sleep()
         rospy.spin()

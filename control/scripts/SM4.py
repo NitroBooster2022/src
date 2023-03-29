@@ -3,9 +3,8 @@
 import rospy
 import numpy as np
 from message_filters import ApproximateTimeSynchronizer
-from std_msgs.msg import String, Float32
+from std_msgs.msg import String
 from utils.msg import Lane, Sign, localisation, IMU, encoder
-from pynput import keyboard
 from utils.srv import get_direction, nav
 import message_filters
 import time
@@ -16,7 +15,7 @@ from geometry_msgs.msg import Twist, Vector3
 import cv2
 import os
 import json
-
+import threading
 
 class StateMachine():
     def __init__(self):
@@ -121,9 +120,11 @@ class StateMachine():
         self.timer4 = rospy.Time.now()
         self.timer5 = rospy.Time.now()
         self.timer6 = rospy.Time.now()
+        self.t1 = time.time()
+        self.t2 = time.time()
         self.odomTimer = rospy.Time.now()
         self.cmd_vel_pub = rospy.Publisher("/automobile/command", String, queue_size=3)
-        self.rate = rospy.Rate(50)
+        self.rate = rospy.Rate(100)
         self.dt = 1/50 #for PID
 
         # Create service proxy
@@ -147,6 +148,12 @@ class StateMachine():
         # Create an instance of TimeSynchronizer
         ts = ApproximateTimeSynchronizer(self.subscribers, queue_size=3, slop=3.15)
         ts.registerCallback(self.callback)
+
+        # Create and start threads
+        self.callback_thread = threading.Thread(target=self.run_callback)
+        self.action_thread = threading.Thread(target=self.run_action)
+        self.callback_thread.start()
+        self.action_thread.start()
 
         # self.trackbars()
         
@@ -219,8 +226,18 @@ class StateMachine():
     def changeki2(self,v):
         self.ki2 = v/1000
     
+    def run_callback(self):
+        rospy.spin()
+    def run_action(self):
+        while not rospy.is_shutdown():
+            act = self.action()
+            if int(act)==1:
+                print(f"transitioning to '{self.states[self.state]}'")
+            self.rate.sleep()
     #callback function
     def callback(self,lane,sign, imu, encoder):
+        # print("callback time: ", time.time()-self.t2)
+        # self.t2 = time.time()
         self.dt = (rospy.Time.now()-self.timer6).to_sec()
         # rospy.loginfo("time: %.4f", self.dt)
         self.timer6 = rospy.Time.now()
@@ -249,13 +266,15 @@ class StateMachine():
         #         print(f"{self.class_names[self.detected_objects[i]]} detected! width, height: {self.box2[2]}, {self.box2[3]}")
         #     else:
         #         print(f"{self.class_names[self.detected_objects[i]]} detected!")
-        act = self.action()
-        if int(act)==1:
-            print(f"transitioning to '{self.states[self.state]}'")
+        # act = self.action()
+        # if int(act)==1:
+        #     print(f"transitioning to '{self.states[self.state]}'")
         # print("time: ",time.time()-t1)
 
     #state machine
     def action(self):
+        print("action time: ", time.time()-self.t1)
+        self.t1 = time.time()
         if self.state==0: #lane following
             # Determine the steering angle based on the center
             steering_angle = self.get_steering_angle(self.center)
@@ -911,6 +930,7 @@ class StateMachine():
 
 if __name__ == '__main__':
     node = StateMachine()
-    while not rospy.is_shutdown():
-        node.rate.sleep()
-        rospy.spin()
+    rospy.spin()
+    # while not rospy.is_shutdown():
+    #     node.rate.sleep()
+    #     rospy.spin()
