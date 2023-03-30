@@ -39,7 +39,7 @@ class ObjectDetector():
         """
         t1 = time.time()
         # Convert the image to the OpenCV format
-        image = self.bridge.imgmsg_to_cv2(data, "rgb8")
+        image = self.bridge.imgmsg_to_cv2(data, "bgr8")
 
          # Update the header information
         header = Header()

@@ -6,7 +6,7 @@ import json
 import cv2
 import os
 import time
-import numpy as alex
+import numpy as np
 from sensor_msgs.msg import Image
 # from sensor_msgs.msg import CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
@@ -21,6 +21,7 @@ from utils.srv import *
 
 class LaneDetector():
     def __init__(self, method = 'histogram', show=True):
+        self.avg_time = []
         self.method = method
         self.show = show
         if self.method != 'histogram':
@@ -29,27 +30,27 @@ class LaneDetector():
             data = json.load(file)
             print("houghlines params:")
             print(data)
-            self.point = alex.array(data.get('point'))
+            self.point = np.array(data.get('point'))
             self.res = data.get('res')
             self.threshold = data.get('threshold')
             self.minlength = data.get('minlength')
-            self.error_p = alex.array(data.get('error_p'))
+            self.error_p = np.array(data.get('error_p'))
             self.error_w = data.get('error_w')
         else:
             print("Lane detection using histogram filter")
-            self.maskh = alex.zeros((480,640),dtype='uint8')
+            self.maskh = np.zeros((480,640),dtype='uint8')
             h=int(0.8*480)
-            polyh = alex.array([[(0,h),(640,h),(640,480),(0,480)]]) # polyh might need adjustment
+            polyh = np.array([[(0,h),(640,h),(640,480),(0,480)]]) # polyh might need adjustment
             cv2.fillPoly(self.maskh,polyh,255)
-            self.masks = alex.zeros((480,640),dtype='uint8')
-            polys = alex.array([[(0,300),(640,300),(640,340),(0,340)]]) # polys might need adjustment
+            self.masks = np.zeros((480,640),dtype='uint8')
+            polys = np.array([[(0,300),(640,300),(640,340),(0,340)]]) # polys might need adjustment
             cv2.fillPoly(self.masks,polys,255)
-        self.image = alex.zeros((480,640))
+        self.image = np.zeros((480,640))
         self.stopline = False
         self.dotted = False
         self.pl = 320 # previous lane center
-        self.maskd = alex.zeros((480,640),dtype='uint8')
-        polyd = alex.array([[(0,240),(0,480),(256,480),(256,240)]]) # polyd might need adjustment
+        self.maskd = np.zeros((480,640),dtype='uint8')
+        polyd = np.array([[(0,240),(0,480),(256,480),(256,240)]]) # polyd might need adjustment
         cv2.fillPoly(self.maskd,polyd,255)
         """
         Initialize the lane follower node
@@ -100,11 +101,15 @@ class LaneDetector():
         self.dotted = self.dotted_lines(self.image)
 
         # Extract the lanes from the image
+        t1 = time.time()
         if self.method == 'histogram':
             lanes = self.histogram(self.image, show=self.show)
+            # lanes = self.optimized_histogram(self.image, show=self.show)
         else:
-            lanes = self.extract_lanes(self.image, show=self.show)
-
+            lanes = self.hough_lines(self.image, show=self.show)
+        self.avg_time.append(time.time()-t1)
+        print("average time: ", sum(self.avg_time)/len(self.avg_time))
+        # print("center, old: ",lanes)
         # # if there's a big shift in lane center: ignore due to delay
         # if abs(lanes-self.pl)>250:
         #     # print("ignored")
@@ -151,11 +156,11 @@ class LaneDetector():
         h = img_gray.shape[0]
         img_roi = cv2.bitwise_and(img_gray,self.maskd)
         ret, thresh = cv2.threshold(img_roi, 150, 255, cv2.THRESH_BINARY) # threshold might need adjustment
-        hist=alex.zeros((int(0.5*h),1))
+        hist=np.zeros((int(0.5*h),1))
         v=int(0.5*h)
         for i in range(int(0.5*h)):
-            hist[i,0]=alex.sum(thresh[i+v,:])
-        t = alex.mean(hist)
+            hist[i,0]=np.sum(thresh[i+v,:])
+        t = np.mean(hist)
         lanes=[]
         p=0
         for i in range(int(0.5*h)):
@@ -181,30 +186,30 @@ class LaneDetector():
         """
         self.stopline = False
         img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        # self.brightness = alex.mean(img_gray)
+        # self.brightness = np.mean(img_gray)
         h = 480
         w = 640
         img_roi = cv2.bitwise_and(img_gray,self.maskh)
-        t = alex.max(img_roi)-55
+        t = np.max(img_roi)-55
         if t<30:
             t=30
-        alex.clip(t,30,200)
+        np.clip(t,30,200)
         # print(t)
         ret, thresh = cv2.threshold(img_roi, t, 255, cv2.THRESH_BINARY)
-        hist=alex.zeros((1,w))
+        hist=np.zeros((1,w))
         for i in range(w):
-            hist[0,i]=alex.sum(thresh[:,i])
+            hist[0,i]=np.sum(thresh[:,i])
 
         #stopline
         img_rois = cv2.bitwise_and(img_gray,self.masks)
-        t = alex.max(img_roi)-65
+        t = np.max(img_roi)-65
         if t<30:
             t=30
-        alex.clip(t,30,200)
+        np.clip(t,30,200)
         ret, threshs = cv2.threshold(img_rois, t, 255, cv2.THRESH_BINARY)
-        hists=alex.zeros((1,w))
+        hists=np.zeros((1,w))
         for i in range(w):
-            hists[0,i]=alex.sum(threshs[:,i])
+            hists[0,i]=np.sum(threshs[:,i])
         lanes=[]
         p=0
         for i in range(w):
@@ -261,32 +266,79 @@ class LaneDetector():
             # case = 3
             center = (centers[0]+centers[len(centers)-1])/2
         if show:
-            # print(hist[0,0:5])
-            # print(lanes)
-            # print(centers)
-            # cv2.putText(thresh, str(case), (int(w*0.9),int(h*0.1)), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 1, cv2.LINE_AA)
             if self.stopline==True:
                 cv2.putText(thresh, 'Stopline detected!', (int(w*0.1),int(h*0.1)), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 1, cv2.LINE_AA)
             if self.dotted==True:
                 cv2.putText(image, 'DottedLine!', (int(w*0.1),int(h*0.3)), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 1, cv2.LINE_AA)
             
-            # if abs(center-self.pl)>250:
-            #     center = self.pl
-            # if center==320:
-            #     self.p.center = self.pl
-            #     self.pl = center
-            # else:
-            #     self.p.center = center
-            #     self.pl = center
-
             cv2.line(image,(int(center),int(image.shape[0])),(int(center),int(0.8*image.shape[0])),(0,0,255),5)
             add = cv2.cvtColor(thresh,cv2.COLOR_GRAY2RGB)
             cv2.imshow('Lane', cv2.add(image,add))
             # cv2.imshow('Lane', image)
             cv2.waitKey(1)
         return center
+    
+    def optimized_histogram(self, image, show=False):
+        self.stopline = False
+        img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        h, w = 480, 640
+        img_roi = cv2.bitwise_and(img_gray, self.maskh)
+        threshold_value = np.clip(np.max(img_roi) - 55, 30, 200)
+        _, thresh = cv2.threshold(img_roi, threshold_value, 255, cv2.THRESH_BINARY)
+        hist = np.sum(thresh, axis=0)
 
-    def extract_lanes(self, image, show=False): #hough transform
+        img_rois = cv2.bitwise_and(img_gray, self.masks)
+        threshold_value_stop = np.clip(np.max(img_roi) - 65, 30, 200)
+        _, threshs = cv2.threshold(img_rois, threshold_value_stop, 255, cv2.THRESH_BINARY)
+        hists = np.sum(threshs, axis=0)
+
+        def extract_lanes(hist_data):
+            lane_indices = []
+            previous_value = 0
+            for idx, value in enumerate(hist_data):
+                if value >= 1500 and previous_value == 0:
+                    lane_indices.append(idx)
+                    previous_value = 255
+                elif value == 0 and previous_value == 255:
+                    lane_indices.append(idx)
+                    previous_value = 0
+            if len(lane_indices) % 2 == 1:
+                lane_indices.append(w - 1)
+            return lane_indices
+
+        stop_lanes = extract_lanes(hists)
+        for i in range(len(stop_lanes) // 2):
+            if abs(stop_lanes[2 * i] - stop_lanes[2 * i + 1]) > 370 and threshold_value > 30:
+                self.stopline = True
+
+        lanes = extract_lanes(hist)
+        centers = [(lanes[2*i] + lanes[2*i + 1]) / 2 for i in range(len(lanes) // 2) if
+                3 < abs(lanes[2 * i] - lanes[2 * i + 1])]
+
+        if len(centers) == 0:
+            center = w / 2
+        elif len(centers) == 1:
+            center = (centers[0] - 0) / 2 if centers[0] > w / 2 else (centers[0] * 2 + w) / 2
+        elif abs(centers[0] - centers[-1]) < 200:
+            center = ((centers[0] + centers[-1]) / 2 + 0) / 2 if (centers[0] + centers[-1]) > w else (
+                        centers[0] + centers[-1]) + w / 2
+        else:
+            center = (centers[0] + centers[-1]) / 2
+
+        if show:
+            if self.stopline:
+                cv2.putText(thresh, 'Stopline detected!', (int(w * 0.1), int(h * 0.1)), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                            (255, 255, 255), 1, cv2.LINE_AA)
+            if self.dotted:
+                cv2.putText(image, 'DottedLine!', (int(w * 0.1), int(h * 0.3)), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1, cv2.LINE_AA)
+
+            cv2.line(image, (int(center), int(image.shape[0])), (int(center), int(0.8 * image.shape[0])), (0, 0, 255), 5)
+            add = cv2.cvtColor(thresh, cv2.COLOR_GRAY2RGB)
+            cv2.imshow('Lane', cv2.add(image, add))
+            cv2.waitKey(1)
+        return center
+
+    def hough_lines(self, image, show=False): #hough transform
         """
         Extract the lanes from the image
         :param image: Image data in the OpenCV format
@@ -298,15 +350,15 @@ class LaneDetector():
         edges = cv2.Canny(cv2.GaussianBlur(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY),(5,5),0),50,150)
 
         # Create a mask for the region of interest (ROI) in the image where the lanes are likely to be
-        mask = alex.zeros_like(edges)
+        mask = np.zeros_like(edges)
         h = image.shape[0]
         w = image.shape[1]
-        vertices = alex.array([[(0,h*0.75),(self.point[0]*w,self.point[1]*h),(w,0.75*h),(w,h),(0,h)]], dtype=alex.int32)
+        vertices = np.array([[(0,h*0.75),(self.point[0]*w,self.point[1]*h),(w,0.75*h),(w,h),(0,h)]], dtype=np.int32)
         cv2.fillPoly(mask, vertices, 255)
         masked_edges = cv2.bitwise_and(edges, mask)
 
         # Use Hough transform to detect lines in the image
-        lines = cv2.HoughLinesP(masked_edges,self.res,alex.pi/180,self.threshold,minLineLength=self.minlength)
+        lines = cv2.HoughLinesP(masked_edges,self.res,np.pi/180,self.threshold,minLineLength=self.minlength)
 
         # Separate the lines into left and right lanes
         left=[]
@@ -333,11 +385,11 @@ class LaneDetector():
         if len(left) == 0:
             left_lane = 0
         else:
-            left_lane = alex.mean(left)
+            left_lane = np.mean(left)
         if len(right) == 0:
             right_lane = w
         else:
-            right_lane = alex.mean(right)
+            right_lane = np.mean(right)
         # print("time used: ", time.time()-t1)
         center = (left_lane+right_lane)/2
         if show:
