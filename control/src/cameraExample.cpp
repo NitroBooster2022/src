@@ -25,6 +25,7 @@ public:
         // cv::fillPoly(maskh, ppt, npt, 1, 255);
         
         // masks = cv::Mat::zeros(480, 640, CV_8UC1);
+        
         // cv::Point polys[1][4]; 
         // polys[0][0] = cv::Point(0, 300);
         // polys[0][1] = cv::Point(640, 300);
