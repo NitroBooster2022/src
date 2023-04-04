@@ -1148,8 +1148,8 @@ class StateMachine():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='State Machine for Robot Control.')
-    parser.add_argument("--simulation", help="Run the robot in simulation or real life", action="store_true")
-    args, unknown = parser.parse_known_args()
+    parser.add_argument("--simulation", type=str, default=True, help="Run the robot in simulation or real life")
+    # args, unknown = parser.parse_known_args()
     args = parser.parse_args(rospy.myargv()[1:])
     if args.simulation=="True":
         s = True

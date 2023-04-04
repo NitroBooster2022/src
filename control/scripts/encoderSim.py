@@ -54,7 +54,7 @@ class EncoderNode():
         self.p.speed = speed
         # t1 = time.time()
 
-        print(self.p)
+        # print(self.p)
         self.pub.publish(self.p)
         # print("time: ", time.time()-t1)
 
