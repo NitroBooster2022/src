@@ -13,8 +13,8 @@ public:
         image_sub = it.subscribe("/automobile/image_raw", 1, &LaneDetector::imageCallback, this);
         image_pub = it.advertise("/automobile/image_modified", 1);
         lane_pub = nh.advertise<utils::Lane>("/lane", 1);
-        maskh = cv::Mat::zeros(480, 640, CV_8UC1);
-        int h = static_cast<int>(0.8 * 480);
+        // maskh = cv::Mat::zeros(480, 640, CV_8UC1);
+        // int h = static_cast<int>(0.8 * 480);
         // cv::Point polyh[1][4];
         // polyh[0][0] = cv::Point(0, h);
         // polyh[0][1] = cv::Point(640, h);
@@ -23,17 +23,9 @@ public:
         // const cv::Point* ppt[1] = { polyh[0] };
         // int npt[] = { 4 };
         // cv::fillPoly(maskh, ppt, npt, 1, 255);
-        std::vector<cv::Point> polyh(4);
-        polyh[0] = cv::Point(0, h);
-        polyh[1] = cv::Point(640, h);
-        polyh[2] = cv::Point(640, 480);
-        polyh[3] = cv::Point(0, 480);
-        const cv::Point* ppt[1] = { polyh.data() };
-        int npt[] = { 4 };
-        cv::fillPoly(maskh, ppt, npt, 1, 255);
-
         
-        masks = cv::Mat::zeros(480, 640, CV_8UC1);
+        // masks = cv::Mat::zeros(480, 640, CV_8UC1);
+        
         // cv::Point polys[1][4]; 
         // polys[0][0] = cv::Point(0, 300);
         // polys[0][1] = cv::Point(640, 300);
@@ -41,27 +33,20 @@ public:
         // polys[0][3] = cv::Point(0, 340);
         // const cv::Point* ppt_s[1] = { polys[0] };
         // cv::fillPoly(masks, ppt_s, npt, 1, 255);
-        std::vector<cv::Point> polys(4);
-        polys[0] = cv::Point(0, 300);
-        polys[1] = cv::Point(640, 300);
-        polys[2] = cv::Point(640, 340);
-        polys[3] = cv::Point(0, 340);
-        const cv::Point* ppt_s[1] = { polys.data() };
-        cv::fillPoly(masks, ppt_s, npt, 1, 255);
         
         image = cv::Mat::zeros(480, 640, CV_8UC1);
         stopline = false;
         dotted = false;
         pl = 320;
 
-        maskd = cv::Mat::zeros(480, 640, CV_8UC1);
-        cv::Point polyd[1][4];
-        polyd[0][0] = cv::Point(0, 240);
-        polyd[0][1] = cv::Point(0, 480);
-        polyd[0][2] = cv::Point(256, 480);
-        polyd[0][3] = cv::Point(256, 240);
-        const cv::Point* ppt_d[1] = { polyd[0] };
-        cv::fillPoly(maskd, ppt_d, npt, 1, 255);
+        // maskd = cv::Mat::zeros(480, 640, CV_8UC1);
+        // cv::Point polyd[1][4];
+        // polyd[0][0] = cv::Point(0, 240);
+        // polyd[0][1] = cv::Point(0, 480);
+        // polyd[0][2] = cv::Point(256, 480);
+        // polyd[0][3] = cv::Point(256, 240);
+        // const cv::Point* ppt_d[1] = { polyd[0] };
+        // cv::fillPoly(maskd, ppt_d, npt, 1, 255);
         
         ros::Rate rate(15); 
         while (ros::ok()) {
@@ -121,12 +106,13 @@ public:
         return lane_indices;
     }
 
-    double optimized_histogram(cv::Mat image, bool show = false) {
+    double optimized_histogram(cv::Mat image, bool show = true) {
         stopline = false;
         cv::cvtColor(image, img_gray, cv::COLOR_BGR2GRAY);
 
         // apply maskh
-        img_roi = img_gray & maskh;
+        // img_roi = img_gray & maskh;
+        img_roi = img_gray(cv::Rect(0, 0, 640, 384));
         cv::minMaxLoc(img_roi, &minVal, &maxVal, &minLoc, &maxLoc);
         double threshold_value = std::min(std::max(maxVal - 55.0, 30.0), 200.0);
         cv::threshold(img_roi, thresh, threshold_value, 255, cv::THRESH_BINARY);
@@ -134,7 +120,8 @@ public:
         cv::reduce(thresh, hist, 0, cv::REDUCE_SUM, CV_32S);
 
         // apply masks
-        img_rois = img_gray & masks;
+        // img_rois = img_gray & masks;
+        img_rois = img_gray(cv::Range(300, 340), cv::Range::all());
         cv::minMaxLoc(img_roi, &minVal, &maxVal, &minLoc, &maxLoc); // Use img_roi or img_rois depending on your requirements
         threshold_value_stop = std::min(std::max(maxVal - 65.0, 30.0), 200.0);
         
@@ -171,15 +158,21 @@ public:
         }
 
         if (show) {
+            // Create the new cv::Mat object and initialize it with zeros
+            cv::Mat padded_thresh = cv::Mat::zeros(480, 640, CV_8UC1);
+
+            // Copy the truncated array into the new cv::Mat object
+            cv::Mat roi = padded_thresh(cv::Range(384, thresh.rows), cv::Range::all());
+            thresh.copyTo(roi);
             if (stopline) {
-                cv::putText(thresh, "Stopline detected!", cv::Point(static_cast<int>(w * 0.1), static_cast<int>(h * 0.1)), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255, 255, 255), 1, cv::LINE_AA);
+                cv::putText(padded_thresh, "Stopline detected!", cv::Point(static_cast<int>(w * 0.5), static_cast<int>(h * 0.5)), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255, 255, 255), 1, cv::LINE_AA);
             }
             if (dotted) {
-                cv::putText(image, "DottedLine!", cv::Point(static_cast<int>(w*0.1), static_cast<int>(h * 0.3)), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 0, 255), 1, cv::LINE_AA);
+                cv::putText(image, "DottedLine!", cv::Point(static_cast<int>(w*0.5), static_cast<int>(h * 0.5)), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 0, 255), 1, cv::LINE_AA);
         }
             cv::line(image, cv::Point(static_cast<int>(center), image.rows), cv::Point(static_cast<int>(center), static_cast<int>(0.8 * image.rows)), cv::Scalar(0, 0, 255), 5);
             cv::Mat add;
-            cv::cvtColor(thresh, add, cv::COLOR_GRAY2BGR);
+            cv::cvtColor(padded_thresh, add, cv::COLOR_GRAY2BGR);
             cv::imshow("Lane", image + add);
             cv::waitKey(1);
         }
