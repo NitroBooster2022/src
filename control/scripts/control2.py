@@ -4,14 +4,15 @@ import numpy as np
 from message_filters import ApproximateTimeSynchronizer
 from std_msgs.msg import String
 from utils.msg import Lane, Sign, localisation, IMU, encoder
-# from pynput import keyboard
-from utils.srv import get_direction, dotted
+from utils.srv import get_direction, dotted, nav
 import message_filters
-# import time
+import time
 import math
+
+import cv2
 import os
 import json
-# import cv2
+import threading
 import argparse
 
 class StateMachine():
@@ -48,6 +49,7 @@ class StateMachine():
                 'lights','block','pedestrian','car','others','nothing']
         self.min_sizes = [25,25,22,000,45,42,25,25,25,80,100,72,200]
         self.max_sizes = [50,75,70,000,75,80,50,75,50,200,150,200,300]
+        self.center = -1
         self.detected_objects = []
         self.numObj = -1
         self.box1 = []
@@ -1148,7 +1150,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='State Machine for Robot Control.')
     parser.add_argument("--simulation", help="Run the robot in simulation or real life", action="store_true")
     args, unknown = parser.parse_known_args()
-    node = StateMachine(simulation=args.simulation)
+    args = parser.parse_args(rospy.myargv()[1:])
+    if args.simulation=="True":
+        s = True
+    else:
+        s = False
+    node = StateMachine(simulation=s)
     while not rospy.is_shutdown():
         node.rate.sleep()
         rospy.spin()
