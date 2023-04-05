@@ -58,7 +58,7 @@ public:
     void imageCallback(const sensor_msgs::ImageConstPtr& msg) {
         try {
             cv::Mat cv_image = cv_bridge::toCvShare(msg, "bgr8")->image;
-            addSquare(cv_image); // Add a square to the image
+            // addSquare(cv_image); // Add a square to the image
             auto start = high_resolution_clock::now();
             double center = optimized_histogram(cv_image);
             auto stop = high_resolution_clock::now();
@@ -112,7 +112,9 @@ public:
 
         // apply maskh
         // img_roi = img_gray & maskh;
-        img_roi = img_gray(cv::Rect(0, 0, 640, 384));
+        img_roi = img_gray(cv::Rect(0, 384, 640, 96));
+        // cv::imshow("L", img_roi);
+        // cv::waitKey(1);
         cv::minMaxLoc(img_roi, &minVal, &maxVal, &minLoc, &maxLoc);
         double threshold_value = std::min(std::max(maxVal - 55.0, 30.0), 200.0);
         cv::threshold(img_roi, thresh, threshold_value, 255, cv::THRESH_BINARY);
@@ -122,6 +124,8 @@ public:
         // apply masks
         // img_rois = img_gray & masks;
         img_rois = img_gray(cv::Range(300, 340), cv::Range::all());
+        // cv::imshow("S", img_rois);
+        // cv::waitKey(1);
         cv::minMaxLoc(img_roi, &minVal, &maxVal, &minLoc, &maxLoc); // Use img_roi or img_rois depending on your requirements
         threshold_value_stop = std::min(std::max(maxVal - 65.0, 30.0), 200.0);
         
@@ -162,7 +166,7 @@ public:
             cv::Mat padded_thresh = cv::Mat::zeros(480, 640, CV_8UC1);
 
             // Copy the truncated array into the new cv::Mat object
-            cv::Mat roi = padded_thresh(cv::Range(384, thresh.rows), cv::Range::all());
+            cv::Mat roi = padded_thresh(cv::Range(384, 384+thresh.rows), cv::Range::all());
             thresh.copyTo(roi);
             if (stopline) {
                 cv::putText(padded_thresh, "Stopline detected!", cv::Point(static_cast<int>(w * 0.5), static_cast<int>(h * 0.5)), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255, 255, 255), 1, cv::LINE_AA);
