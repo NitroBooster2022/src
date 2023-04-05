@@ -19,17 +19,22 @@ from message_filters import ApproximateTimeSynchronizer
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Twist, Vector3
 import math
-from utils.msg import encoder
+from utils.msg import encoder, IMU
 
 class EncoderNode():
     def __init__(self):
         print("init encoder node")
         rospy.init_node('encoder_node', anonymous=True)
         # self.image_sub = rospy.Subscriber("/automobile/encoder", Float32, self.callback, queue_size=3)
-        self.image_sub = rospy.Subscriber("/gazebo/model_states", ModelStates, self.callback, queue_size=3)
+        self.twist_sub = rospy.Subscriber("/gazebo/model_states", ModelStates, self.callback, queue_size=3)
+        self.imu_sub = rospy.Subscriber("/automobile/IMU", IMU, self.callbackI, queue_size=3)
         self.pub = rospy.Publisher("/automobile/encoder", encoder, queue_size = 3)
         self.p = encoder()
         self.rate = rospy.Rate(15)
+        self.yaw = 0
+
+    def callbackI(self, imu):
+        self.yaw = imu.yaw
 
     def callback(self, ModelStates):
         """
@@ -50,8 +55,14 @@ class EncoderNode():
             return
         x_speed = ModelStates.twist[i].linear.x
         y_speed = ModelStates.twist[i].linear.y
+        syaw = math.atan2(y_speed,x_speed)
         speed = math.sqrt(x_speed*x_speed+y_speed*y_speed)
-        self.p.speed = speed
+        if (syaw-self.yaw)<0.1:
+            self.p.speed = speed
+        else:
+            self.p.speed = -speed
+        # print("vx,vy,yaw,syaw",x_speed,y_speed,self.yaw,syaw)
+
         # t1 = time.time()
 
         # print(self.p)

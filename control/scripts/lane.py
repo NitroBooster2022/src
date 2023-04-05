@@ -107,8 +107,10 @@ class LaneDetector():
             # lanes = self.optimized_histogram(self.image, show=self.show)
         else:
             lanes = self.hough_lines(self.image, show=self.show)
-        self.avg_time.append(time.time()-t1)
-        print("average time: ", sum(self.avg_time)/len(self.avg_time))
+        
+        # self.avg_time.append(time.time()-t1)
+        # print("average time: ", sum(self.avg_time)/len(self.avg_time))
+        
         # print("center, old: ",lanes)
         # # if there's a big shift in lane center: ignore due to delay
         # if abs(lanes-self.pl)>250:
@@ -224,6 +226,8 @@ class LaneDetector():
         for i in range(int(len(lanes)/2)):
             if abs(lanes[2*i]-lanes[2*i+1])>370 and t>30:
                 self.stopline = True
+                if not show:
+                    return w/2
 
         # get lane marking delimiters
         lanes=[]
@@ -243,6 +247,8 @@ class LaneDetector():
         for i in range(int(len(lanes)/2)):
             if abs(lanes[2*i]-lanes[2*i+1])>350 and t>50:
                 self.stopline = True
+                if not show:
+                    return w/2
             elif abs(lanes[2*i]-lanes[2*i+1])>3: # and abs(lanes[2*i]-lanes[2*i+1])<100: #exclude large lanes
                 centers.append((lanes[2*i]+lanes[2*i+1])/2)
         

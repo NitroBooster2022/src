@@ -16,3 +16,25 @@ controller: $roslaunch control car_control.launch (you can edit the launch file 
 any other functions: $rosrun control *.py (any python file in control/scripts or any c++ files in control/src without .cpp)
 (ex: $rosrun control lane.py
 ex: $rosrun control lane)
+
+Files structures in src:
+control: our controller package
+-launch: launch files for controller function
+-models: yolo models for object detection
+-msg: custom ros messages used by controller functions
+-scripts: controller functions in python
+-src: controller functions in c++
+-srv: custom ros services used by controller functions
+
+example: given demo code
+-its src has control.py and camera.py to demo keyboard control and camera
+
+models_pkg: sdf models used in the simulator
+
+plugins_pkg: code to simulate the components of the car (gps, motor and servo commands...)
+
+sim_pkg: contains simulator worlds and launch files for them
+
+traffic_light_pkg: idk
+
+utils: custom ros messages and services

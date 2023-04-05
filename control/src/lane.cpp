@@ -35,7 +35,7 @@ public:
             double avg_duration = total / num_iterations;
             num_iterations++;
             // std::cout << "durations: " << duration.count() << std::endl;
-            std::cout << "avg: " << avg_duration << std::endl;
+            // std::cout << "avg: " << avg_duration << std::endl;
             // std::cout << "center: " << center << std::endl;
 
             // cv::imshow("Frame preview", cv_image);
@@ -103,12 +103,17 @@ public:
         for (size_t i = 0; i < stop_lanes.size() / 2; ++i) {
             if (abs(stop_lanes[2 * i] - stop_lanes[2 * i + 1]) > 370 && threshold_value > 30) {
                 stopline = true;
+                if (!show) return w / 2.0;
             }
         }
 
         std::vector<int> lanes = extract_lanes(hist);
         std::vector<double> centers;
         for (size_t i = 0; i < lanes.size() / 2; ++i) {
+            if (abs(lanes[2 * i] - lanes[2 * i + 1])>350 && threshold_value>50){
+                stopline = true;
+                if (!show) return w / 2.0;
+            }
             if (3 < abs(lanes[2 * i] - lanes[2 * i + 1])) {
                 centers.push_back((lanes[2 * i] + lanes[2 * i + 1]) / 2.0);
             }
@@ -117,12 +122,13 @@ public:
         if (centers.empty()) {
             center = w / 2.0;
         } else if (centers.size() == 1) {
-            center = (centers[0] > w / 2.0) ? (centers[0] - 0) / 2 : (centers[0] * 2 + w) / 2;
+            center = (centers[0] > (w / 2.0)) ? (centers[0] - 0) / 2 : (centers[0] * 2 + w) / 2;
         } else if (abs(centers[0] - centers.back()) < 200) {
-            center = ((centers[0] + centers.back()) / 2 + 0) / 2.0;
-            if ((centers[0] + centers.back()) > w) {
-                center = (centers[0] + centers.back()) + w / 2;
-            }
+            // center = ((centers[0] + centers.back()) / 2 + 0) / 2.0;
+            // if ((centers[0] + centers.back()) > w) {
+            //     center = (centers[0] + centers.back()) + w / 2;
+            // }
+            center = ((centers[0] + centers.back()) > w) ? ((centers[0] + centers.back()) / 2 + 0) / 2.0 : ((centers[0] + centers.back()) + w) / 2;
         } else {
             center = (centers[0] + centers.back()) / 2;
         }
