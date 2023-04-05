@@ -47,7 +47,7 @@ class CameraHandler():
         r = rospy.Rate(5)
         self.image_sub = rospy.Subscriber("/automobile/image_raw", Image, self.callback)
         rospy.spin()
-        self.i = 1
+        # self.i = 1
 
     def callback(self, data):
         """
@@ -55,10 +55,10 @@ class CameraHandler():
         :return: nothing but sets [cv_image] to the usefull image that can be use in opencv (numpy array)
         """
         self.cv_image = self.bridge.imgmsg_to_cv2(data, "rgb8")
-        cv2.imwrite("images/"+str(self.i)+".jpg", self.cv_image)
-        self.i+=1
-        # cv2.imshow("Frame preview", self.cv_image)
-        # key = cv2.waitKey(1)
+        # cv2.imwrite("images/"+str(self.i)+".jpg", self.cv_image)
+        # self.i+=1
+        cv2.imshow("Frame preview", self.cv_image)
+        key = cv2.waitKey(1)
     
             
 if __name__ == '__main__':

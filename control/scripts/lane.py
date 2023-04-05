@@ -400,8 +400,8 @@ class LaneDetector():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--method", type=str, default='histogram', help="hough or histogram")
-    parser.add_argument("--show", type=str, default=True, help="show camera frames")
+    parser.add_argument("-method", type=str, default='histogram', help="hough or histogram")
+    parser.add_argument("-show", type=str, default=True, help="show camera frames")
     args = parser.parse_args(rospy.myargv()[1:])
     try:
         if args.show=="True":
