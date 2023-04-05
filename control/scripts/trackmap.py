@@ -29,8 +29,7 @@ class track_map():
         [3.05,7.83],[1.63,6.61],[1.93,7],
         [5.28,7.83],[4.9,9.69],[3.83,6.61],[4.13,7],
         [2.7,2],[0.45,5.83],[11,3.5],[4.6,1.7],[4.9,5.87],[8.56,3.92],
-        [4.3,2.1],[3,1.7],[0,0],[10,5],[6,13],[11.9,4.7]
-        ]
+        [4.3,2.1],[3,1.7],[0,0],[10,5],[6,13],[11.9,4.7]]
         self.planned_path = path
         
         # graph map creation (run to get edgelist)
@@ -269,17 +268,17 @@ class track_map():
         self.add_edge('int6W','int5W','straight')
         self.add_edge('int6E','int6S','right')
         self.add_edge('int6E','track3N','left')
-        self.add_edge('track1N','parkingN','straight')
+        self.add_edge('track1N','parkingN','park')
         self.add_edge('track1S','int5E','left')
         self.add_edge('track1S','int3S','straight')
-        self.add_edge('parkingN','track2N','straight')
-        self.add_edge('parkingS','track1S','straight')
-        self.add_edge('track2S','parkingS','straight')
+        self.add_edge('parkingN','track2N','exitpark')
+        self.add_edge('parkingS','track1S','exitpark')
+        self.add_edge('track2S','parkingS','park')
         self.add_edge('track2N','roundabout','straight')
         self.add_edge('roundabout','track2S','-')
         self.add_edge('roundabout','highwayS','-')
         self.add_edge('roundabout','track3S','-')
-        self.add_edge('track3N','roundabout','')
+        self.add_edge('track3N','roundabout','-')
         self.add_edge('track3S','int6W','right')
         self.add_edge('track3S','int6S','straight')
         self.add_edge('highwayN','roundabout','straight')
