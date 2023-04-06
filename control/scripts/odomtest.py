@@ -11,7 +11,7 @@ import math
 import os
 import json
 
-class Odom():
+class Odomtest():
     def __init__(self):
         #pose
         self.x = 0.82
@@ -457,7 +457,7 @@ class Odom():
         self.cmd_vel_pub.publish(self.msg2)
 
 if __name__ == '__main__':
-    node = Odom()
+    node = Odomtest()
     while not rospy.is_shutdown():
         node.rate.sleep()
         rospy.spin()

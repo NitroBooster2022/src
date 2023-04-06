@@ -70,7 +70,7 @@ class track_map():
         # print(self.directions)
 
     def draw_map_graphml(self):
-        # draw the path
+        # draw the path (graphml)
         img_map=self.map
         # cv2.circle(img_map, (int(self.map_graph.nodes[self.location]['coord'][0]/15*self.map.shape[0]),int(self.map_graph.nodes[self.location]['coord'][1]/15*self.map.shape[1])), radius=20, color=(0,255,0), thickness=-1)
         # print(len(self.map_graph.nodes)-1)
