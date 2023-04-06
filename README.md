@@ -21,9 +21,9 @@ Run controller or function nodes:
 
 open new terminal with "Usage" (cd to Simulator and ```source devel/setup.bash```)
 
-controller: ```roslaunch control car_control.launch``` (you can edit the launch file to add/remove functions)
+All controller nodes: ```roslaunch control car_control.launch``` (you can edit the launch file to add/remove ros nodes)
 
-any other functions: ```rosrun control *.py``` (any python file in control/scripts or any c++ files in control/src without .cpp)
+Any other functions: ```rosrun control *.py``` (any python file in control/scripts or any c++ files in control/src without .cpp)
 
 (ex: ```rosrun control lane.py```
 ex: ```rosrun control lane```)
