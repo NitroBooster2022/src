@@ -3,10 +3,12 @@ Usage:
 
 1-open a terminal and cd to Simulator
 
-2-(only after building/catkin_make) $gedit devel/setup.bash and add these 2 lines to the file with your Simulator path:
+2-(only after building/catkin_make) ```sh gedit devel/setup.bash``` and add these 2 lines to the file with your Simulator path:
 
+```sh
 export GAZEBO_MODEL_PATH="/home/{YOUR_USER}/Documents/Simulator/src/models_pkg:$GAZEBO_MODEL_PATH"
 export ROS_PACKAGE_PATH="/home/{YOUR_USER}/Documents/Simulator/src:$ROS_PACKAGE_PATH"
+```
 
 3-$source devel/setup.bash
 
