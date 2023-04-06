@@ -43,8 +43,6 @@ class StateMachine():
             print("Parking decisions: [rightPark,rightParallelPark]")
             self.exitDec = [2,3,2,2,2,2] #0:exit left, 1:no exit, 2:exit right, 3:exit parallel
             self.exitDecI = 0
-            self.exitDecision = -1
-            self.exitDecisions = ["exit left","no exit","exit right","exit parallel"]
             print("Parking decisions: [exit left]")
         else:
             print("Real mode")
@@ -68,10 +66,8 @@ class StateMachine():
             print("Parking decisions: [rightPark,rightParallelPark]")
             self.exitDec = [2,3,2,2,2,2] #0:exit left, 1:no exit, 2:exit right, 3:exit parallel
             self.exitDecI = 0
-            self.exitDecision = -1
-            self.exitDecisions = ["exit left","no exit","exit right","exit parallel"]
             print("Parking decisions: [exit left]")
-            #enable encoder at the start to get messages from automobile/encoder
+            #enable PID and encoder at the start to get messages from automobile/encoder
             self.msg.data = '{"action":"5","activate": true}'
             self.cmd_vel_pub.publish(self.msg)
             self.cmd_vel_pub.publish(self.msg)
@@ -138,6 +134,8 @@ class StateMachine():
         self.intersectionDecisions = ["left", "straight", "right"]
         self.parkingDecision = -1 #0:leftParking, 1:noParking, 2:rightParking, 3:rightParallel, 4:leftParallel
         self.parkingDecisions = ["leftParking", "noParking","rightParking", "rightParallel", "leftParallel"] 
+        self.exitDecision = -1
+        self.exitDecisions = ["exit left","no exit","exit right","exit parallel"]
         self.doneManeuvering = False
         self.doneParking = False
         self.destination_x = None
