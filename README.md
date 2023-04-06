@@ -19,7 +19,7 @@ Run simulator:
 
 Run controller or function nodes:
 
-open new terminal with "Usage"
+open new terminal with "Usage" (cd to Simulator and ```source devel/setup.bash```)
 
 controller: ```roslaunch control car_control.launch``` (you can edit the launch file to add/remove functions)
 
