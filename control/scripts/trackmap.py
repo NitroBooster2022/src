@@ -40,9 +40,10 @@ class track_map():
         # nx.write_edgelist(self.map_graph,os.path.dirname(os.path.realpath(__file__))+'/map.edgelist')
 
         # loading the graph map
-        self.map_graph=nx.read_edgelist(os.path.dirname(os.path.realpath(__file__))+'/map.edgelist',create_using=nx.DiGraph())
-        for i in range(len(self.map_graph.nodes)):
-            self.map_graph.nodes[self.locations[i]]['coord']=self.locations_coord[i]
+        # self.map_graph=nx.read_edgelist(os.path.dirname(os.path.realpath(__file__))+'/map.edgelist',create_using=nx.DiGraph())
+        # for i in range(len(self.map_graph.nodes)):
+        #     self.map_graph.nodes[self.locations[i]]['coord']=self.locations_coord[i]
+        self.map_graph=nx.read_graphml(os.path.dirname(os.path.realpath(__file__))+'/Competition_track.graphml')
 
         # get the current location
         self.location = ''
@@ -51,7 +52,7 @@ class track_map():
         # calculate the shortest path
         self.path = []
         self.directions = []
-        self.plan_path()
+        # self.plan_path()
 
     def plan_path(self):
         # get the path and directions
@@ -67,6 +68,28 @@ class track_map():
             self.directions.append(d)
         # print(self.path)
         # print(self.directions)
+
+    def draw_map_graphml(self):
+        # draw the path
+        img_map=self.map
+        # cv2.circle(img_map, (int(self.map_graph.nodes[self.location]['coord'][0]/15*self.map.shape[0]),int(self.map_graph.nodes[self.location]['coord'][1]/15*self.map.shape[1])), radius=20, color=(0,255,0), thickness=-1)
+        # print(len(self.map_graph.nodes)-1)
+        for i in range(len(self.map_graph.nodes)):
+            try:
+                cv2.circle(img_map, (int(float(self.map_graph.nodes[str(i)]['x'])/15*self.map.shape[0]),int(float(self.map_graph.nodes[str(i)]['y'])/15*self.map.shape[1])), radius=15, color=(0,255,0), thickness=-1)
+            except:
+                pass
+        for i in range(len(self.map_graph.edges)):
+            try:
+                img_map = cv2.arrowedLine(img_map, (int(float(self.map_graph.nodes[str(i)]['x'])/15*self.map.shape[0]),int(float(self.map_graph.nodes[str(i)]['y'])/15*self.map.shape[1])),
+                    ((int(float(self.map_graph.nodes[str(i+1)]['x'])/15*self.map.shape[0]),int(float(self.map_graph.nodes[str(i+1)]['y'])/15*self.map.shape[1]))), color=(255,0,255), thickness=10)
+            except:
+                pass
+        windowName = 'track'
+        cv2.namedWindow(windowName,cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(windowName,700,700)
+        cv2.imshow(windowName, img_map)
+        key = cv2.waitKey(0)
 
     def draw_map(self):
         # draw the path
@@ -290,4 +313,5 @@ class track_map():
 if __name__ == '__main__':
     m = ['int1E','int2N','int5N','int6E','int6S','int4W','int3W','int1S','start']
     node = track_map(13.5,4.5,1.5,m)
-    node.draw_map()
+    # node.draw_map()
+    node.draw_map_graphml()
