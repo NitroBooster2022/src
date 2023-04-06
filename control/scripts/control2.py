@@ -34,8 +34,8 @@ class StateMachine():
             file = open(os.path.dirname(os.path.realpath(__file__))+'/PIDSim.json', 'r')
             #decisions
             #get them from localisation/path planner
-            # self.interDec = [2,0,2,0,0,1,2] #0:left, 1:straight, 2:right
-            self.interDec = [1,1,1,1,1,1,1] #0:left, 1:straight, 2:right
+            self.interDec = [2,0,2,0,0,1,2] #0:left, 1:straight, 2:right
+            # self.interDec = [1,1,1,1,1,1,1] #0:left, 1:straight, 2:right
             self.interDecI = 0
             print("Intersection decisions: [right,left,right,left,left,straight,right]")
             self.parkDec = [2,3,1,1,1,1,1] #0:leftParking, 1:noParking, 2:rightParking, 3:rightParallel, 4:leftParallel
@@ -501,7 +501,9 @@ class StateMachine():
             # print("x, y_error: ",x,abs(error) )
             # if x>=(self.offsets_x[self.intersectionDecision]-0.1) and (abs(error)<=0.35):
             # arrived = (x>=(self.offsets_x[self.intersectionDecision]) and abs(y)>=self.offsets_y[self.intersectionDecision]) or abs(self.yaw-self.destinationAngle)<= 0.32
-            arrived = abs(self.yaw-self.destinationAngle) <= 0.1 and abs(x)>=self.offsets_x[self.intersectionDecision] #changed for straight might want to test that on the real car
+            arrived = abs(self.yaw-self.destinationAngle) <= 0.1
+            if self.intersectionDecision == 1:
+                arrived = arrived and abs(x)>=self.offsets_x[self.intersectionDecision]
             # print("yaw_error: ")
             # print(str(self.yaw-self.destinationAngle))
             if arrived:
@@ -770,7 +772,7 @@ class StateMachine():
                 # print("destination orientation: ", self.destinationOrientation, self.destinationAngle)
                 self.initialPoints = np.array([self.x, self.y])
                 # print("initialPoints points: ", self.initialPoints)
-                self.offset = 0.1 if self.simulation else 0.12 + self.parksize
+                self.offset = 0.13 if self.simulation else 0.12 + self.parksize
                 print("begin going straight for "+str(self.offset)+"m")
                 self.odomX, self.odomY = 0.0, 0.0 #reset x,y
                 self.odomTimer = rospy.Time.now()
@@ -1111,9 +1113,9 @@ class StateMachine():
     def leftpark_trajectory(self, x):
         return math.exp(3.57*x-4.2) #real dimensions
     def left_trajectory_sim(self, x):
-        return math.exp(3.57*x-5.2)
+        return math.exp(3.57*x-3.33)
     def right_trajectory_sim(self, x):
-        return -math.exp(3.75*x-4.23)
+        return -math.exp(3.75*x-3.33)
     def left_exit_trajectory_sim(self, x):
         return math.exp(3.75*x-2.73)
     def right_exit_trajectory_sim(self, x):

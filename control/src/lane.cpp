@@ -89,23 +89,23 @@ public:
         cv::reduce(thresh, hist, 0, cv::REDUCE_SUM, CV_32S);
 
         // apply masks
-        img_rois = img_gray(cv::Range(300, 340), cv::Range::all());
-        // cv::imshow("S", img_rois);
-        // cv::waitKey(1);
-        cv::minMaxLoc(img_roi, &minVal, &maxVal, &minLoc, &maxLoc); // Use img_roi or img_rois depending on your requirements
-        threshold_value_stop = std::min(std::max(maxVal - 65.0, 30.0), 200.0);
+        // img_rois = img_gray(cv::Range(300, 340), cv::Range::all());
+        // // cv::imshow("S", img_rois);
+        // // cv::waitKey(1);
+        // cv::minMaxLoc(img_roi, &minVal, &maxVal, &minLoc, &maxLoc); // Use img_roi or img_rois depending on your requirements
+        // threshold_value_stop = std::min(std::max(maxVal - 65.0, 30.0), 200.0);
         
-        cv::threshold(img_rois, threshs, threshold_value_stop, 255, cv::THRESH_BINARY);
-        hists = cv::Mat::zeros(1, w, CV_32SC1);
-        cv::reduce(threshs, hists, 0, cv::REDUCE_SUM, CV_32S);
+        // cv::threshold(img_rois, threshs, threshold_value_stop, 255, cv::THRESH_BINARY);
+        // hists = cv::Mat::zeros(1, w, CV_32SC1);
+        // cv::reduce(threshs, hists, 0, cv::REDUCE_SUM, CV_32S);
 
-        std::vector<int> stop_lanes = extract_lanes(hists);
-        for (size_t i = 0; i < stop_lanes.size() / 2; ++i) {
-            if (abs(stop_lanes[2 * i] - stop_lanes[2 * i + 1]) > 370 && threshold_value > 30) {
-                stopline = true;
-                if (!show) return w / 2.0;
-            }
-        }
+        // std::vector<int> stop_lanes = extract_lanes(hists);
+        // for (size_t i = 0; i < stop_lanes.size() / 2; ++i) {
+        //     if (abs(stop_lanes[2 * i] - stop_lanes[2 * i + 1]) > 370 && threshold_value > 30) {
+        //         stopline = true;
+        //         if (!show) return w / 2.0;
+        //     }
+        // }
 
         std::vector<int> lanes = extract_lanes(hist);
         std::vector<double> centers;
