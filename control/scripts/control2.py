@@ -608,7 +608,7 @@ class StateMachine():
         #Transition events
         if self.timer is None: #start timer. ~13 seconds to pass crosswalk
             print("slowing down to "+str(0.66*self.maxspeed)+"m/s")
-            self.timer = rospy.Time.now() + rospy.Duration(13)
+            self.timer = rospy.Time.now() + rospy.Duration(12)
         if rospy.Time.now() >= self.timer:
             print("crosswalk passed, speed back up to "+str(self.maxspeed)+"m/s")
             self.timer = None #reset timer
