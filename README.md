@@ -1,4 +1,10 @@
 # src
+Requirements install:
+
+1-open a terminal and cd to Simulator/src
+
+2-```pip install -r requirements.txt```
+
 Usage:
 
 1-open a terminal and cd to Simulator

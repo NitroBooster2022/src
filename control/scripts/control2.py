@@ -85,7 +85,7 @@ class StateMachine():
         #sign
         self.class_names = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority',
                 'lights','block','pedestrian','car','others','nothing']
-        self.min_sizes = [25,25,22,000,45,42,25,25,25,80,100,72,200]
+        self.min_sizes = [25,25,22,000,45,42,25,25,25,80,100,72,130]
         self.max_sizes = [50,75,70,000,75,80,50,75,50,200,150,200,300]
         self.center = -1
         self.detected_objects = []
@@ -397,6 +397,10 @@ class StateMachine():
             print("entering highway -> 6")
             self.state = 6
             return 1
+        elif self.object_detected(12):
+            print("Carblock -> 7")
+            self.state = 7
+            return 1
         elif self.entering_roundabout():
             print("entering roundabout -> 8")
             self.state = 8
@@ -411,8 +415,8 @@ class StateMachine():
             self.state = 9
             return 1
         elif self.object_detected(10):
-            print("Block!!!")
-            self.state = 11
+            print("Block!!! -> 7")
+            self.state = 7
             return 1
         return 0
     
@@ -604,7 +608,7 @@ class StateMachine():
         #Transition events
         if self.timer is None: #start timer. ~13 seconds to pass crosswalk
             print("slowing down to "+str(0.66*self.maxspeed)+"m/s")
-            self.timer = rospy.Time.now() + rospy.Duration(13)
+            self.timer = rospy.Time.now() + rospy.Duration(12)
         if rospy.Time.now() >= self.timer:
             print("crosswalk passed, speed back up to "+str(self.maxspeed)+"m/s")
             self.timer = None #reset timer
@@ -647,45 +651,135 @@ class StateMachine():
     def carBlock(self):
         #/entry: checkDotted
         #action: overtake or wait
-        if self.carCleared is None:
-            self.carCleared = False
-        if self.dotted:#use service
-            #overtake
-            if self.timer is None and self.timer2 is None and self.timer3 is None: #begin going left
-                print("begin going left")
-                self.timer = rospy.Time.now()+rospy.Duration(2.0)
-            if self.timer is not None and self.timer2 is None and self.timer3 is None:
-                if rospy.Time.now() >= self.timer: #finished going straight. reset timer to None
-                    print("finished going left. reset timer to None")
-                    self.timer = None
-                    self.timer2 = rospy.Time.now()+rospy.Duration(3.0)
-                else:
-                    self.left(0.12)
-                    return 0
-            if self.timer is None and self.timer2 is not None and self.timer3 is None: #begin going straight
-                if rospy.Time.now() >= self.timer2: #finished going straight
-                    print("finished going straight. reset timer2 to None. back to lane")
-                    self.timer2 = None #finished going left. reset timer2 to None.
-                    self.timer3 = rospy.Time.now()+rospy.Duration(2.0)
-                    return 0
-                else: 
-                    self.straight(0.2)
-                    return 0 
-            if self.timer is None and self.timer2 is None and self.timer3 is not None: #go back to lane
-                if rospy.Time.now() >= self.timer3: #finished going straight
-                    print("done overtaking. back to lane following")
-                    self.timer3 = None #finished going left. reset timer2 to None.
-                    self.carCleared = True
-                    return 0
-                else: 
-                    self.left(0.12)
-                    return 0 
-        else: #wait
-            if self.object_detected(12):
-                self.idle()
-            else:
-                self.carCleared = True
-            return 0
+        # if self.carCleared is None:
+        #     self.carCleared = False
+        # if self.dotted:#use service
+        #     #overtake
+        #     if self.timer is None and self.timer2 is None and self.timer3 is None: #begin going left
+        #         print("begin going left")
+        #         self.timer = rospy.Time.now()+rospy.Duration(2.0)
+        #     if self.timer is not None and self.timer2 is None and self.timer3 is None:
+        #         if rospy.Time.now() >= self.timer: #finished going straight. reset timer to None
+        #             print("finished going left. reset timer to None")
+        #             self.timer = None
+        #             self.timer2 = rospy.Time.now()+rospy.Duration(3.0)
+        #         else:
+        #             self.left(0.12)
+        #             return 0
+        #     if self.timer is None and self.timer2 is not None and self.timer3 is None: #begin going straight
+        #         if rospy.Time.now() >= self.timer2: #finished going straight
+        #             print("finished going straight. reset timer2 to None. back to lane")
+        #             self.timer2 = None #finished going left. reset timer2 to None.
+        #             self.timer3 = rospy.Time.now()+rospy.Duration(2.0)
+        #             return 0
+        #         else: 
+        #             self.straight(0.2)
+        #             return 0 
+        #     if self.timer is None and self.timer2 is None and self.timer3 is not None: #go back to lane
+        #         if rospy.Time.now() >= self.timer3: #finished going straight
+        #             print("done overtaking. back to lane following")
+        #             self.timer3 = None #finished going left. reset timer2 to None.
+        #             self.carCleared = True
+        #             return 0
+        #         else: 
+        #             self.left(0.12)
+        #             return 0 
+        # else: #wait
+        #     if self.object_detected(12):
+        #         self.idle()
+        #     else:
+        #         self.carCleared = True
+        #     return 0
+        
+        if self.doneManeuvering:
+            print("done overtaking. Back to lane following...")
+            self.doneManeuvering = False #reset
+            self.state = 0 #go back to lane following
+            self.initialPoints = None #reset initial points
+            self.timerP = None
+            return 1
+        if True: #change with left right overtaking if needed
+            if self.initialPoints is None:
+                self.set_current_angle()
+                self.overtaking_angle = self.yaw
+                # print("current orientation: ", self.directions[self.orientation], self.orientations[self.orientation])
+                # print("destination orientation: ", self.destinationOrientation, self.destinationAngle)
+                self.initialPoints = np.array([self.x, self.y])
+                # print("initialPoints points: ", self.initialPoints)
+                self.offset = 0
+                print("begin going straight for "+str(self.offset)+"m")
+                self.odomX, self.odomY = 0.0, 0.0 #reset x,y
+                self.odomTimer = rospy.Time.now()
+                self.intersectionState = 0 #going straight:0, trajectory following:1, adjusting angle2: 2..
+            if self.intersectionState==0: #going straight
+                self.intersectionState = 1
+                # error = self.yaw-self.currentAngle
+                # if x >= self.offset:
+                #     self.intersectionState = 1
+                #     print("done going straight. begin adjusting angle...")
+                #     # print("current angle, destination: ", self.yaw, self.destinationAngle)
+                # self.publish_cmd_vel(self.pid(error), self.maxspeed*0.9)
+                return 0
+            if self.intersectionState==1: #adjusting
+                error = self.yaw - (self.overtaking_angle + np.pi/4)
+                if self.yaw>=5.73: #subtract 2pi to get small error
+                    error-=6.28
+                # print("yaw, error: ", self.yaw, error)
+                if abs(error) <= 0.05:
+                    self.intersectionState = 3 # skip adjusting 2
+                    print("done adjusting angle!!")
+                    self.timer5 = rospy.Time.now()+rospy.Duration(3) #change to odom
+                self.publish_cmd_vel(-23, self.maxspeed*0.9)
+                return 0
+            elif self.intersectionState==2: #adjusting
+                if rospy.Time.now() >= self.timer5:
+                    self.intersectionState = 3
+                    self.timer5 = None
+                    print("done going back. begin adjusting angle round2...")
+                self.straight(-self.maxspeed*0.9)
+                return 0
+            elif self.intersectionState==3: #adjusting
+                error = self.yaw - self.overtaking_angle
+                if self.yaw>=5.73: #subtract 2pi to get small error
+                    error-=6.28
+                if abs(error) < 0.05:
+                    self.intersectionState = 5 #skip going straight
+                    print("done adjusting angle!!")
+                self.publish_cmd_vel(23, self.maxspeed*0.9)
+                return 0
+            # self.odometry()
+            # poses = np.array([self.odomX, self.odomY])
+            # poses = poses.dot(self.rotation_matrices[self.orientation])
+            # x, y = poses[0], poses[1]
+            # print("position: ",x,y)
+            # if self.intersectionState==4: #go straight
+            #     if x > 0.25:
+            #         self.intersectionState = 5
+            #         print("Done going straight!!")
+            #     self.publish_cmd_vel(0, self.maxspeed*0.9)
+            #     return 0
+            elif self.intersectionState==5: #adjusting
+                error = self.yaw - (self.overtaking_angle - np.pi/4)
+                if self.yaw>=5.73: #subtract 2pi to get small error
+                    error-=6.28
+                # print("yaw, error: ", self.yaw, error)
+                if abs(error) <= 0.05:
+                    self.intersectionState = 6 # skip adjusting 2
+                    print("done adjusting angle!!")
+                self.publish_cmd_vel(23, self.maxspeed*0.9)
+                return 0
+            elif self.intersectionState==6: #adjusting
+                error = self.yaw - self.overtaking_angle
+                if self.yaw>=5.73: #subtract 2pi to get small error
+                    error-=6.28
+                # print("yaw, error: ", self.yaw, error)
+                if abs(error) <= 0.05:
+                    print("done adjusting angle!!")
+                    self.doneManeuvering = True
+                    self.error_sum = 0 #reset pid errors
+                    self.last_error = 0
+                self.publish_cmd_vel(-23, self.maxspeed*0.9)
+                return 0
     
     def park(self):
         if self.doneParking:
