@@ -2,7 +2,7 @@
 import rospy
 import numpy as np
 from message_filters import ApproximateTimeSynchronizer
-from std_msgs.msg import String
+from std_msgs.msg import String, Byte
 from utils.msg import Lane, Sign, localisation, IMU, encoder
 from utils.srv import get_direction, dotted, nav
 import message_filters
@@ -34,8 +34,8 @@ class StateMachine():
             file = open(os.path.dirname(os.path.realpath(__file__))+'/PIDSim.json', 'r')
             #decisions
             #get them from localisation/path planner
-            self.interDec = [2,0,2,0,0,1,2] #0:left, 1:straight, 2:right
-            # self.interDec = [1,1,1,1,1,1,1] #0:left, 1:straight, 2:right
+            # self.interDec = [2,0,2,0,0,1,2] #0:left, 1:straight, 2:right
+            self.interDec = [1,1,1,1,1,1,1] #0:left, 1:straight, 2:right
             self.interDecI = 0
             print("Intersection decisions: [right,left,right,left,left,straight,right]")
             self.parkDec = [2,3,1,1,1,1,1] #0:leftParking, 1:noParking, 2:rightParking, 3:rightParallel, 4:leftParallel
@@ -244,6 +244,8 @@ class StateMachine():
 
         self.pl = 320 # previous lane center
 
+        self.light = False #light detected in stop intersection state
+
         # self.trackbars()
     
     def process_yaw_sim(self, yaw):
@@ -252,6 +254,7 @@ class StateMachine():
         if yaw!=0:
             newYaw = -((yaw-self.initialYaw)*3.14159/180)
             self.yaw = newYaw if newYaw>0 else (6.2831853+newYaw)
+    
     #callback function
     def callback(self,lane,sign,imu,encoder):
 
@@ -381,6 +384,7 @@ class StateMachine():
             else:
                 print("red light detected -> state 1")
                 self.intersectionStop = True
+                self.light = True
             self.state = 1
             return 1
         elif self.crosswalk_sign_detected():
@@ -437,7 +441,6 @@ class StateMachine():
         return 0
     
     def stopInt(self):
-        self.idle()
         #Transition events
         if self.timer is None:
             self.timer = rospy.Time.now() + rospy.Duration(3.57)
@@ -446,6 +449,19 @@ class StateMachine():
             self.doneManeuvering = False #set to false before entering state 3
             self.state = 3
             return 1
+        elif self.light:
+            #call service to check light color
+            if self.is_green():
+                print("green")
+                self.light = False
+                self.timer = None
+                self.doneManeuvering = False #set to false before entering state 3
+                self.state = 3
+                return 1
+            else:
+                print("red")
+                self.timer = rospy.Time.now() + rospy.Duration(3.57)
+        self.idle()
         return 0
     
     def maneuverInt(self):
@@ -864,7 +880,7 @@ class StateMachine():
                 # print("destination orientation: ", self.destinationOrientation, self.destinationAngle)
                 self.initialPoints = np.array([self.x, self.y])
                 # print("initialPoints points: ", self.initialPoints)
-                self.offset = 0.15 if self.simulation else 0.12 + self.parksize
+                self.offset = 0.3 if self.simulation else 0.12 + self.parksize
                 print("begin going straight for "+str(self.offset)+"m")
                 self.odomX, self.odomY = 0.0, 0.0 #reset x,y
                 self.odomTimer = rospy.Time.now()
@@ -885,8 +901,8 @@ class StateMachine():
                     self.last_error = 0
                     return 0
                 else:
-                    error = self.yaw-self.currentAngle
                     self.publish_cmd_vel(self.get_steering_angle(), self.maxspeed)
+                    # error = self.yaw-self.currentAngle
                     # self.publish_cmd_vel(self.pid(error), self.maxspeed)
                     # print(str(x))
                     return 0
@@ -1105,8 +1121,17 @@ class StateMachine():
         return self.object_detected(9)
     def parking_detected(self):
         return self.object_detected(4)
-    def is_green(self): #not implemented yet
-        return False #call service or message
+    def is_green(self):
+        if not self.simulation: #if not simulation consider red
+            return False
+        else:
+            self.orientation = np.argmin([abs(self.yaw),abs(self.yaw-1.5708),abs((self.yaw)-3.14159),abs(self.yaw-4.71239),abs(self.yaw-6.28319)])%4
+            if self.orientation==1 or self.orientation==3: #N or S
+                topic = 'start'
+            else:
+                topic = 'master'
+            state=rospy.wait_for_message('/automobile/trafficlight/'+topic,Byte)#0=red,1=yellow,2=green
+            return True if state.data == 2 else False
     def crosswalk_sign_detected(self):
         return self.object_detected(5)
     def pedestrian_appears(self):
@@ -1145,7 +1170,7 @@ class StateMachine():
         self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
         
-    #helper functions
+    #odom helper functions
     def pid(self, error):
         # self.error_sum += error * self.dt
         dt = (rospy.Time.now()-self.timer4).to_sec()
