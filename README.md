@@ -41,11 +41,11 @@ Advanced stuff:
 ```car_control.launch``` file arguments:
 
 ```xml
-<arg name="show_sign"  default="False"/>
-<arg name="show_lane"  default="True"/>
-<arg name="method"  default="histogram"/>
-<arg name="simulation"  default="True"/>
-<arg name="path"  default="/path.json"/>
+<arg name="show_sign"  default="False" doc="display sign detection window (True or False)"/>
+<arg name="show_lane"  default="True" doc="display lane detection window (True or False)"/>
+<arg name="method"  default="histogram" doc="method for lane detection (histogram or houghlines)"/>
+<arg name="simulation"  default="True" doc="Simulation mode (True or False)"/>
+<arg name="path"  default="/path.json" doc="the relative json file path to the planned path"/>
 ```
 
 (add them by adding ```(arg name):=(arg value)``` after ```roslaunch control car_control.launch```)
