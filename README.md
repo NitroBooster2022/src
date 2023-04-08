@@ -40,11 +40,13 @@ Advanced stuff:
 
 ```car_control.launch``` file arguments:
 
+```xml
 <arg name="show_sign"  default="False"/>
 <arg name="show_lane"  default="True"/>
 <arg name="method"  default="histogram"/>
 <arg name="simulation"  default="True"/>
 <arg name="path"  default="/path.json"/>
+```
 
 (add them by adding ```(arg name):=(arg value)``` after ```roslaunch control car_control.launch```)
 
