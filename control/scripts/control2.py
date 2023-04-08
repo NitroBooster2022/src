@@ -658,7 +658,11 @@ class StateMachine():
                 self.intersectionStop = False
                 self.state = 1
                 return 1
-        if self.object_detected(12):
+        if self.ArrivedAtStopline:
+            self.doneManeuvering = False #set to false before entering state 3
+            self.state = 3
+            return 1
+        if self.object_detected(12): #overtake
             self.history = self.state
             self.state = 7
             return 1
