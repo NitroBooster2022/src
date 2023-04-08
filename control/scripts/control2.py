@@ -522,10 +522,10 @@ class StateMachine():
             self.intersectionDecision = self.decisions[self.decisionsI] #replace this with service call
             self.decisionsI+=1
             if self.intersectionDecision == 8:
-                self.intersectionDecision == 0
+                self.intersectionDecision = 0
                 self.hw = True
             elif self.intersectionDecision == 9:
-                self.intersectionDecision == 1
+                self.intersectionDecision = 1
                 self.hw = True
             elif self.intersectionDecision == 10:
                 print("entering roundabout -> 8")
@@ -659,8 +659,8 @@ class StateMachine():
                 self.state = 1
                 return 1
         if self.object_detected(12):
-            self.state = 7
             self.history = self.state
+            self.state = 7
             return 1
         self.publish_cmd_vel(self.get_steering_angle(), self.maxspeed*1.33)
         return 0
@@ -719,13 +719,13 @@ class StateMachine():
                     self.timer5 = rospy.Time.now()+rospy.Duration(3) #change to odom
                 self.publish_cmd_vel(-23, self.maxspeed*0.9)
                 return 0
-            elif self.intersectionState==2: #adjusting
-                if rospy.Time.now() >= self.timer5:
-                    self.intersectionState = 3
-                    self.timer5 = None
-                    print("done going back. begin adjusting angle round2...")
-                self.straight(-self.maxspeed*0.9)
-                return 0
+            # elif self.intersectionState==2: #adjusting
+            #     if rospy.Time.now() >= self.timer5:
+            #         self.intersectionState = 3
+            #         self.timer5 = None
+            #         print("done going back. begin adjusting angle round2...")
+            #     self.straight(-self.maxspeed*0.9)
+            #     return 0
             elif self.intersectionState==3: #adjusting
                 error = self.yaw - self.overtaking_angle
                 if self.history == 6: #don't need to go back exactly
@@ -734,6 +734,7 @@ class StateMachine():
                     error-=6.28
                 if abs(error) < 0.05:
                     if self.history == 6:#go back to highway immediatly
+                        print("done changinng lane!!")
                         self.doneManeuvering = True
                         self.error_sum = 0 #reset pid errors
                         self.last_error = 0
