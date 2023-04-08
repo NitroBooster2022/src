@@ -36,6 +36,22 @@ Any other functions: ```rosrun control *.py``` (any python file in control/scrip
 (ex: ```rosrun control lane.py```
 ex: ```rosrun control lane```)
 
+Advanced stuff:
+
+```car_control.launch``` file arguments:
+
+```xml
+<arg name="show_sign"  default="False" doc="display sign detection window (True or False)"/>
+<arg name="show_lane"  default="True" doc="display lane detection window (True or False)"/>
+<arg name="method"  default="histogram" doc="method for lane detection (histogram or houghlines)"/>
+<arg name="simulation"  default="True" doc="Simulation mode (True or False)"/>
+<arg name="path"  default="/path.json" doc="the relative json file path to the planned path"/>
+```
+
+(add them by adding ```(arg name):=(arg value)``` after ```roslaunch control car_control.launch```)
+
+ex: ```roslaunch control car_control.launch show_sign:=True path:=/paths/path1.json```
+
 Files structures in src:
 
 control: our controller package
