@@ -34,7 +34,7 @@ class EncoderNode():
         self.yaw = 0
 
     def callbackI(self, imu):
-        self.yaw = imu.yaw
+        self.yaw = imu.yaw #between pi to -pi
 
     def callback(self, ModelStates):
         """
@@ -57,7 +57,10 @@ class EncoderNode():
         y_speed = ModelStates.twist[i].linear.y
         syaw = math.atan2(y_speed,x_speed)
         speed = math.sqrt(x_speed*x_speed+y_speed*y_speed)
-        if (syaw-self.yaw)<0.1:
+        error = abs(syaw-self.yaw)
+        if error>=5.73:
+            error-=6.28
+        if abs(error)<1.57:
             self.p.speed = speed
         else:
             self.p.speed = -speed
