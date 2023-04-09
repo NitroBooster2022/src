@@ -8,7 +8,7 @@ import json
 
 class track_map():
 
-    def __init__(self,posX,posY,rot,path):
+    def __init__(self,posX=0,posY=0,rot=0,path=[]):
         self.map = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/map.png')
         self.map_graph = nx.DiGraph()
         self.locations = ['start','int1N','int1S','int1W','int1E',
@@ -44,13 +44,33 @@ class track_map():
         # self.map_graph=nx.read_graphml(os.path.dirname(os.path.realpath(__file__))+'/Competition_track.graphml')
 
         # get the current location
-        self.location = ''
-        self.locate(posX,posY,rot)
+        self.location = self.locate(posX,posY,rot)
+
+        # self.custum_path()
 
         # calculate the shortest path
         self.path = []
         self.directions = []
-        self.plan_path()
+        # self.plan_path()
+
+    def custum_path(self):
+        print("---Click on map to input path---")
+        print("---Press any keys to continue---")
+        self.regions = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/map_graphv2.drawio.png')
+        self.planned_path = []
+        windowName = 'path'
+        cv2.namedWindow(windowName,cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(windowName,700,700)
+        cv2.setMouseCallback(windowName,self.mouse_event_handler)
+        cv2.imshow(windowName,self.regions)
+        key = cv2.waitKey(0)
+        # self.plan_path()
+
+    def mouse_event_handler(self, event, x, y, flags, param):
+        if event == cv2.EVENT_LBUTTONDOWN:
+            # print(f"User clicked on ({x}, {y})")
+            print(self.locateM(x,y))
+            self.planned_path.append(self.locateM(x,y))
 
     def plan_path(self):
         # get the path and directions
@@ -158,119 +178,218 @@ class track_map():
             if x<1.3:
                 if y<10.75:
                     if rot<np.pi and rot>0:
-                        self.location = 'int3N'
+                        return 'int3N'
                     else:
-                        self.location = 'int3S'
+                        return 'int3S'
                 elif y<13.7:
                     if rot<np.pi and rot>0:
-                        self.location = 'int1N'
+                        return 'int1N'
                     else:
-                        self.location = 'int1S'
+                        return 'int1S'
                 else:
-                    self.location = 'start'
+                    return 'start'
             elif x<2.55:
                 if y<8.75:
                     if rot<np.pi/2 and rot>-np.pi/2:
-                        self.location = 'int5E'
+                        return 'int5E'
                     else:
-                        self.location = 'int5W'
+                        return 'int5W'
                 elif y<12.25:
                     if rot<np.pi/2 and rot>-np.pi/2:
-                        self.location = 'int3E'
+                        return 'int3E'
                     else:
-                        self.location = 'int3W'
+                        return 'int3W'
                 else:
                     if rot<np.pi/2 and rot>-np.pi/2:
-                        self.location = 'int1E'
+                        return 'int1E'
                     else:
-                        self.location = 'int1W'
+                        return 'int1W'
             elif x<3.25:
                 if y<10.75:
                     # no int5S
-                    self.location = 'int5N'
+                    return 'int5N'
                 else:
                     if rot<np.pi and rot>0:
-                        self.location = 'int2N'
+                        return 'int2N'
                     else:
-                        self.location = 'int2S'
+                        return 'int2S'
             elif x<4.65:
                 if y<8.75:
                     if rot<np.pi/2 and rot>-np.pi/2:
-                        self.location = 'int6E'
+                        return 'int6E'
                     else:
-                        self.location = 'int6W'
+                        return 'int6W'
                 elif y<12.25:
                     if rot<np.pi/2 and rot>-np.pi/2:
-                        self.location = 'int4E'
+                        return 'int4E'
                     else:
-                        self.location = 'int4W'
+                        return 'int4W'
                 else:
                     if rot<np.pi/2 and rot>-np.pi/2:
-                        self.location = 'int2E'
+                        return 'int2E'
                     else:
-                        self.location = 'int2W'
+                        return 'int2W'
             elif x<5.5:
                 if y<10.75:
                     if rot<np.pi and rot>0:
-                        self.location = 'int6N'
+                        return 'int6N'
                     else:
-                        self.location = 'int6S'
+                        return 'int6S'
                 else:
                     if rot<np.pi and rot>0:
-                        self.location = 'int4N'
+                        return 'int4N'
                     else:
-                        self.location = 'int4S'
+                        return 'int4S'
             elif x>11:
-                self.location = 'curvedpath'
+                return 'curvedpath'
             else:
                 if rot<3/4*np.pi and rot>-1/4*np.pi:
-                    self.location = 'highwayN'
+                    return 'highwayN'
                 else:
-                    self.location = 'highwayS'
+                    return 'highwayS'
         else:
             if x<2.75:
                 if rot<3/4*np.pi and rot>-1/4*np.pi:
-                    self.location = 'track1N'
+                    return 'track1N'
                 else:
-                    self.location = 'track1S'
+                    return 'track1S'
             elif x<4.75:
                 if rot<3/4*np.pi and rot>-1/4*np.pi:
-                    self.location = 'parkingN'
+                    return 'parkingN'
                 else:
-                    self.location = 'parkingS'
+                    return 'parkingS'
             elif y<2.9:
                 if x<13:
                     if rot<3/4*np.pi and rot>-1/4*np.pi:
-                        self.location = 'track2N'
+                        return 'track2N'
                     else:
-                        self.location = 'track2S'
+                        return 'track2S'
                 else:
                     if rot<1/4*np.pi and rot>-3/4*np.pi:
-                        self.location = 'track2N'
+                        return 'track2N'
                     else:
-                        self.location = 'track2S'
+                        return 'track2S'
             elif x<8.6:
                 if rot<3/4*np.pi and rot>-1/4*np.pi:
-                    self.location = 'track3N'
+                    return 'track3N'
                 else:
-                    self.location = 'track3S'
+                    return 'track3S'
             elif y<4.6:
                 if x<10.75:
-                    self.location = 'roundabout'
+                    return 'roundabout'
                 else:
                     if rot<1/2*np.pi and rot>-1/2*np.pi:
-                        self.location = 'track2S'
+                        return 'track2S'
                     else:
-                        self.location = 'track2N'
+                        return 'track2N'
             elif x>11:
-                self.location = 'curvedpath'
+                return 'curvedpath'
             else:
                 if rot<3/4*np.pi and rot>-1/4*np.pi:
-                    self.location = 'highwayN'
+                    return 'highwayN'
                 else:
-                    self.location = 'highwayS'
-        # print('location: '+self.location)
+                    return 'highwayS'
     
+    def locateM(self,x,y):
+        if y>1030:
+            if x<185:
+                if y<1640:
+                    if x>125:
+                        return 'int3N'
+                    else:
+                        return 'int3S'
+                elif y<2050:
+                    if x>125:
+                        return 'int1N'
+                    else:
+                        return 'int1S'
+                else:
+                    return 'start'
+            elif x<400:
+                if y<1155:
+                    if y>1100:
+                        return 'int5E'
+                    else:
+                        return 'int5W'
+                elif y<1730:
+                    if y>1680:
+                        return 'int3E'
+                    else:
+                        return 'int3W'
+                else:
+                    if y>2120:
+                        return 'int1E'
+                    else:
+                        return 'int1W'
+            elif x<525:
+                if y<1630:
+                    # no int5S
+                    return 'int5N'
+                else:
+                    if x>465:
+                        return 'int2N'
+                    else:
+                        return 'int2S'
+            elif x<745:
+                if y<1155:
+                    if y>1100:
+                        return 'int6E'
+                    else:
+                        return 'int6W'
+                elif y<1735:
+                    if y>1685:
+                        return 'int4E'
+                    else:
+                        return 'int4W'
+                else:
+                    if y>2120:
+                        return 'int2E'
+                    else:
+                        return 'int2W'
+            elif x<860:
+                if y<1640:
+                    if x>795:
+                        return 'int6N'
+                    else:
+                        return 'int6S'
+                else:
+                    if x>795:
+                        return 'int4N'
+                    else:
+                        return 'int4S'
+            elif x>1750:
+                return 'curvedpath'
+            else:
+                if x>1550:
+                    return 'highwayN'
+                else:
+                    return 'highwayS'
+        else:
+            if x<435:
+                if x>245:
+                    return 'track1N'
+                else:
+                    return 'track1S'
+            elif x<710:
+                if y>355:
+                    return 'parkingN'
+                else:
+                    return 'parkingS'
+            elif y<465:
+                if y>300:
+                    return 'track2N'
+                else:
+                    return 'track2S'
+            elif x<1340:
+                if x>1035:
+                    return 'track3N'
+                else:
+                    return 'track3S'
+            elif y<775:
+                return 'roundabout'
+            else:
+                return 'curvedpath'
+
     # graph creation helpers
     def add_edge(self,source,dest,d):
         w = (abs(self.map_graph.nodes[source]['coord'][0]-self.map_graph.nodes[dest]['coord'][0])+
@@ -364,8 +483,8 @@ class track_map():
 if __name__ == '__main__':
     # m = ['int1E','int2N','int5N','int6E','int6S','int4W','int3W','int1S','start']
     m = json.load(open(os.path.dirname(os.path.realpath(__file__))+'/path.json', 'r'))
-    print(m)
+    # print(m)
     node = track_map(13.5,4.5,1.5,m)
-    # node.draw_map()
-    node.draw_map_edgelist()
+    node.draw_map()
+    # node.draw_map_edgelist()
     # node.draw_map_graphml()

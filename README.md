@@ -46,6 +46,7 @@ Advanced stuff:
 <arg name="method"  default="histogram" doc="method for lane detection (histogram or houghlines)"/>
 <arg name="simulation"  default="True" doc="Simulation mode (True or False)"/>
 <arg name="path"  default="/path.json" doc="the relative json file path to the planned path"/>
+<arg name="custom"  default="False" doc="user input map (True or False)"/>
 ```
 
 (add them by adding ```(arg name):=(arg value)``` after ```roslaunch control car_control.launch```)
