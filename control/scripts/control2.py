@@ -255,7 +255,7 @@ class StateMachine():
         self.hw = False
         self.rdb = False
         self.rdbExitYaw = 0
-        self.decisionsI = 0
+        self.rdbTransf = 0
         # self.trackbars()
 
         if self.simulation:
@@ -533,7 +533,6 @@ class StateMachine():
                 self.intersectionDecision = -1 #reset
                 self.state = 8
                 return 1
-            print("intersection decision: going " + self.intersectionDecisions[self.intersectionDecision])
             if self.intersectionDecision == 0: #left
                 self.trajectory = self.left_trajectory
             elif self.intersectionDecision == 1: #straight
@@ -542,6 +541,7 @@ class StateMachine():
                 self.trajectory = self.right_trajectory
             else:
                 raise ValueError("self.intersectionDecision id wrong: ",self.intersectionDecision)
+            print("intersection decision: going " + self.intersectionDecisions[self.intersectionDecision])
         if self.initialPoints is None:
             self.set_current_angle()
             # print("current orientation: ", self.directions[self.orientation], self.orientations[self.orientation])
@@ -589,10 +589,10 @@ class StateMachine():
                 self.last_error2 = 0 #reset pid errors
                 self.error_sum2 = 0
                 return 0
-            steering_angle = self.pid2(error)
+            # steering_angle = self.pid2(error)
             # print("steering: ",steering_angle)
             # print("x, y, desiredY, angle, steer: ", x, y, desiredY, self.yaw, steering_angle*180/3.14159)
-            self.publish_cmd_vel(steering_angle, self.maxspeed*0.9)
+            self.publish_cmd_vel(self.pid2(error), self.maxspeed*0.9)
             return 0
         elif self.intersectionState == 2: #adjust angle 2
             error = self.yaw-self.destinationAngle
@@ -606,8 +606,7 @@ class StateMachine():
                 self.last_error = 0
                 return 0
             else:
-                steering_angle = self.pid(error)
-                self.publish_cmd_vel(steering_angle, self.maxspeed*0.9)
+                self.publish_cmd_vel(self.pid(error), self.maxspeed*0.9)
                 return 0
     
     def approachCrosswalk(self):
@@ -802,26 +801,92 @@ class StateMachine():
                 rospy.signal_shutdown("Exit")
             self.rdbDecision = self.decisions[self.decisionsI] #replace this with service call
             self.decisionsI+=1
+            #could place them in set_current_angle()
             if self.rdbDecision == 11: #E
                 self.rdbExitYaw = np.pi/4 #change this depending on implementation
             elif self.rdbDecision == 12: #S
-                self.rdbExitYaw = -np.pi/4 #change this depending on implementation
+                self.rdbExitYaw = 7*np.pi/4 #change this depending on implementation
             elif self.rdbDecision == 13: #W
-                self.rdbExitYaw = -3*np.pi/4 #change this depending on implementation
+                self.rdbExitYaw = 5*np.pi/4 #change this depending on implementation
             else:
                 raise ValueError("self.rdbDecision id wrong: ",self.rdbDecision)
-        #roundabout maneuver
-        self.publish_cmd_vel(self.get_steering_angle()) #replace with left lane follow or something
-        error = self.yaw-self.rdbExitYaw
-        if self.yaw>=5.73: #subtract 2pi to get error between -pi and pi
-            error-=6.28
-        # print("yaw, curAngle, error: ", self.yaw, self.currentAngle, error)
-        if abs(error) <= 0.05:
-            print("done roundabout maneuvering!!")
-            self.doneManeuvering = True
-            self.error_sum = 0 #reset pid errors
-            self.last_error = 0
+            self.trajectory = self.rdb_trajectory
+        if self.initialPoints is None:
+            self.set_current_angle()
+            # print("current orientation: ", self.directions[self.orientation], self.orientations[self.orientation])
+            # print("destination orientation: ", self.destinationOrientation, self.destinationAngle)
+            self.initialPoints = np.array([self.x, self.y])
+            # print("initialPoints points: ", self.initialPoints)
+            # print("begin adjusting angle...")
+            self.rdbTransf = -self.orientations[self.orientation]
+            self.odomX, self.odomY = 0.0, 0.0 #reset x,y
+            self.odomTimer = rospy.Time.now()
+            self.offset = 0.03
+            self.intersectionState = 0#adjusting angle:0, trajectory following:1, adjusting angle2: 2..
+        self.odometry()
+        poses = np.array([self.odomX,self.odomY])
+        poses = poses.dot(self.rotation_matrices[self.orientation])
+        x,y = poses[0], poses[1]
+        if self.intersectionState==0: #adjusting
+            error = self.yaw-self.currentAngle
+            if self.yaw>=5.73: #subtract 2pi to get small error
+                    error-=6.28
+            if x >= self.offset:
+                self.intersectionState+=1
+                self.odomX, self.odomY = 0.0, 0.0 #reset x,y
+                self.odomTimer = rospy.Time.now()
+                self.error_sum = 0 #reset pid errors
+                self.last_error = 0
+                print("done going straight. Transitioning to trajectory following")
+                # print("current angle, destination: ", self.yaw, self.destinationAngle)
+            self.publish_cmd_vel(self.pid(error), self.maxspeed*0.9)
             return 0
+        elif self.intersectionState==1: #trajectory following
+            desiredY = self.trajectory(x,self.rdbTransf)
+            error = y - desiredY
+            print("x,y,y_error: ",x,y,error)
+            # if x>=(self.offsets_x[self.intersectionDecision]-0.1) and (abs(error)<=0.35):
+            # arrived = (x>=(self.offsets_x[self.intersectionDecision]) and abs(y)>=self.offsets_y[self.intersectionDecision]) or abs(self.yaw-self.destinationAngle)<= 0.32
+            arrived = abs(self.yaw-self.rdbExitYaw) <= 0.1
+            # print("yaw_error: ")
+            # print(str(self.yaw-self.destinationAngle))
+            if arrived:
+                print("trajectory done. adjusting angle")
+                self.intersectionState += 1
+                self.last_error2 = 0 #reset pid errors
+                self.error_sum2 = 0
+                return 0
+            # steering_angle = self.pid2(error)
+            # print("steering: ",steering_angle)
+            # print("x, y, desiredY, angle, steer: ", x, y, desiredY, self.yaw, steering_angle*180/3.14159)
+            self.publish_cmd_vel(self.pid2(error), self.maxspeed*0.9)
+            return 0
+        elif self.intersectionState == 2: #adjust angle 2
+            error = self.yaw-(self.rdbExitYaw-np.pi/4)
+            if self.yaw>=5.73: #subtract 2pi to get small error
+                error-=6.28
+            # print("yaw, destAngle, error: ", self.yaw, self.destinationAngle, error)
+            if abs(error) <= 0.1:
+                print("done roundabout maneuvering!!")
+                self.doneManeuvering = True
+                self.error_sum = 0 #reset pid errors
+                self.last_error = 0
+                return 0
+            else:
+                self.publish_cmd_vel(self.pid(error), self.maxspeed*0.9)
+                return 0
+        #roundabout maneuver
+        # self.publish_cmd_vel(self.get_steering_angle()) #replace with left lane follow or something
+        # error = self.yaw-self.rdbExitYaw
+        # if self.yaw>=5.73: #subtract 2pi to get error between -pi and pi
+        #     error-=6.28
+        # # print("yaw, curAngle, error: ", self.yaw, self.currentAngle, error)
+        # if abs(error) <= 0.05:
+        #     print("done roundabout maneuvering!!")
+        #     self.doneManeuvering = True
+        #     self.error_sum = 0 #reset pid errors
+        #     self.last_error = 0
+        #     return 0
         return 0
 
     def park(self):
@@ -867,8 +932,12 @@ class StateMachine():
             # print("position: ",x,y)
             if self.intersectionState==0: #going straight
                 error = self.yaw-self.currentAngle
+                if self.yaw>=5.73: #subtract 2pi to get small error
+                    error-=6.28
                 if x >= self.offset:
                     self.intersectionState = 1
+                    self.error_sum = 0 #reset pid errors
+                    self.last_error = 0
                     print("done going straight. begin adjusting angle...")
                     # print("current angle, destination: ", self.yaw, self.destinationAngle)
                 self.publish_cmd_vel(self.pid(error), self.maxspeed*0.9)
@@ -952,9 +1021,9 @@ class StateMachine():
                     self.last_error2 = 0 #reset pid errors
                     self.error_sum2 = 0
                     return 0
-                steering_angle = self.pid2(error)
+                # steering_angle = self.pid2(error)
                 # print("x, y, desiredY, angle: ", x, y, desiredY, steering_angle*57.29578)
-                self.publish_cmd_vel(steering_angle, self.maxspeed*0.9)
+                self.publish_cmd_vel(self.pid2(error), self.maxspeed*0.9)
                 return 0
             elif self.intersectionState == 2: #adjust angle 2
                 error = self.yaw-self.destinationAngle
@@ -1067,10 +1136,10 @@ class StateMachine():
                     self.last_error2 = 0 #reset pid errors
                     self.error_sum2 = 0
                     return 0
-                steering_angle = self.pid2(error)
+                # steering_angle = self.pid2(error)
                 # print("steering: ",steering_angle)
                 # print("x, y, desiredY, angle, steer: ", x, y, desiredY, self.yaw, steering_angle*180/3.14159)
-                self.publish_cmd_vel(-steering_angle, -self.maxspeed*0.9)
+                self.publish_cmd_vel(-self.pid2(error), -self.maxspeed*0.9)
                 return 0
             elif self.intersectionState == 2: #adjust angle 2
                 error = self.yaw-self.destinationAngle
@@ -1084,8 +1153,7 @@ class StateMachine():
                     self.last_error = 0
                     return 0
                 else:
-                    steering_angle = self.pid(error)
-                    self.publish_cmd_vel(steering_angle, self.maxspeed*0.9)
+                    self.publish_cmd_vel(self.pid(error), self.maxspeed*0.9)
                     return 0
         elif self.exitDecision == 7:
             if self.initialPoints is None:
@@ -1107,8 +1175,10 @@ class StateMachine():
             if self.intersectionState==0: #going straight
                 error = self.yaw-self.currentAngle
                 if x >= self.offset:
-                    self.intersectionState = 1
                     print("done going straight. begin adjusting angle...")
+                    self.intersectionState = 1
+                    self.error_sum = 0 #reset pid errors
+                    self.last_error = 0
                     # print("current angle, destination: ", self.yaw, self.destinationAngle)
                 self.publish_cmd_vel(self.pid(error), self.maxspeed*0.9)
                 return 0
@@ -1277,7 +1347,12 @@ class StateMachine():
         return math.exp(3.75*x-3.03)
     def right_exit_trajectory_sim(self, x):
         return -math.exp(3.75*x-3.03)
-    
+    def rdb_trajectory(self, x, t):
+        u = 0.5-math.pow(x-0.71,2)
+        u = np.clip(u,0,255)
+        yaw = self.yaw+t if self.yaw+t>0 else (6.2831853+self.yaw+t)
+        return -math.sqrt(u)+0.25 if yaw<np.pi/2 or yaw>3*np.pi/2 else math.sqrt(u)+0.25
+
     #others
     def object_detected(self, obj_id):
         if self.numObj >= 2:
