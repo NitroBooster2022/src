@@ -5,19 +5,19 @@ import numpy as np
 from message_filters import ApproximateTimeSynchronizer
 from std_msgs.msg import String
 from utils.msg import Lane, Sign, localisation, IMU, encoder
-from utils.srv import get_direction, nav
+from utils.srv import get_direction, dotted, nav
 import message_filters
 import time
 import math
-from gazebo_msgs.msg import ModelStates
-from geometry_msgs.msg import Twist, Vector3
 
 import cv2
 import os
 import json
 import threading
+import argparse
 
 class StateMachine():
+    #initialization
     def __init__(self):
         #states
         self.states = ['Lane Following', "Approaching Intersection", "Stopping at Intersection", 
@@ -71,7 +71,6 @@ class StateMachine():
         self.i = 0
         self.d = 0.000#15
         self.last = 0
-        self.center = 0
 
         #timers
         self.timer = None

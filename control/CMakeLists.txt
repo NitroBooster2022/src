@@ -158,9 +158,9 @@ add_executable(camera
 add_executable(cameraExample
   src/cameraExample.cpp
 )
-# add_executable(lane
-#   src/lane.cpp
-# )
+add_executable(lane
+  src/lane.cpp
+)
 add_executable(sign
   src/sign.cpp
 )
@@ -191,9 +191,9 @@ target_link_libraries(camera
 target_link_libraries(cameraExample
   ${catkin_LIBRARIES}
 )
-# target_link_libraries(lane
-#   ${catkin_LIBRARIES}
-# )
+target_link_libraries(lane
+  ${catkin_LIBRARIES}
+)
 target_link_libraries(sign
   ${catkin_LIBRARIES}
 )
@@ -212,12 +212,10 @@ target_link_libraries(sign
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
   scripts/lane.py
-  scripts/sign.py
   scripts/sign_onnx.py
   scripts/realSensePub.py
   scripts/trackObjectDistance.py
-  scripts/control.py
-  scripts/StateMachineV1.py
+  scripts/control2.py
   scripts/localization.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
