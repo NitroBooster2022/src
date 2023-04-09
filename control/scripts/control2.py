@@ -1537,7 +1537,7 @@ if __name__ == '__main__':
         s = True
     else:
         s = False
-    if args.costum=="True":
+    if args.custom=="True":
         c = True
     else:
         c = False
