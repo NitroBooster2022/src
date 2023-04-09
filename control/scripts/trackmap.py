@@ -65,6 +65,7 @@ class track_map():
         cv2.imshow(windowName,self.regions)
         key = cv2.waitKey(0)
         # self.plan_path()
+        cv2.destroyAllWindows()
 
     def mouse_event_handler(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
@@ -358,7 +359,7 @@ class track_map():
                     else:
                         return 'int4S'
             elif x>1750:
-                return 'curvedpath'
+                return 'highwayN'
             else:
                 if x>1550:
                     return 'highwayN'
@@ -388,7 +389,7 @@ class track_map():
             elif y<775:
                 return 'roundabout'
             else:
-                return 'curvedpath'
+                return 'highwayN'
 
     # graph creation helpers
     def add_edge(self,source,dest,d):

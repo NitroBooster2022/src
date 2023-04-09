@@ -275,7 +275,7 @@ class StateMachine():
                 self.track_map = track_map(self.x,self.y,self.yaw,self.planned_path)
                 self.track_map.plan_path()
             else:
-                self.track_map.locate(self.x,self.y,self.yaw)
+                self.track_map.location = self.track_map.locate(self.x,self.y,self.yaw)
                 self.track_map.plan_path()
             # self.track_map.draw_map()
             #0:left, 1:straight, 2:right, 3:parkF, 4:parkP, 5:exitparkL, 6:exitparkR, 7:exitparkP
