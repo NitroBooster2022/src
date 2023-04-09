@@ -821,7 +821,7 @@ class StateMachine():
             self.rdbTransf = -self.orientations[self.orientation]
             self.odomX, self.odomY = 0.0, 0.0 #reset x,y
             self.odomTimer = rospy.Time.now()
-            self.offset = 0.03
+            self.offset = 0.4
             self.intersectionState = 0#adjusting angle:0, trajectory following:1, adjusting angle2: 2..
         self.odometry()
         poses = np.array([self.odomX,self.odomY])
@@ -841,27 +841,31 @@ class StateMachine():
                 # print("current angle, destination: ", self.yaw, self.destinationAngle)
             self.publish_cmd_vel(self.pid(error), self.maxspeed*0.9)
             return 0
-        elif self.intersectionState==1: #trajectory following
-            desiredY = self.trajectory(x,self.rdbTransf)
-            error = y - desiredY
-            print("x,y,y_error: ",x,y,error)
-            # if x>=(self.offsets_x[self.intersectionDecision]-0.1) and (abs(error)<=0.35):
-            # arrived = (x>=(self.offsets_x[self.intersectionDecision]) and abs(y)>=self.offsets_y[self.intersectionDecision]) or abs(self.yaw-self.destinationAngle)<= 0.32
-            arrived = abs(self.yaw-self.rdbExitYaw) <= 0.1
-            # print("yaw_error: ")
-            # print(str(self.yaw-self.destinationAngle))
+        elif self.intersectionState==1:
+            self.publish_cmd_vel(15, self.maxspeed*0.9)
+            yaw = self.currentAngle-np.pi/4
+            yaw = yaw if yaw>0 else (6.2831853+yaw)
+            arrived = abs(self.yaw-yaw) <= 0.1
             if arrived:
                 print("trajectory done. adjusting angle")
                 self.intersectionState += 1
-                self.last_error2 = 0 #reset pid errors
-                self.error_sum2 = 0
                 return 0
-            # steering_angle = self.pid2(error)
-            # print("steering: ",steering_angle)
-            # print("x, y, desiredY, angle, steer: ", x, y, desiredY, self.yaw, steering_angle*180/3.14159)
-            self.publish_cmd_vel(self.pid2(error), self.maxspeed*0.9)
             return 0
-        elif self.intersectionState == 2: #adjust angle 2
+        elif self.intersectionState==2: #trajectory following
+            # desiredY = self.trajectory(x,self.rdbTransf)
+            # error = y - desiredY
+            # print("x,y,y_error: ",x,y,error)
+            # self.publish_cmd_vel(self.pid2(error), self.maxspeed*0.9)
+            self.publish_cmd_vel(-0.35, self.maxspeed*0.9)
+            arrived = abs(self.yaw-self.rdbExitYaw) <= 0.1
+            if arrived:
+                print("trajectory done. adjusting angle")
+                self.intersectionState += 1
+                # self.last_error2 = 0 #reset pid errors
+                # self.error_sum2 = 0
+                return 0
+            return 0
+        elif self.intersectionState == 3: #adjust angle 2
             error = self.yaw-(self.rdbExitYaw-np.pi/4)
             if self.yaw>=5.73: #subtract 2pi to get small error
                 error-=6.28
@@ -875,18 +879,6 @@ class StateMachine():
             else:
                 self.publish_cmd_vel(self.pid(error), self.maxspeed*0.9)
                 return 0
-        #roundabout maneuver
-        # self.publish_cmd_vel(self.get_steering_angle()) #replace with left lane follow or something
-        # error = self.yaw-self.rdbExitYaw
-        # if self.yaw>=5.73: #subtract 2pi to get error between -pi and pi
-        #     error-=6.28
-        # # print("yaw, curAngle, error: ", self.yaw, self.currentAngle, error)
-        # if abs(error) <= 0.05:
-        #     print("done roundabout maneuvering!!")
-        #     self.doneManeuvering = True
-        #     self.error_sum = 0 #reset pid errors
-        #     self.last_error = 0
-        #     return 0
         return 0
 
     def park(self):
@@ -1397,7 +1389,7 @@ class StateMachine():
         if clip:
             steering_angle = np.clip(steering_angle*180/np.pi, -22.9, 22.9)
         self.msg.data = '{"action":"1","speed":'+str(velocity)+'}'
-        self.msg2.data = '{"action":"2","steerAngle":'+str(steering_angle)+'}'
+        self.msg2.data = '{"action":"2","steerAngle":'+str(float(steering_angle))+'}'
         self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
 
