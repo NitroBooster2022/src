@@ -21,7 +21,7 @@ from trackmap import track_map
 
 class StateMachine():
     #initialization
-    def __init__(self, simulation = True, planned_path = "/path.json"):
+    def __init__(self, simulation = True, planned_path = "/path.json", custom_path = False):
         #simulation
         self.simulation = simulation
         if self.simulation:
@@ -48,6 +48,9 @@ class StateMachine():
             # self.exitDec = [2,3,2,2,2,2] #0:exit left, 1:no exit, 2:exit right, 3:exit parallel
             # self.exitDecI = 0
             # print("Parking decisions: [exit left]")
+            if custom_path:
+                self.track_map = track_map()
+                self.track_map.custum_path()
         else:
             # get initial yaw from IMU
             self.initialYaw = 0
@@ -267,8 +270,13 @@ class StateMachine():
             print("x,y,yaw",self.x,self.y,self.yaw)
 
             # self.planned_path=['parkingN','roundabout','int5N','int1E','roundabout','parkingN']
-            self.planned_path = json.load(open(os.path.dirname(os.path.realpath(__file__))+planned_path, 'r'))
-            self.track_map = track_map(self.x,self.y,self.yaw,self.planned_path)
+            if not custom_path:
+                self.planned_path = json.load(open(os.path.dirname(os.path.realpath(__file__))+planned_path, 'r'))
+                self.track_map = track_map(self.x,self.y,self.yaw,self.planned_path)
+                self.track_map.plan_path()
+            else:
+                self.track_map.location = self.track_map.locate(self.x,self.y,self.yaw)
+                self.track_map.plan_path()
             # self.track_map.draw_map()
             #0:left, 1:straight, 2:right, 3:parkF, 4:parkP, 5:exitparkL, 6:exitparkR, 7:exitparkP
             #8:enterhwLeft, 9:enterhwStright, 10:rdb, 11:exitrdbE, 12:exitrdbS, 13:exitrdbW
@@ -821,7 +829,7 @@ class StateMachine():
             self.rdbTransf = -self.orientations[self.orientation]
             self.odomX, self.odomY = 0.0, 0.0 #reset x,y
             self.odomTimer = rospy.Time.now()
-            self.offset = 0.03
+            self.offset = 0.4
             self.intersectionState = 0#adjusting angle:0, trajectory following:1, adjusting angle2: 2..
         self.odometry()
         poses = np.array([self.odomX,self.odomY])
@@ -841,27 +849,31 @@ class StateMachine():
                 # print("current angle, destination: ", self.yaw, self.destinationAngle)
             self.publish_cmd_vel(self.pid(error), self.maxspeed*0.9)
             return 0
-        elif self.intersectionState==1: #trajectory following
-            desiredY = self.trajectory(x,self.rdbTransf)
-            error = y - desiredY
-            print("x,y,y_error: ",x,y,error)
-            # if x>=(self.offsets_x[self.intersectionDecision]-0.1) and (abs(error)<=0.35):
-            # arrived = (x>=(self.offsets_x[self.intersectionDecision]) and abs(y)>=self.offsets_y[self.intersectionDecision]) or abs(self.yaw-self.destinationAngle)<= 0.32
-            arrived = abs(self.yaw-self.rdbExitYaw) <= 0.1
-            # print("yaw_error: ")
-            # print(str(self.yaw-self.destinationAngle))
+        elif self.intersectionState==1:
+            self.publish_cmd_vel(15, self.maxspeed*0.9)
+            yaw = self.currentAngle-np.pi/4
+            yaw = yaw if yaw>0 else (6.2831853+yaw)
+            arrived = abs(self.yaw-yaw) <= 0.1
             if arrived:
                 print("trajectory done. adjusting angle")
                 self.intersectionState += 1
-                self.last_error2 = 0 #reset pid errors
-                self.error_sum2 = 0
                 return 0
-            # steering_angle = self.pid2(error)
-            # print("steering: ",steering_angle)
-            # print("x, y, desiredY, angle, steer: ", x, y, desiredY, self.yaw, steering_angle*180/3.14159)
-            self.publish_cmd_vel(self.pid2(error), self.maxspeed*0.9)
             return 0
-        elif self.intersectionState == 2: #adjust angle 2
+        elif self.intersectionState==2: #trajectory following
+            # desiredY = self.trajectory(x,self.rdbTransf)
+            # error = y - desiredY
+            # print("x,y,y_error: ",x,y,error)
+            # self.publish_cmd_vel(self.pid2(error), self.maxspeed*0.9)
+            self.publish_cmd_vel(-0.35, self.maxspeed*0.9)
+            arrived = abs(self.yaw-self.rdbExitYaw) <= 0.1
+            if arrived:
+                print("trajectory done. adjusting angle")
+                self.intersectionState += 1
+                # self.last_error2 = 0 #reset pid errors
+                # self.error_sum2 = 0
+                return 0
+            return 0
+        elif self.intersectionState == 3: #adjust angle 2
             error = self.yaw-(self.rdbExitYaw-np.pi/4)
             if self.yaw>=5.73: #subtract 2pi to get small error
                 error-=6.28
@@ -875,18 +887,6 @@ class StateMachine():
             else:
                 self.publish_cmd_vel(self.pid(error), self.maxspeed*0.9)
                 return 0
-        #roundabout maneuver
-        # self.publish_cmd_vel(self.get_steering_angle()) #replace with left lane follow or something
-        # error = self.yaw-self.rdbExitYaw
-        # if self.yaw>=5.73: #subtract 2pi to get error between -pi and pi
-        #     error-=6.28
-        # # print("yaw, curAngle, error: ", self.yaw, self.currentAngle, error)
-        # if abs(error) <= 0.05:
-        #     print("done roundabout maneuvering!!")
-        #     self.doneManeuvering = True
-        #     self.error_sum = 0 #reset pid errors
-        #     self.last_error = 0
-        #     return 0
         return 0
 
     def park(self):
@@ -1397,7 +1397,7 @@ class StateMachine():
         if clip:
             steering_angle = np.clip(steering_angle*180/np.pi, -22.9, 22.9)
         self.msg.data = '{"action":"1","speed":'+str(velocity)+'}'
-        self.msg2.data = '{"action":"2","steerAngle":'+str(steering_angle)+'}'
+        self.msg2.data = '{"action":"2","steerAngle":'+str(float(steering_angle))+'}'
         self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
 
@@ -1530,13 +1530,18 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='State Machine for Robot Control.')
     parser.add_argument("--simulation", type=str, default=True, help="Run the robot in simulation or real life")
     parser.add_argument("--path", type=str, default="/path.json", help="Planned path")
+    parser.add_argument("--custom", type=str, default=False, help="Custom path")
     # args, unknown = parser.parse_known_args()
     args = parser.parse_args(rospy.myargv()[1:])
     if args.simulation=="True":
         s = True
     else:
         s = False
-    node = StateMachine(simulation=s,planned_path=args.path)
+    if args.custom=="True":
+        c = True
+    else:
+        c = False
+    node = StateMachine(simulation=s,planned_path=args.path,custom_path=c)
     while not rospy.is_shutdown():
         node.rate.sleep()
         rospy.spin()
