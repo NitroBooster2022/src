@@ -1,34 +1,5 @@
 #!/usr/bin/env python3
 
-# Copyright (c) 2019, Bosch Engineering Center Cluj and BFMC organizers
-# All rights reserved.
-
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-
-# 1. Redistributions of source code must retain the above copyright notice, this
-#    list of conditions and the following disclaimer.
-
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-#    this list of conditions and the following disclaimer in the documentation
-#    and/or other materials provided with the distribution.
-
-# 3. Neither the name of the copyright holder nor the names of its
-#    contributors may be used to endorse or promote products derived from
-#    this software without specific prior written permission.
-
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
-
-
 import rospy
 import cv2
 import numpy as np
@@ -45,11 +16,12 @@ class CameraHandler():
         self.bridge = CvBridge()
         self.cv_image = np.zeros((640, 480))
         rospy.init_node('CAMnod', anonymous=True)
-        r = rospy.Rate(2)
-        self.save_path = os.path.dirname(os.path.realpath(__file__))+'/images/'
-        self.i = 1
+        r = rospy.Rate(10)
+        self.save_path = os.path.dirname(os.path.realpath(__file__))+'/images8/'
+        self.i = 0
         self.image_sub = rospy.Subscriber("/automobile/image_raw", Image, self.callback)
         rospy.spin()
+        r.sleep()
 
     def callback(self, data):
         """
@@ -58,6 +30,9 @@ class CameraHandler():
         """
         self.cv_image = self.bridge.imgmsg_to_cv2(data, "rgb8")
         cv2.imwrite(self.save_path+str(self.i)+".jpg", self.cv_image)
+        print("Image saved: "+str(self.i))
+        cv2.imshow("Frame preview", self.cv_image)
+        cv2.waitKey(1)
         self.i+=1
         # cv2.imshow("Frame preview", self.cv_image)
         # key = cv2.waitKey(1)
@@ -67,4 +42,5 @@ if __name__ == '__main__':
     try:
         nod = CameraHandler()
     except rospy.ROSInterruptException:
+        cv2.destroyAllWindows()
         pass
