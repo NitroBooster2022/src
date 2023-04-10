@@ -16,7 +16,6 @@ public:
         image = cv::Mat::zeros(480, 640, CV_8UC1);
         stopline = false;
         dotted = false;
-        pl = 320;
         ros::Rate rate(15); 
         while (ros::ok()) {
             ros::spinOnce();
@@ -143,7 +142,6 @@ private:
     double total;
     cv::Mat maskh, masks, image, maskd;
     bool stopline, dotted;
-    int pl;
     int h = 480, w = 640;
     
     double minVal, maxVal;
@@ -153,7 +151,7 @@ private:
     cv::Mat thresh;
     cv::Mat hist;
     cv::Mat img_rois;
-    double threshold_value_stop;
+    // double threshold_value_stop;
     cv::Mat threshs;
     cv::Mat hists;
     void addSquare(cv::Mat& image) {

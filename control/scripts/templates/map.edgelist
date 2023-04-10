@@ -64,7 +64,8 @@ roundabout track2S {'weight': 1.75, 'dir': 11}
 roundabout highwayS {'weight': 6.5, 'dir': 12}
 roundabout track3S {'weight': 4.5, 'dir': 13}
 highwayN roundabout {'weight': 6.5, 'dir': 10}
+highwayN curvedpath {'weight': 4, 'dir': 14}
 highwayS int4N {'weight': 7.25, 'dir': 2}
 highwayS int2W {'weight': 9.75, 'dir': 1}
-curvedpath track2N {'weight': 12.25, 'dir': 2}
+curvedpath track2S {'weight': 12.25, 'dir': 2}
 curvedpath roundabout {'weight': 10.5, 'dir': 0}

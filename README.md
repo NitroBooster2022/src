@@ -1,26 +1,34 @@
 # src
 ***simulator code from: https://github.com/ECC-BFMC/Simulator***
 
-Requirements install:
+## Requirements install:
 
-1-open a terminal and cd to Simulator/src
+1. open a terminal and cd to Simulator/src
 
-2-```pip install -r requirements.txt```
+2. ```pip install -r requirements.txt```
 
-Usage: (you have to change the path at line 154 of Simulator/src/control/CMakeLists.txt to your own ncnn path)
+3. Other requirements: 
 
-1-open a terminal and cd to Simulator
+- openCV: https://docs.opencv.org/4.x/d7/d9f/tutorial_linux_install.html
 
-2-(only after building/catkin_make) ```gedit devel/setup.bash``` and add these 2 lines to the file with your Simulator path:
+- ncnn: https://github.com/Tencent/ncnn/wiki/how-to-build#build-for-linux
+
+- YoloFastestV2: https://github.com/xs2445/Yolo-FastestV2-NCNN-RasPi4B
+
+## Usage:
+
+1. open a terminal and cd to Simulator
+
+2. (only after building/catkin_make) ```gedit devel/setup.bash``` and add these 2 lines to the file with your Simulator path:
 
 ```sh
 export GAZEBO_MODEL_PATH="/home/{YOUR_USER}/Documents/Simulator/src/models_pkg:$GAZEBO_MODEL_PATH"
 export ROS_PACKAGE_PATH="/home/{YOUR_USER}/Documents/Simulator/src:$ROS_PACKAGE_PATH"
 ```
 
-3-```source devel/setup.bash```
+3. ```source devel/setup.bash```
 
-Run simulator:
+## Run simulator:
 
 ```roslaunch sim_pkg map_with_car.launch```
 (you can replace "map_with_car.launch" with different launch files in sim_pkg/launch and/or modify them to add objects in the simulator)
@@ -36,13 +44,13 @@ Any other functions: ```rosrun control *.py``` (any python file in control/scrip
 (ex: ```rosrun control lane.py```
 ex: ```rosrun control lane```)
 
-Advanced stuff:
+## Advanced stuff:
 
 ```car_control.launch``` file arguments:
 
 ```xml
 <arg name="show_sign"  default="False" doc="display sign detection window (True or False)"/>
-<arg name="show_lane"  default="True" doc="display lane detection window (True or False)"/>
+<arg name="show_lane"  default="False" doc="display lane detection window (True or False)"/>
 <arg name="method"  default="histogram" doc="method for lane detection (histogram or houghlines)"/>
 <arg name="simulation"  default="True" doc="Simulation mode (True or False)"/>
 <arg name="path"  default="/paths/path.json" doc="the relative json file path to the planned path"/>
@@ -53,24 +61,24 @@ Advanced stuff:
 
 ex: ```roslaunch control car_control.launch show_sign:=True path:=/paths/path1.json```
 
-Files structures in src:
+## Files structures in src:
 
 control: our controller package
 
--launch: launch files for controller function
+- launch: launch files for controller function
 
--models: yolo models for object detection
+- models: yolo models for object detection
 
--msg: custom ros messages used by controller functions
+- msg: custom ros messages used by controller functions
 
--scripts: controller functions in python
+- scripts: controller functions in python
 
--src: controller functions in c++
+- src: controller functions in c++
 
--srv: custom ros services used by controller functions
+- srv: custom ros services used by controller functions
 
 example: given demo code
--its src has control.py and camera.py to demo keyboard control and camera
+- its src has control.py and camera.py to demo keyboard control and camera
 
 models_pkg: sdf models used in the simulator
 

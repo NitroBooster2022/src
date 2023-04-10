@@ -182,7 +182,7 @@ int main(int argc, char** argv)
     ImageConverter ic;
     ros::Rate rate(10);
     while(ros::ok()){
-        ROS_INFO("objects: %d", output.size());
+        ROS_INFO("objects: %ld", output.size());
         ros::spinOnce();
         rate.sleep();
     }
