@@ -13,10 +13,10 @@ public:
     LaneDetector() : it(nh), imgSize(640, 480) {
         image_pub = it.advertise("/automobile/image_modified", 1);
         lane_pub = nh.advertise<utils::Lane>("/lane", 1);
-        camera_.set(CV_CAP_PROP_FRAME_WIDTH, imgSize.width);
-        camera_.set(CV_CAP_PROP_FRAME_HEIGHT, imgSize.height);
-        camera_.set(CV_CAP_PROP_FPS, 15);
-        camera_.set(CV_CAP_PROP_BRIGHTNESS, 42);
+        camera_.set(cv::CAP_PROP_FRAME_WIDTH, imgSize.width);
+        camera_.set(cv::CAP_PROP_FRAME_HEIGHT, imgSize.height);
+        camera_.set(cv::CAP_PROP_FPS, 15);
+        camera_.set(cv::CAP_PROP_BRIGHTNESS, 42);
 
         if (!camera_.open()) {
             ROS_ERROR("Failed to open the camera.");
@@ -43,9 +43,10 @@ public:
         camera_.release();
     }
 
-    void imageCallback(const sensor_msgs::ImageConstPtr& msg) {
+    void imageCallback(const cv::Mat msg) {
         try {
-            cv::Mat cv_image = cv_bridge::toCvShare(msg, "bgr8")->image;
+            // cv::Mat cv_image = cv_bridge::toCvShare(msg, "bgr8")->image;
+            cv::Mat cv_image = msg;
             auto start = high_resolution_clock::now();
             double center = optimized_histogram(cv_image);
             auto stop = high_resolution_clock::now();
@@ -71,7 +72,7 @@ public:
             lane_pub.publish(lane_msg);
 
         } catch (cv_bridge::Exception& e) {
-            ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
+            // ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
         }
     }
 
@@ -178,6 +179,24 @@ private:
     ros::Publisher lane_pub;
     raspicam::RaspiCam_Cv camera_;
     cv::Size imgSize;
+    bool stopline, dotted;
+    int pl;
+    cv::Mat image;
+    double num_iterations = 1;
+    double total;
+
+    int h = 480, w = 640;
+    
+    double minVal, maxVal;
+    cv::Point minLoc, maxLoc;
+    cv::Mat img_gray;
+    cv::Mat img_roi;
+    cv::Mat thresh;
+    cv::Mat hist;
+    cv::Mat img_rois;
+    double threshold_value_stop;
+    cv::Mat threshs;
+    cv::Mat hists;
 
     // ... (rest of the private variables)
 };
