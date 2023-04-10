@@ -20,6 +20,8 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   cv_bridge
   image_transport
+  # roslib
+  # image_geometry
 )
 
 ## System dependencies are found with CMake's conventions
@@ -116,7 +118,23 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES control
- CATKIN_DEPENDS geometry_msgs roscpp rospy std_msgs tf2 tf2_geometry_msgs tf2_ros turtlesim message_runtime image_transport cv_bridge sensor_msgs opencv2
+ CATKIN_DEPENDS
+ geometry_msgs
+ roscpp
+ rospy
+ std_msgs
+ tf2
+ tf2_geometry_msgs
+ tf2_ros
+ turtlesim
+ message_runtime
+ image_transport
+ cv_bridge
+ sensor_msgs
+ opencv2
+#  roslib
+#  image_geometry
+#  message_generation
 #  DEPENDS system_lib
 )
 
@@ -129,8 +147,26 @@ catkin_package(
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/control/src/include
+  ${OpenCV_INCLUDE_DIRS}
 )
 
+set(CMAKE_PREFIX_PATH /home/antoinedeng/Documents/ncnn/build/install ${CMAKE_PREFIX_PATH})
+
+find_package(ncnn REQUIRED)
+if (${ncnn_FOUND})
+  message("-- NCNN found.")
+  message("-- NCNN_VULKAN flag is ${NCNN_VULKAN}")
+  if (${NCNN_VULKAN})
+    message("-- AUTO-ENABLING GPU_SUPPORT")
+    set(GPU_SUPPORT ON)
+  endif()
+  include_directories(${ncnn_INCLUDE})
+endif()
+
+find_package(OpenCV REQUIRED COMPONENTS
+  core highgui imgproc imgcodecs
+)
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
 #   src/${PROJECT_NAME}/control.cpp
@@ -164,6 +200,10 @@ add_executable(lane
 add_executable(sign
   src/sign.cpp
 )
+add_executable(signFastest
+  src/signFastest.cpp
+  src/yolo-fastestv2.cpp
+)
 # add_executable(localization
 #   src/localization.cpp
 # )
@@ -177,6 +217,7 @@ add_executable(sign
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies( signFastest ros_ncnn_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
 # target_link_libraries(control2
@@ -196,6 +237,10 @@ target_link_libraries(lane
 )
 target_link_libraries(sign
   ${catkin_LIBRARIES}
+)
+target_link_libraries(signFastest
+  ${catkin_LIBRARIES}
+  ncnn ${OpenCV_LIBS}
 )
 # target_link_libraries(localization
 #   ${catkin_LIBRARIES}
