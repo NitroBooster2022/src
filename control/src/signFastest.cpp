@@ -5,8 +5,16 @@
 #include "sensor_msgs/image_encodings.h"
 #include "std_msgs/Header.h"
 #include "utils/Sign.h"
+#include <chrono>
+using namespace std::chrono;
 
+static const char* class_names[] = {
+        "oneway", "highwayentrance", "stopsign", "roundabout", "park", "crosswalk", "noentry", "highwayexit", "priority",
+                "lights","block","pedestrian","car"
+    };
 void imageCallback(const sensor_msgs::ImageConstPtr &msg, yoloFastestv2 *api, ros::Publisher *pub) {
+    auto start = high_resolution_clock::now();
+
     // Convert ROS image to OpenCV image
     cv_bridge::CvImagePtr cv_ptr;
     try {
@@ -33,11 +41,45 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg, yoloFastestv2 *api, ro
         sign_msg.box1.push_back(box.y1);
         sign_msg.box2.push_back(box.x2);
         sign_msg.box2.push_back(box.y2);
-        // sign_msg.confidence.push_back(box.score);
+        sign_msg.confidence.push_back(box.score);
     }
 
     // Publish Sign message
     pub->publish(sign_msg);
+    auto stop = high_resolution_clock::now();
+    auto duration = duration_cast<microseconds>(stop - start);
+    std::cout << "sign durations: " << duration.count() << std::endl;
+    
+    // for display
+    for (int i = 0; i < boxes.size(); i++) {
+        // std::cout << "hi" << std::endl;
+        std::cout<<boxes[i].x1<<" "<<boxes[i].y1<<" "<<boxes[i].x2<<" "<<boxes[i].y2
+                 <<" "<<boxes[i].score<<" "<<boxes[i].cate<<std::endl;
+        
+        char text[256];
+        sprintf(text, "%s %.1f%%", class_names[boxes[i].cate], boxes[i].score * 100);
+
+        int baseLine = 0;
+        cv::Size label_size = cv::getTextSize(text, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
+
+        int x = boxes[i].x1;
+        int y = boxes[i].y1 - label_size.height - baseLine;
+        if (y < 0)
+            y = 0;
+        if (x + label_size.width > cv_ptr->image.cols)
+            x = cv_ptr->image.cols - label_size.width;
+
+        cv::rectangle(cv_ptr->image, cv::Rect(cv::Point(x, y), cv::Size(label_size.width, label_size.height + baseLine)),
+                      cv::Scalar(255, 255, 255), -1);
+
+        cv::putText(cv_ptr->image, text, cv::Point(x, y + label_size.height),
+                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0));
+
+        cv::rectangle (cv_ptr->image, cv::Point(boxes[i].x1, boxes[i].y1), 
+                       cv::Point(boxes[i].x2, boxes[i].y2), cv::Scalar(255, 255, 0), 2, 2, 0);
+    }
+    cv::imshow("image", cv_ptr->image);
+    cv::waitKey(1);
 }
 
 
@@ -51,18 +93,14 @@ int main(int argc, char **argv) {
     };
     yoloFastestv2 api;
 
-    // api.loadModel("./model/yolo-fastestv2-opt.param",
-    //              "./model/yolo-fastestv2-opt.bin");
-    // api.loadModel("./model/alice7s-opt.param",
-    //               "./model/alice7s-opt.bin");
-    api.loadModel("/home/antoinedeng/Documents/Simulator/src/control/src/model/coco7-opt.param",
-                  "/home/antoinedeng/Documents/Simulator/src/control/src/model/coco7-opt.bin");
+    api.loadModel("/home/simonli/Documents/Simulator/src/control/src/model/alice7s-opt.param",
+                  "/home/simonli/Documents/Simulator/src/control/src/model/alice7s-opt.bin");
 
     // Initialize ROS node and publisher
     ros::init(argc, argv, "object_detector");
     ros::NodeHandle nh;
     image_transport::ImageTransport it(nh);
-    ros::Publisher pub = nh.advertise<utils::Sign>("detected_objects", 1000);
+    ros::Publisher pub = nh.advertise<utils::Sign>("sign", 1000);
     image_transport::Subscriber sub = it.subscribe("automobile/image_raw", 1, boost::bind(&imageCallback, _1, &api, &pub));
 
     // Spin ROS node
