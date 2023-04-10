@@ -26,7 +26,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
-
+find_package(OpenCV REQUIRED)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -145,7 +145,9 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
+  "include"
+  src/include 
+  include/ncnn
   ${catkin_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/control/src/include
   ${OpenCV_INCLUDE_DIRS}
@@ -168,9 +170,6 @@ find_package(OpenCV REQUIRED COMPONENTS
   core highgui imgproc imgcodecs
 )
 ## Declare a C++ library
-# add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/control.cpp
-# )
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -193,6 +192,7 @@ add_executable(camera
 )
 add_executable(cameraExample
   src/cameraExample.cpp
+  src/yolo-fastestv2.cpp
 )
 add_executable(lane
   src/lane.cpp
@@ -231,6 +231,7 @@ target_link_libraries(camera
 )
 target_link_libraries(cameraExample
   ${catkin_LIBRARIES}
+  ncnn ${OpenCV_LIBS}
 )
 target_link_libraries(lane
   ${catkin_LIBRARIES}
@@ -245,7 +246,10 @@ target_link_libraries(signFastest
 # target_link_libraries(localization
 #   ${catkin_LIBRARIES}
 # )
-
+# find_package(OpenMP)
+# if (OpenMP_CXX_FOUND)
+#     target_link_libraries(signFastest PUBLIC OpenMP::OpenMP_CXX)
+# endif()
 #############
 ## Install ##
 #############
