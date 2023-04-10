@@ -151,6 +151,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/control/src/include
   ${OpenCV_INCLUDE_DIRS}
+  # ${CMAKE_CURRENT_SOURCE_DIR}/src/control/src/include
 )
 
 
@@ -206,6 +207,10 @@ add_executable(signFastest
   src/signFastest.cpp
   src/yolo-fastestv2.cpp
 )
+add_executable(cameraNode
+  src/cameraNode.cpp
+  src/include/raspicam/raspicam_cv.cpp
+)
 # add_executable(localization
 #   src/localization.cpp
 # )
@@ -244,6 +249,10 @@ target_link_libraries(sign
 target_link_libraries(signFastest
   ${catkin_LIBRARIES}
   ncnn ${OpenCV_LIBS}
+)
+target_link_libraries(cameraNode
+  ${catkin_LIBRARIES}
+  raspicam
 )
 # target_link_libraries(localization
 #   ${catkin_LIBRARIES}
