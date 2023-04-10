@@ -34,8 +34,9 @@ class StateMachine():
             file = open(os.path.dirname(os.path.realpath(__file__))+'/PIDSim.json', 'r')
             #decisions
             #get them from localisation/path planner
-            self.interDec = [2,0,2,0,0,1,2] #0:left, 1:straight, 2:right
-            # self.interDec = [1,1,1,1,1,1,1] #0:left, 1:straight, 2:right
+            # self.interDec = [2,0,2,0,0,1,2] #0:left, 1:straight, 2:right
+            self.interDec = [1,1,1,1,1,1,1] #0:left, 1:straight, 2:right
+            # self.interDec = [1,2,1,0,2,0,1] #0:left, 1:straight, 2:right
             self.interDecI = 0
             print("Intersection decisions: [right,left,right,left,left,straight,right]")
             self.parkDec = [2,3,1,1,1,1,1] #0:leftParking, 1:noParking, 2:rightParking, 3:rightParallel, 4:leftParallel
@@ -602,9 +603,9 @@ class StateMachine():
     
     def approachCrosswalk(self):
         #Transition events
-        if self.timer is None: #start timer. ~13 seconds to pass crosswalk
+        if self.timer is None: #start timer. ~10 seconds to pass crosswalk
             print("slowing down to "+str(0.66*self.maxspeed)+"m/s")
-            self.timer = rospy.Time.now() + rospy.Duration(13)
+            self.timer = rospy.Time.now() + rospy.Duration(10)
         if rospy.Time.now() >= self.timer:
             print("crosswalk passed, speed back up to "+str(self.maxspeed)+"m/s")
             self.timer = None #reset timer
@@ -709,7 +710,7 @@ class StateMachine():
                 return 1
             elif self.parkingDecision == 2: #rightParking
                 self.trajectory = self.right_trajectory
-        if self.parkingDecision == 3:
+        if self.parkingDecision == 3: # parallel parking
             if self.initialPoints is None:
                 self.set_current_angle()
                 # print("current orientation: ", self.directions[self.orientation], self.orientations[self.orientation])
@@ -763,14 +764,14 @@ class StateMachine():
                     return 0
                 self.publish_cmd_vel(-23, -self.maxspeed*0.9)
                 return 0
-        elif self.parkingDecision == 2:
+        elif self.parkingDecision == 2: 
             if self.initialPoints is None:
                 self.set_current_angle()
                 # print("current orientation: ", self.directions[self.orientation], self.orientations[self.orientation])
                 # print("destination orientation: ", self.destinationOrientation, self.destinationAngle)
                 self.initialPoints = np.array([self.x, self.y])
                 # print("initialPoints points: ", self.initialPoints)
-                self.offset = 0.13 if self.simulation else 0.12 + self.parksize
+                self.offset = 0.3 if self.simulation else 0.12 + self.parksize
                 print("begin going straight for "+str(self.offset)+"m")
                 self.odomX, self.odomY = 0.0, 0.0 #reset x,y
                 self.odomTimer = rospy.Time.now()

@@ -40,10 +40,10 @@ class track_map():
         # nx.write_edgelist(self.map_graph,os.path.dirname(os.path.realpath(__file__))+'/map.edgelist')
 
         # loading the graph map
-        # self.map_graph=nx.read_edgelist(os.path.dirname(os.path.realpath(__file__))+'/map.edgelist',create_using=nx.DiGraph())
-        # for i in range(len(self.map_graph.nodes)):
-        #     self.map_graph.nodes[self.locations[i]]['coord']=self.locations_coord[i]
-        self.map_graph=nx.read_graphml(os.path.dirname(os.path.realpath(__file__))+'/Competition_track.graphml')
+        self.map_graph=nx.read_edgelist(os.path.dirname(os.path.realpath(__file__))+'/map.edgelist',create_using=nx.DiGraph())
+        for i in range(len(self.map_graph.nodes)):
+            self.map_graph.nodes[self.locations[i]]['coord']=self.locations_coord[i]
+        # self.map_graph=nx.read_graphml(os.path.dirname(os.path.realpath(__file__))+'/Competition_track.graphml')
 
         # get the current location
         self.location = ''
@@ -52,7 +52,7 @@ class track_map():
         # calculate the shortest path
         self.path = []
         self.directions = []
-        # self.plan_path()
+        self.plan_path()
 
     def plan_path(self):
         # get the path and directions
@@ -313,5 +313,5 @@ class track_map():
 if __name__ == '__main__':
     m = ['int1E','int2N','int5N','int6E','int6S','int4W','int3W','int1S','start']
     node = track_map(13.5,4.5,1.5,m)
-    # node.draw_map()
-    node.draw_map_graphml()
+    node.draw_map()
+    # node.draw_map_graphml()
