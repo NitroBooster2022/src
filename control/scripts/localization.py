@@ -22,8 +22,8 @@ class Localiser():
         self.position.put(np.array([0,0]))
         self.pos = np.array([1,15])
         self.rot = 0
-        self.map = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/map.png')
-        self.map_history = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/map.png')
+        self.map = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/templates/map.png')
+        self.map_history = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/templates/map.png')
 
         # planned path
         # self.planned_path=['int1E','int2N','int5N','int6E','int6S','int4W','int3W','int1S','start']

@@ -9,7 +9,7 @@ import json
 class track_map():
 
     def __init__(self,posX=0,posY=0,rot=0,path=[]):
-        self.map = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/map.png')
+        self.map = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/templates/map.png')
         self.map_graph = nx.DiGraph()
         self.locations = ['start','int1N','int1S','int1W','int1E',
         'int2N','int2S','int2W','int2E','int3N','int3S','int3W','int3E',
@@ -38,7 +38,7 @@ class track_map():
         # self.make_map()
 
         # loading the graph map
-        self.map_graph=nx.read_edgelist(os.path.dirname(os.path.realpath(__file__))+'/map.edgelist',create_using=nx.DiGraph())
+        self.map_graph=nx.read_edgelist(os.path.dirname(os.path.realpath(__file__))+'/templates/map.edgelist',create_using=nx.DiGraph())
         for i in range(len(self.map_graph.nodes)):
             self.map_graph.nodes[self.locations[i]]['coord']=self.locations_coord[i]
         # self.map_graph=nx.read_graphml(os.path.dirname(os.path.realpath(__file__))+'/Competition_track.graphml')
@@ -53,10 +53,13 @@ class track_map():
         self.directions = []
         # self.plan_path()
 
+    def get_location_cood(self,loc):
+        return self.map_graph.nodes[loc]['coord']
+
     def custum_path(self):
         print("---Click on map to input path---")
         print("---Press any keys to continue---")
-        self.regions = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/map_graphv2.drawio.png')
+        self.regions = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/templates/map_graphv2.drawio.png')
         self.planned_path = []
         windowName = 'path'
         cv2.namedWindow(windowName,cv2.WINDOW_NORMAL)
@@ -78,6 +81,15 @@ class track_map():
         self.path = [self.location]
         loc = self.location
         for i in range(len(self.planned_path)):
+            if self.planned_path[i] != "start": #remove edges going to start
+                try:
+                    self.rm_edge('int1S','start')
+                    self.rm_edge('int1W','start')
+                except:
+                    pass
+            else:
+                self.add_edge('int1S','start')
+                self.add_edge('int1W','start')
             if self.planned_path[i] != "parkingN" and self.planned_path[i] != "parkingS" and loc != "parkingN" and loc != "parkingS":
                 self.rm_edge('track1N','parkingN')
                 self.rm_edge('parkingN','track2N')
@@ -479,13 +491,13 @@ class track_map():
         for i in range(len(self.locations_coord)):
             self.map_graph.nodes[self.locations[i]]['coord']=self.locations_coord[i]
         self.add_all_edges()
-        nx.write_edgelist(self.map_graph,os.path.dirname(os.path.realpath(__file__))+'/map.edgelist')
+        nx.write_edgelist(self.map_graph,os.path.dirname(os.path.realpath(__file__))+'/templates/map.edgelist')
 
 if __name__ == '__main__':
     # m = ['int1E','int2N','int5N','int6E','int6S','int4W','int3W','int1S','start']
-    m = json.load(open(os.path.dirname(os.path.realpath(__file__))+'/path.json', 'r'))
+    m = json.load(open(os.path.dirname(os.path.realpath(__file__))+'/paths/path.json', 'r'))
     # print(m)
-    node = track_map(13.5,4.5,1.5,m)
+    node = track_map(0,15,1.5,m)
     node.draw_map()
     # node.draw_map_edgelist()
     # node.draw_map_graphml()

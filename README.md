@@ -45,7 +45,7 @@ Advanced stuff:
 <arg name="show_lane"  default="True" doc="display lane detection window (True or False)"/>
 <arg name="method"  default="histogram" doc="method for lane detection (histogram or houghlines)"/>
 <arg name="simulation"  default="True" doc="Simulation mode (True or False)"/>
-<arg name="path"  default="/path.json" doc="the relative json file path to the planned path"/>
+<arg name="path"  default="/paths/path.json" doc="the relative json file path to the planned path"/>
 <arg name="custom"  default="False" doc="user input map (True or False)"/>
 ```
 
@@ -56,11 +56,17 @@ ex: ```roslaunch control car_control.launch show_sign:=True path:=/paths/path1.j
 Files structures in src:
 
 control: our controller package
+
 -launch: launch files for controller function
+
 -models: yolo models for object detection
+
 -msg: custom ros messages used by controller functions
+
 -scripts: controller functions in python
+
 -src: controller functions in c++
+
 -srv: custom ros services used by controller functions
 
 example: given demo code

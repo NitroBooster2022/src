@@ -34,6 +34,7 @@ public:
             total+=static_cast<double>(duration.count());
             double avg_duration = total / num_iterations;
             num_iterations++;
+
             // std::cout << "durations: " << duration.count() << std::endl;
             // std::cout << "avg: " << avg_duration << std::endl;
             // std::cout << "center: " << center << std::endl;
@@ -124,10 +125,6 @@ public:
         } else if (centers.size() == 1) {
             center = (centers[0] > (w / 2.0)) ? (centers[0] - 0) / 2 : (centers[0] * 2 + w) / 2;
         } else if (abs(centers[0] - centers.back()) < 200) {
-            // center = ((centers[0] + centers.back()) / 2 + 0) / 2.0;
-            // if ((centers[0] + centers.back()) > w) {
-            //     center = (centers[0] + centers.back()) + w / 2;
-            // }
             center = ((centers[0] + centers.back()) > w) ? ((centers[0] + centers.back()) / 2 + 0) / 2.0 : ((centers[0] + centers.back()) + w) / 2;
         } else {
             center = (centers[0] + centers.back()) / 2;
