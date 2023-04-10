@@ -53,7 +53,30 @@ class track_map():
         # calculate the shortest path
         self.path = []
         self.directions = []
-        self.plan_path()
+        # self.plan_path()
+
+    def get_location_cood(self,loc):
+        return self.map_graph.nodes[loc]['coord']
+
+    def custum_path(self):
+        print("---Click on map to input path---")
+        print("---Press any keys to continue---")
+        self.regions = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/templates/map_graphv2.drawio.png')
+        self.planned_path = []
+        windowName = 'path'
+        cv2.namedWindow(windowName,cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(windowName,700,700)
+        cv2.setMouseCallback(windowName,self.mouse_event_handler)
+        cv2.imshow(windowName,self.regions)
+        key = cv2.waitKey(0)
+        # self.plan_path()
+        cv2.destroyAllWindows()
+
+    def mouse_event_handler(self, event, x, y, flags, param):
+        if event == cv2.EVENT_LBUTTONDOWN:
+            # print(f"User clicked on ({x}, {y})")
+            print(self.locateM(x,y))
+            self.planned_path.append(self.locateM(x,y))
 
     def get_location_cood(self,loc):
         return self.map_graph.nodes[loc]['coord']

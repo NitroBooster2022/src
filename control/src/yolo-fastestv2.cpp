@@ -9,7 +9,7 @@ yoloFastestv2::yoloFastestv2()
     //输出节点数
     numOutput = 2;
     //推理线程数
-    numThreads = 4;
+    numThreads = 1;
     //anchor num
     numAnchor = 3;
     //类别数目
