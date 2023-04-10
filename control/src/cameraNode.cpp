@@ -157,11 +157,11 @@ int main(int argc, char** argv) {
     ros::Timer sign_timer = nh.createTimer(ros::Duration(1.0 / sign_pub_rate), [&](const ros::TimerEvent& event) { signDetectionCallback(event, &api, &sign_pub); });
 
     raspicam::RaspiCam_Cv camera_;
-    camera_.set(cv::CAP_PROP_FRAME_WIDTH, imgSize.width);
-    camera_.set(cv::CAP_PROP_FRAME_HEIGHT, imgSize.height);
-    camera_.set(cv::CAP_PROP_FPS, 15);
-    camera_.set(cv::CAP_PROP_BRIGHTNESS, 42);
-    camera_.set( cv::CAP_PROP_FORMAT, CV_8UC1 );
+    // camera_.set(cv::CAP_PROP_FRAME_WIDTH, imgSize.width);
+    // camera_.set(cv::CAP_PROP_FRAME_HEIGHT, imgSize.height);
+    // camera_.set(cv::CAP_PROP_FPS, 15);
+    // camera_.set(cv::CAP_PROP_BRIGHTNESS, 42);
+    // camera_.set( cv::CAP_PROP_FORMAT, CV_8UC3);
 
     if (!camera_.open()) {
         ROS_ERROR("Failed to open the camera.");
@@ -175,6 +175,8 @@ int main(int argc, char** argv) {
         camera_.grab();
         camera_.retrieve(cv_image);
         cv::cvtColor(cv_image, cv_image, cv::COLOR_BGR2RGB);
+        cv::imshow("Camera", cv_image);
+        cv::waitKey(1);
         ros::spinOnce();
     }
     camera_.release();
