@@ -7,7 +7,7 @@
 
 2. ```pip install -r requirements.txt```
 
-## Usage: (you have to change the path at line 154 of Simulator/src/control/CMakeLists.txt to your own ncnn path)
+## Usage:
 
 1. open a terminal and cd to Simulator
 
