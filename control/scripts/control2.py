@@ -1085,7 +1085,7 @@ class StateMachine():
             self.exitDecision = -1 #reset
             self.state = 0 #go back to lane following
             self.initialPoints = None #reset initial points
-            self.timerP = None
+            self.timerP = None # useless comment
             return 1
         elif self.exitDecision < 0:
             if self.decisionsI >= len(self.decisions):
