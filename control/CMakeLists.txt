@@ -172,6 +172,7 @@ endif()
 find_package(OpenCV REQUIRED COMPONENTS
   core highgui imgproc imgcodecs
 )
+
 ## Declare a C++ library
 
 ## Add cmake target dependencies of the library
@@ -210,6 +211,7 @@ add_executable(signFastest
 add_executable(cameraNode
   src/cameraNode.cpp
   src/include/raspicam/raspicam_cv.cpp
+  src/yolo-fastestv2.cpp
 )
 # add_executable(localization
 #   src/localization.cpp
@@ -252,6 +254,7 @@ target_link_libraries(signFastest
 )
 target_link_libraries(cameraNode
   ${catkin_LIBRARIES}
+  ncnn ${OpenCV_LIBS}
   raspicam
 )
 # target_link_libraries(localization
