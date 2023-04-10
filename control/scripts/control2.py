@@ -447,7 +447,7 @@ class StateMachine():
                 return 1
         elif self.parking_detected():
             # if not at parking decision yet pass
-            if self.decisions[self.decisionsI] != 3 and self.decisions[self.decisionsI] != 4:
+            if self.decisionsI >= len(self.decisions) or (self.decisions[self.decisionsI] != 3 and self.decisions[self.decisionsI] != 4):
                 return 0
             if self.detected_objects[0] == 4:
                 self.parksize = max(self.box1[2], self.box1[3])
