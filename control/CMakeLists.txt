@@ -155,6 +155,7 @@ include_directories(
 
 set(CMAKE_PREFIX_PATH /home/simonli/Documents/ncnn/build/install ${CMAKE_PREFIX_PATH})
 
+find_package(raspicam REQUIRED)
 find_package(ncnn REQUIRED)
 if (${ncnn_FOUND})
   message("-- NCNN found.")
@@ -169,6 +170,8 @@ endif()
 find_package(OpenCV REQUIRED COMPONENTS
   core highgui imgproc imgcodecs
 )
+IF  ( OpenCV_FOUND AND raspicam_CV_FOUND)
+MESSAGE(STATUS "COMPILING OPENCV TESTS")
 ## Declare a C++ library
 
 ## Add cmake target dependencies of the library
@@ -189,6 +192,10 @@ find_package(OpenCV REQUIRED COMPONENTS
 # )
 add_executable(camera
   src/camera.cpp
+)
+add_executable(cameraNode
+  src/cameraNode.cpp
+  src/yolo-fastestv2.cpp
 )
 add_executable(cameraExample
   src/cameraExample.cpp
@@ -228,6 +235,11 @@ add_executable(signFastest
 # )
 target_link_libraries(camera
   ${catkin_LIBRARIES}
+)
+target_link_libraries(cameraNode
+  ${catkin_LIBRARIES}
+  ${raspicam_CV_LIBS}
+  ncnn ${OpenCV_LIBS}
 )
 target_link_libraries(cameraExample
   ${catkin_LIBRARIES}

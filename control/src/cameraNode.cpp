@@ -13,10 +13,10 @@ public:
     LaneDetector() : it(nh), imgSize(640, 480) {
         image_pub = it.advertise("/automobile/image_modified", 1);
         lane_pub = nh.advertise<utils::Lane>("/lane", 1);
-        camera_.set(CV_CAP_PROP_FRAME_WIDTH, imgSize.width);
-        camera_.set(CV_CAP_PROP_FRAME_HEIGHT, imgSize.height);
-        camera_.set(CV_CAP_PROP_FPS, 15);
-        camera_.set(CV_CAP_PROP_BRIGHTNESS, 42);
+        camera_.set(cv::CAP_PROP_FRAME_WIDTH, imgSize.width);
+        camera_.set(cv::CAP_PROP_FRAME_HEIGHT, imgSize.height);
+        camera_.set(cv::CAP_PROP_FPS, 15);
+        camera_.set(cv::CAP_PROP_BRIGHTNESS, 42);
 
         if (!camera_.open()) {
             ROS_ERROR("Failed to open the camera.");
@@ -43,9 +43,9 @@ public:
         camera_.release();
     }
 
-    void imageCallback(const sensor_msgs::ImageConstPtr& msg) {
+    void imageCallback(const cv::Mat& cv_image) {
         try {
-            cv::Mat cv_image = cv_bridge::toCvShare(msg, "bgr8")->image;
+            // cv::Mat cv_image = cv_bridge::toCvShare(msg, "bgr8")->image;
             auto start = high_resolution_clock::now();
             double center = optimized_histogram(cv_image);
             auto stop = high_resolution_clock::now();
@@ -108,25 +108,6 @@ public:
         hist = cv::Mat::zeros(1, w, CV_32SC1);
         cv::reduce(thresh, hist, 0, cv::REDUCE_SUM, CV_32S);
 
-        // apply masks
-        // img_rois = img_gray(cv::Range(300, 340), cv::Range::all());
-        // // cv::imshow("S", img_rois);
-        // // cv::waitKey(1);
-        // cv::minMaxLoc(img_roi, &minVal, &maxVal, &minLoc, &maxLoc); // Use img_roi or img_rois depending on your requirements
-        // threshold_value_stop = std::min(std::max(maxVal - 65.0, 30.0), 200.0);
-        
-        // cv::threshold(img_rois, threshs, threshold_value_stop, 255, cv::THRESH_BINARY);
-        // hists = cv::Mat::zeros(1, w, CV_32SC1);
-        // cv::reduce(threshs, hists, 0, cv::REDUCE_SUM, CV_32S);
-
-        // std::vector<int> stop_lanes = extract_lanes(hists);
-        // for (size_t i = 0; i < stop_lanes.size() / 2; ++i) {
-        //     if (abs(stop_lanes[2 * i] - stop_lanes[2 * i + 1]) > 370 && threshold_value > 30) {
-        //         stopline = true;
-        //         if (!show) return w / 2.0;
-        //     }
-        // }
-
         std::vector<int> lanes = extract_lanes(hist);
         std::vector<double> centers;
         for (size_t i = 0; i < lanes.size() / 2; ++i) {
@@ -179,7 +160,30 @@ private:
     raspicam::RaspiCam_Cv camera_;
     cv::Size imgSize;
 
-    // ... (rest of the private variables)
+    double num_iterations = 1;
+    double total;
+    cv::Mat maskh, masks, image, maskd;
+    bool stopline, dotted;
+    int pl;
+    int h = 480, w = 640;
+    
+    double minVal, maxVal;
+    cv::Point minLoc, maxLoc;
+    cv::Mat img_gray;
+    cv::Mat img_roi;
+    cv::Mat thresh;
+    cv::Mat hist;
+    cv::Mat img_rois;
+    double threshold_value_stop;
+    cv::Mat threshs;
+    cv::Mat hists;
+    void addSquare(cv::Mat& image) {
+        cv::Point top_left(100, 100);
+        cv::Point bottom_right(200, 200);
+        cv::Scalar color(0, 255, 0); // Green
+        int thickness = 2;
+        cv::rectangle(image, top_left, bottom_right, color, thickness);
+    }
 };
 
 int main(int argc, char** argv) {
