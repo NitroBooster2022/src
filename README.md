@@ -7,6 +7,14 @@
 
 2. ```pip install -r requirements.txt```
 
+3. Other requirements: 
+
+- openCV: https://docs.opencv.org/4.x/d7/d9f/tutorial_linux_install.html
+
+- ncnn: https://github.com/Tencent/ncnn/wiki/how-to-build#build-for-linux
+
+- YoloFastestV2: https://github.com/xs2445/Yolo-FastestV2-NCNN-RasPi4B
+
 ## Usage:
 
 1. open a terminal and cd to Simulator
