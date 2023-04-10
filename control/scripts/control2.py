@@ -21,7 +21,7 @@ from trackmap import track_map
 
 class StateMachine():
     #initialization
-    def __init__(self, simulation = True, planned_path = "/path.json", custom_path = False):
+    def __init__(self, simulation = True, planned_path = "/paths/path.json", custom_path = False):
         #simulation
         self.simulation = simulation
         if self.simulation:
@@ -36,18 +36,6 @@ class StateMachine():
             self.initializationTime = 2
             self.maxspeed = 0.175
             file = open(os.path.dirname(os.path.realpath(__file__))+'/PIDSim.json', 'r')
-            #decisions
-            #get them from localisation/path planner
-            # self.interDec = [2,0,2,0,0,1,2] #0:left, 1:straight, 2:right
-            # self.interDec = [1,1,1,1,1,1,1] #0:left, 1:straight, 2:right
-            # self.interDecI = 0
-            # print("Intersection decisions: [right,left,right,left,left,straight,right]")
-            # self.parkDec = [2,3,1,1,1,1,1] #0:leftParking, 1:noParking, 2:rightParking, 3:rightParallel, 4:leftParallel
-            # self.parkDecI = 0
-            # print("Parking decisions: [rightPark,rightParallelPark]")
-            # self.exitDec = [2,3,2,2,2,2] #0:exit left, 1:no exit, 2:exit right, 3:exit parallel
-            # self.exitDecI = 0
-            # print("Parking decisions: [exit left]")
             if custom_path:
                 self.track_map = track_map()
                 self.track_map.custum_path()
@@ -69,17 +57,6 @@ class StateMachine():
             self.initializationTime = 10
             self.maxspeed = 0.125
             file = open(os.path.dirname(os.path.realpath(__file__))+'/PID.json', 'r')
-            #decisions
-            #get them from localisation/path planner
-            self.interDec = [2,0,1,1,1,1,1] #0:left, 1:straight, 2:right
-            self.interDecI = 0
-            print("Intersection decisions: [right,left]")
-            self.parkDec = [2,3,1,1,1,1,1] #0:leftParking, 1:noParking, 2:rightParking, 3:rightParallel, 4:leftParallel
-            self.parkDecI = 0
-            print("Parking decisions: [rightPark,rightParallelPark]")
-            self.exitDec = [2,3,2,2,2,2] #0:exit left, 1:no exit, 2:exit right, 3:exit parallel
-            self.exitDecI = 0
-            print("Parking decisions: [exit left]")
             #enable PID and encoder at the start to get messages from automobile/encoder
             self.msg.data = '{"action":"5","activate": true}'
             self.cmd_vel_pub.publish(self.msg)
@@ -89,9 +66,10 @@ class StateMachine():
             self.cmd_vel_pub.publish(self.msg)
             self.cmd_vel_pub.publish(self.msg)
             self.cmd_vel_pub.publish(self.msg)
-            self.decisions = [2,"leftparking","rightexit",0,"parallelparking"]
+            #0:left, 1:straight, 2:right, 3:parkF, 4:parkP, 5:exitparkL, 6:exitparkR, 7:exitparkP
+            #8:enterhwLeft, 9:enterhwStright, 10:rdb, 11:exitrdbE, 12:exitrdbS, 13:exitrdbW
+            self.decisions = [2,3,6,0,4]
             self.decisionsI = 0
-            # FIX THIS
         #states
         self.states = ['Lane Following', "Approaching Intersection", "Stopping at Intersection", 
                        "Intersection Maneuvering", "Approaching Crosswalk", "Pedestrian", "Highway",
@@ -145,14 +123,16 @@ class StateMachine():
         self.timer3 = None
 
         #intersection & parking
+        #0:left, 1:straight, 2:right, 3:parkF, 4:parkP, 5:exitparkL, 6:exitparkR, 7:exitparkP
+        #8:enterhwLeft, 9:enterhwStright, 10:rdb, 11:exitrdbE, 12:exitrdbS, 13:exitrdbW
         self.intersectionStop = None
-        self.intersectionDecision = -1 #0:left, 1:straight, 2:right
-        self.intersectionDecisions = ["left", "straight", "right"]
-        self.parkingDecision = -1 #0:leftParking, 1:noParking, 2:rightParking, 3:rightParallel, 4:leftParallel
-        # self.parkingDecisions = ["leftParking", "noParking","rightParking", "rightParallel", "leftParallel"] 
+        self.intersectionDecision = -1
+        self.parkingDecision = -1
         self.exitDecision = -1
-        # self.exitDecisions = ["exit left","no exit","exit right","exit parallel"]
         self.rdbDecision = -1
+        self.decisionList = ["left","straight","right","parkF","parkP",
+        "exitparkL","exitparkR","exitparkP","enterhwLeft","enterhwStright","rdb",
+        "exitrdbE","exitrdbS","exitrdbW"]
         self.doneManeuvering = False
         self.doneParking = False
         self.destination_x = None
@@ -259,6 +239,8 @@ class StateMachine():
         self.rdb = False
         self.rdbExitYaw = 0
         self.rdbTransf = 0
+        self.timerO = None
+        self.carBlockSem = -1
         # self.trackbars()
 
         if self.simulation:
@@ -280,7 +262,6 @@ class StateMachine():
             # self.track_map.draw_map()
             #0:left, 1:straight, 2:right, 3:parkF, 4:parkP, 5:exitparkL, 6:exitparkR, 7:exitparkP
             #8:enterhwLeft, 9:enterhwStright, 10:rdb, 11:exitrdbE, 12:exitrdbS, 13:exitrdbW
-            
             self.decisions = self.track_map.directions
             self.decisionsI = 0
     
@@ -398,8 +379,6 @@ class StateMachine():
     
     #actions
     def lanefollow(self):
-        # Determine the steering angle based on the center and publish the steering command
-        self.publish_cmd_vel(self.get_steering_angle())
         #transition events
         if self.ArrivedAtStopline:
             print("signless intersection detected... -> state 3")
@@ -437,10 +416,27 @@ class StateMachine():
         #     print("entering highway -> 6")
         #     self.state = 6
         #     return 1
-        elif self.object_detected(12):
-            print("Carblock -> 7")
-            self.state = 7
-            return 1
+        elif self.object_detected(12) or self.carBlockSem > 0:
+            # print("Carblock -> 7")
+            if self.object_detected(12):
+                self.carBlockSem = 20
+            else:
+                self.carBlockSem -= 1
+                if self.carBlockSem == 0:
+                    self.timerO = None
+                    return 0
+            if self.timerO == None:
+                self.timerO = rospy.Time.now() + rospy.Duration(1.57)
+                print("prepare to overtake")
+            elif rospy.Time.now() >= self.timerO:
+                self.timerO = None
+                self.carBlockSem = -1
+                self.history = self.state
+                self.state = 7
+                return 1
+            else:
+                self.idle()
+                return 0
         # elif self.entering_roundabout():
         #     print("entering roundabout -> 8")
         #     self.state = 8
@@ -461,10 +457,12 @@ class StateMachine():
             print("about to park -> 9")
             self.state = 9
             return 1
-        elif self.object_detected(10): #check for reimplementation
-            print("Block!!! -> 7")
-            self.state = 7
-            return 1
+        # elif self.object_detected(10): #check for reimplementation
+        #     print("Block!!! -> 7")
+        #     self.state = 7
+        #     return 1
+        # Determine the steering angle based on the center and publish the steering command
+        self.publish_cmd_vel(self.get_steering_angle())
         return 0
     
     def approachInt(self):
@@ -549,7 +547,7 @@ class StateMachine():
                 self.trajectory = self.right_trajectory
             else:
                 raise ValueError("self.intersectionDecision id wrong: ",self.intersectionDecision)
-            print("intersection decision: going " + self.intersectionDecisions[self.intersectionDecision])
+            print("intersection decision: going " + self.decisionList[self.intersectionDecision])
         if self.initialPoints is None:
             self.set_current_angle()
             # print("current orientation: ", self.directions[self.orientation], self.orientations[self.orientation])
@@ -656,23 +654,39 @@ class StateMachine():
         return 0 
     
     def highway(self):
-        if self.highway_exit_detected():
-            if self.entering_roundabout(): #check this
-                self.rdb = True
-                self.state = 1 #should be approaching roundabout state similar to approachInt
-                return 1
-            else: #go to approachInt
-                self.intersectionStop = False
-                self.state = 1
-                return 1
+        # if self.highway_exit_detected():
+        #     if self.entering_roundabout(): #check this
+        #         self.rdb = True
+        #         self.state = 1 #should be approaching roundabout state similar to approachInt
+        #         return 1
+        #     else: #go to approachInt
+        #         self.intersectionStop = False
+        #         self.state = 1
+        #         return 1
         if self.ArrivedAtStopline:
             self.doneManeuvering = False #set to false before entering state 3
             self.state = 3
             return 1
-        if self.object_detected(12): #overtake
-            self.history = self.state
-            self.state = 7
-            return 1
+        if self.object_detected(12) or self.carBlockSem > 0: #overtake
+            if self.object_detected(12):
+                self.carBlockSem = 20
+            else:
+                self.carBlockSem -= 1
+                if self.carBlockSem == 0:
+                    self.timerO = None
+                    return 0
+            if self.timerO == None:
+                self.timerO = rospy.Time.now() + rospy.Duration(1.57)
+                print("prepare to overtake")
+            elif rospy.Time.now() >= self.timerO:
+                self.carBlockSem = -1
+                self.timerO = None
+                self.history = self.state
+                self.state = 7
+                return 1
+            else:
+                self.idle()
+                return 0
         self.publish_cmd_vel(self.get_steering_angle(), self.maxspeed*1.33)
         return 0
     
@@ -818,6 +832,7 @@ class StateMachine():
                 self.rdbExitYaw = 5*np.pi/4 #change this depending on implementation
             else:
                 raise ValueError("self.rdbDecision id wrong: ",self.rdbDecision)
+            print("roundabout decision: going " + self.decisionList[self.rdbDecision])
             self.trajectory = self.rdb_trajectory
         if self.initialPoints is None:
             self.set_current_angle()
@@ -913,6 +928,7 @@ class StateMachine():
                 pass
             else:
                 raise ValueError("self.parkingDecision id wrong: ",self.parkingDecision)
+            print("parking decision: going " + self.decisionList[self.parkingDecision])
         if self.parkingDecision == 4:
             if self.initialPoints is None:
                 self.set_current_angle()
@@ -1088,6 +1104,7 @@ class StateMachine():
                 pass
             else:
                 raise ValueError("self.exitDecision id wrong: ",self.exitDecision)
+            print("exit decision: going " + self.decisionList[self.exitDecision])
         if self.exitDecision != 7:
             if self.initialPoints is None:
                 self.yaw=(self.yaw+3.14159)%(6.28318) #flip Yaw
@@ -1466,7 +1483,6 @@ class StateMachine():
         elif self.intersectionDecision <0: 
             self.intersectionDecision = 2 #replace this with service call
             # self.intersectionDecision = np.random.randint(low=0, high=3) #replace this with service call
-            print("intersection decision: going " + self.intersectionDecisions[self.intersectionDecision])
         if self.intersectionDecision == 0: #left
             #go straight for 2.5s then left for 4.5s
             if self.timer is None and self.timer2 is None: #begin going straight
@@ -1529,7 +1545,7 @@ class StateMachine():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='State Machine for Robot Control.')
     parser.add_argument("--simulation", type=str, default=True, help="Run the robot in simulation or real life")
-    parser.add_argument("--path", type=str, default="/path.json", help="Planned path")
+    parser.add_argument("--path", type=str, default="/paths/path.json", help="Planned path")
     parser.add_argument("--custom", type=str, default=False, help="Custom path")
     # args, unknown = parser.parse_known_args()
     args = parser.parse_args(rospy.myargv()[1:])
