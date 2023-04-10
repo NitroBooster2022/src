@@ -38,7 +38,9 @@ class track_map():
         # self.make_map()
 
         # loading the graph map
+
         self.map_graph=nx.read_edgelist(os.path.dirname(os.path.realpath(__file__))+'/templates/map.edgelist',create_using=nx.DiGraph())
+
         for i in range(len(self.map_graph.nodes)):
             self.map_graph.nodes[self.locations[i]]['coord']=self.locations_coord[i]
         # self.map_graph=nx.read_graphml(os.path.dirname(os.path.realpath(__file__))+'/Competition_track.graphml')
@@ -51,7 +53,7 @@ class track_map():
         # calculate the shortest path
         self.path = []
         self.directions = []
-        # self.plan_path()
+        self.plan_path()
 
     def get_location_cood(self,loc):
         return self.map_graph.nodes[loc]['coord']
