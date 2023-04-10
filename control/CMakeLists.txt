@@ -151,7 +151,7 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
 )
 
-set(CMAKE_PREFIX_PATH /home/antoinedeng/Documents/ncnn/build/install ${CMAKE_PREFIX_PATH})
+set(CMAKE_PREFIX_PATH /home/john/ncnn/build/install ${CMAKE_PREFIX_PATH})
 
 find_package(ncnn REQUIRED)
 if (${ncnn_FOUND})

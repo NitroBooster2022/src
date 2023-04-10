@@ -447,7 +447,7 @@ class StateMachine():
                 return 1
         elif self.parking_detected():
             # if not at parking decision yet pass
-            if self.decisions[self.decisionsI] != 3 and self.decisions[self.decisionsI] != 4:
+            if self.decisionsI >= len(self.decisions) or (self.decisions[self.decisionsI] != 3 and self.decisions[self.decisionsI] != 4):
                 return 0
             if self.detected_objects[0] == 4:
                 self.parksize = max(self.box1[2], self.box1[3])
@@ -1085,7 +1085,7 @@ class StateMachine():
             self.exitDecision = -1 #reset
             self.state = 0 #go back to lane following
             self.initialPoints = None #reset initial points
-            self.timerP = None
+            self.timerP = None # useless comment
             return 1
         elif self.exitDecision < 0:
             if self.decisionsI >= len(self.decisions):
