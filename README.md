@@ -3,22 +3,22 @@
 
 ## Requirements install:
 
-1-open a terminal and cd to Simulator/src
+1. open a terminal and cd to Simulator/src
 
-2-```pip install -r requirements.txt```
+2. ```pip install -r requirements.txt```
 
 ## Usage: (you have to change the path at line 154 of Simulator/src/control/CMakeLists.txt to your own ncnn path)
 
-1-open a terminal and cd to Simulator
+1. open a terminal and cd to Simulator
 
-2-(only after building/catkin_make) ```gedit devel/setup.bash``` and add these 2 lines to the file with your Simulator path:
+2. (only after building/catkin_make) ```gedit devel/setup.bash``` and add these 2 lines to the file with your Simulator path:
 
 ```sh
 export GAZEBO_MODEL_PATH="/home/{YOUR_USER}/Documents/Simulator/src/models_pkg:$GAZEBO_MODEL_PATH"
 export ROS_PACKAGE_PATH="/home/{YOUR_USER}/Documents/Simulator/src:$ROS_PACKAGE_PATH"
 ```
 
-3-```source devel/setup.bash```
+3. ```source devel/setup.bash```
 
 ## Run simulator:
 
@@ -57,20 +57,20 @@ ex: ```roslaunch control car_control.launch show_sign:=True path:=/paths/path1.j
 
 control: our controller package
 
--launch: launch files for controller function
+- launch: launch files for controller function
 
--models: yolo models for object detection
+- models: yolo models for object detection
 
--msg: custom ros messages used by controller functions
+- msg: custom ros messages used by controller functions
 
--scripts: controller functions in python
+- scripts: controller functions in python
 
--src: controller functions in c++
+- src: controller functions in c++
 
--srv: custom ros services used by controller functions
+- srv: custom ros services used by controller functions
 
 example: given demo code
--its src has control.py and camera.py to demo keyboard control and camera
+- its src has control.py and camera.py to demo keyboard control and camera
 
 models_pkg: sdf models used in the simulator
 
