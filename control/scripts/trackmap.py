@@ -396,7 +396,7 @@ class track_map():
                     else:
                         return 'int4S'
             elif x>1750:
-                return 'highwayN'
+                return 'curvedpath'
             else:
                 if x>1550:
                     return 'highwayN'
@@ -423,10 +423,8 @@ class track_map():
                     return 'track3N'
                 else:
                     return 'track3S'
-            elif y<775:
-                return 'roundabout'
             else:
-                return 'highwayN'
+                return 'roundabout'
 
     # graph creation helpers
     def add_edge(self,source,dest,d):
@@ -439,7 +437,7 @@ class track_map():
     
     def add_all_edges(self):
         #0:left, 1:straight, 2:right, 3:parkF, 4:parkP, 5:exitparkL, 6:exitparkR, 7:exitparkP
-        #8:enterhwLeft, 9:enterhwStright, 10:rdb, 11:exitrdbE, 12:exitrdbS, 13:exitrdbW
+        #8:enterhwLeft, 9:enterhwStright, 10:rdb, 11:exitrdbE, 12:exitrdbS, 13:exitrdbW, 14:curvedpath
         self.add_edge('start','int1N',1)
         self.add_edge('start','int1E',2)
         self.add_edge('int1N','int3N',1)
@@ -508,8 +506,9 @@ class track_map():
         self.add_edge('highwayN','roundabout',10)
         self.add_edge('highwayS','int4N',2)
         self.add_edge('highwayS','int2W',1)
-        self.add_edge('curvedpath','track2N',2)
+        self.add_edge('curvedpath','track2S',2)
         self.add_edge('curvedpath','roundabout',0)
+        self.add_edge('highwayN','curvedpath',14)
 
     def make_map(self):
         self.map_graph.add_nodes_from(self.locations)

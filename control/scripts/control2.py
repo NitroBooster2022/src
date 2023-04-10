@@ -67,14 +67,14 @@ class StateMachine():
             self.cmd_vel_pub.publish(self.msg)
             self.cmd_vel_pub.publish(self.msg)
             #0:left, 1:straight, 2:right, 3:parkF, 4:parkP, 5:exitparkL, 6:exitparkR, 7:exitparkP
-            #8:enterhwLeft, 9:enterhwStright, 10:rdb, 11:exitrdbE, 12:exitrdbS, 13:exitrdbW
+            #8:enterhwLeft, 9:enterhwStright, 10:rdb, 11:exitrdbE, 12:exitrdbS, 13:exitrdbW, 14:curvedpath
             self.decisions = [2,3,6,0,4]
             self.decisionsI = 0
         #states
         self.states = ['Lane Following', "Approaching Intersection", "Stopping at Intersection", 
                        "Intersection Maneuvering", "Approaching Crosswalk", "Pedestrian", "Highway",
-                       "Carblock", "Roundabout", "Parking", "Initial", "Parked"]
-        self.state = 10
+                       "Carblock", "Roundabout", "Parking", "Initial", "Parked", "Curvedpath"] #13 states
+        self.state = 10 #initial
 
         #sign
         self.class_names = ['oneway', 'highwayexit', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayentrance', 'priority',
@@ -129,7 +129,7 @@ class StateMachine():
 
         #intersection & parking
         #0:left, 1:straight, 2:right, 3:parkF, 4:parkP, 5:exitparkL, 6:exitparkR, 7:exitparkP
-        #8:enterhwLeft, 9:enterhwStright, 10:rdb, 11:exitrdbE, 12:exitrdbS, 13:exitrdbW
+        #8:enterhwLeft, 9:enterhwStright, 10:rdb, 11:exitrdbE, 12:exitrdbS, 13:exitrdbW, 14:curvedpath
         self.intersectionStop = None
         self.intersectionDecision = -1
         self.parkingDecision = -1
@@ -137,7 +137,7 @@ class StateMachine():
         self.rdbDecision = -1
         self.decisionList = ["left","straight","right","parkF","parkP",
         "exitparkL","exitparkR","exitparkP","enterhwLeft","enterhwStright","rdb",
-        "exitrdbE","exitrdbS","exitrdbW"]
+        "exitrdbE","exitrdbS","exitrdbW","curvedpath"]
         self.doneManeuvering = False
         self.doneParking = False
         self.destination_x = None
@@ -249,7 +249,7 @@ class StateMachine():
                 self.track_map.plan_path()
             # self.track_map.draw_map()
             #0:left, 1:straight, 2:right, 3:parkF, 4:parkP, 5:exitparkL, 6:exitparkR, 7:exitparkP
-            #8:enterhwLeft, 9:enterhwStright, 10:rdb, 11:exitrdbE, 12:exitrdbS, 13:exitrdbW
+            #8:enterhwLeft, 9:enterhwStright, 10:rdb, 11:exitrdbE, 12:exitrdbS, 13:exitrdbW, 14:curvedpath
             self.decisions = self.track_map.directions
             self.decisionsI = 0
     
@@ -361,6 +361,8 @@ class StateMachine():
                     return self.exitPark()
                 self.idle()
                 return 0
+        elif self.state == 12: #Curvedpath
+            return self.curvedpath()
     
     #actions
     def lanefollow(self):
@@ -422,17 +424,17 @@ class StateMachine():
             else:
                 self.idle()
                 return 0
-        # elif self.entering_roundabout():
-        #     print("entering roundabout -> 8")
-        #     self.state = 8
-        #     return 1
-        elif self.entering_roundabout():
+        elif self.entering_roundabout(): #revamp this
                 self.rdb = True
                 self.state = 1 #should be approaching roundabout state similar to approachInt
                 return 1
         elif self.parking_detected():
             # if not at parking decision yet pass
-            if self.decisionsI >= len(self.decisions) or (self.decisions[self.decisionsI] != 3 and self.decisions[self.decisionsI] != 4):
+            if self.decisionsI >= len(self.decisions):
+                self.publish_cmd_vel(self.get_steering_angle())
+                return 0
+            elif (self.decisions[self.decisionsI] != 3 and self.decisions[self.decisionsI] != 4):
+                self.publish_cmd_vel(self.get_steering_angle())
                 return 0
             if self.detected_objects[0] == 4:
                 self.parksize = max(self.box1[2], self.box1[3])
@@ -442,10 +444,12 @@ class StateMachine():
             print("about to park -> 9")
             self.state = 9
             return 1
+        
         # elif self.object_detected(10): #check for reimplementation
         #     print("Block!!! -> 7")
         #     self.state = 7
         #     return 1
+
         # Determine the steering angle based on the center and publish the steering command
         self.publish_cmd_vel(self.get_steering_angle())
         return 0
@@ -630,6 +634,11 @@ class StateMachine():
         #         self.intersectionStop = False
         #         self.state = 1
         #         return 1
+        if self.decisionsI < len(self.decisions):
+            if self.decisions[self.decisionsI] == 14 and self.yaw >= np.pi/12: #tune this
+                self.doneManeuvering = False
+                self.state = 12
+                return 1
         if self.ArrivedAtStopline:
             self.doneManeuvering = False #set to false before entering state 3
             self.state = 3
@@ -684,6 +693,7 @@ class StateMachine():
             self.history = None
             self.initialPoints = None #reset initial points
             self.timerP = None
+            self.pl = 320
             return 1
         if True: #change with left right overtaking if needed
             if self.initialPoints is None:
@@ -760,6 +770,7 @@ class StateMachine():
             self.rdbDecision = -1
             self.initialPoints = None #reset initial points
             self.timerP = None
+            self.pl = 320
             return 1
         elif self.rdbDecision < 0:
             if self.decisionsI >= len(self.decisions):
@@ -857,6 +868,7 @@ class StateMachine():
             self.parkingDecision = -1
             self.initialPoints = None #reset initial points
             self.timerP = None
+            self.pl = 320
             return 1
         elif self.parkingDecision < 0:
             if self.decisionsI >= len(self.decisions):
@@ -1024,6 +1036,7 @@ class StateMachine():
             self.state = 0 #go back to lane following
             self.initialPoints = None #reset initial points
             self.timerP = None # useless comment
+            self.pl = 320
             return 1
         elif self.exitDecision < 0:
             if self.decisionsI >= len(self.decisions):
@@ -1158,6 +1171,57 @@ class StateMachine():
                 self.publish_cmd_vel(23, self.maxspeed*0.9)
                 return 0
     
+    def curvedpath(self):
+        if self.doneManeuvering:
+            print("done curvedpath maneuvering.")
+            self.doneManeuvering = False #reset
+            self.intersectionDecision = -1 #reset
+            self.initialPoints = None #reset initial points
+            self.pl = 320
+            return 1
+        elif self.intersectionDecision < 0:
+            if self.decisionsI >= len(self.decisions):
+                self.idle()
+                self.idle()
+                self.idle()
+                rospy.signal_shutdown("Exit")
+            self.intersectionDecision = self.decisions[self.decisionsI] #replace this with service call
+            self.decisionsI+=1
+            if self.intersectionDecision == 14:
+                pass
+            else:
+                raise ValueError("self.intersectionDecision id wrong: ",self.intersectionDecision)
+            print("highway decision: going " + self.decisionList[self.intersectionDecision])
+        if self.initialPoints is None:
+            self.set_current_angle()
+            # print("current orientation: ", self.directions[self.orientation], self.orientations[self.orientation])
+            # print("destination orientation: ", self.destinationOrientation, self.destinationAngle)
+            self.initialPoints = np.array([self.x, self.y])
+            # print("initialPoints points: ", self.initialPoints)
+            self.offset = 0.6 #tune this
+            self.odomX, self.odomY = 0.0, 0.0 #reset x,y
+            self.odomTimer = rospy.Time.now()
+            self.intersectionState = 0
+        self.odometry()
+        poses = np.array([self.odomX,self.odomY])
+        poses = poses.dot(self.rotation_matrices[self.orientation])
+        x,y = poses[0], poses[1]
+        # print("position: ",x,y)
+        if self.intersectionState==0: #adjusting
+            error = self.yaw-self.currentAngle
+            if self.yaw>=5.73: #subtract 2pi to get error between -pi and pi
+                error-=6.28
+            # print("yaw, curAngle, error: ", self.yaw, self.currentAngle, error)
+            if x >= self.offset:
+                print("trajectory done.")
+                self.doneManeuvering = True
+                self.error_sum = 0 #reset pid errors
+                self.last_error = 0
+                return 0
+            else:
+                self.publish_cmd_vel(self.pid(error), self.maxspeed*0.9)
+                return 0
+    
     #transition events
     def entering_roundabout(self):
         return self.object_detected(3)
@@ -1227,7 +1291,7 @@ class StateMachine():
         # print(f"odometry: speed={self.velocity}, dt={dt}, mag={magnitude}, cos={math.cos(self.yaw)}, X={self.odomX}, Y={self.odomY}")
     def set_current_angle(self):
         #0:left, 1:straight, 2:right, 3:parkF, 4:parkP, 5:exitparkL, 6:exitparkR, 7:exitparkP
-        #8:enterhwLeft, 9:enterhwStright, 10:rdb, 11:exitrdbE, 12:exitrdbS, 13:exitrdbW
+        #8:enterhwLeft, 9:enterhwStright, 10:rdb, 11:exitrdbE, 12:exitrdbS, 13:exitrdbW, 14:curvedpath
         self.orientation = np.argmin([abs(self.yaw),abs(self.yaw-1.5708),abs((self.yaw)-3.14159),abs(self.yaw-4.71239),abs(self.yaw-6.28319)])%4
         self.currentAngle = self.orientations[self.orientation]
         if self.intersectionDecision == 0 or self.exitDecision == 5: #left
