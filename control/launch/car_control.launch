@@ -1,18 +1,20 @@
 <launch>
-<arg name="show_sign"  default="False"/>
-<arg name="show_lane"  default="True"/>
-<arg name="method"  default="histogram"/>
-<arg name="simulation"  default="True"/>
+<arg name="show_sign"  default="False" doc="display sign detection window (True or False)"/>
+<arg name="show_lane"  default="True" doc="display lane detection window (True or False)"/>
+<arg name="method"  default="histogram" doc="method for lane detection (histogram or houghlines)"/>
+<arg name="simulation"  default="True" doc="Simulation mode (True or False)"/>
+<arg name="path"  default="/paths/path.json" doc="the relative json file path to the planned path"/>
+<arg name="custom"  default="False" doc="user input map (True or False)"/>
 
 <!-- control2.py needs a lane node, a sign node and an encoder node to run-->
 
-<node pkg="control" args="--simulation $(arg simulation)" name="control" output="screen" type="control2.py" required="true"/>
-<!-- <node pkg="control" name="localisation" output="screen" type="localisation.py" required="true"/> -->
+<node pkg="control" args="--simulation $(arg simulation) --path $(arg path) --custom $(arg custom)" name="control" output="screen" type="control2.py" required="true"/>
 <node pkg="control" name="encoderSim" output="screen" type="encoderSim.py" required="true"/>
 <node pkg="control" name="lane" output="screen" type="lane" required="true"/>
+<node pkg="control" args="--show $(arg show_sign)" name="sign" output="screen" type="sign_onnx.py" required="true"/>
 
 <!-- python lane -->
-
-<!-- <node pkg="control" args="-show $(arg show_lane) -method $(arg method)" name="lane" output="screen" type="lane.py" required="true"/> -->
-<node pkg="control" args="--show $(arg show_sign)" name="sign" output="screen" type="sign_onnx.py" required="true"/>
+<?ignore
+<node pkg="control" args="--show $(arg show_lane) --method $(arg method)" name="lane" output="screen" type="lane.py" required="true"/>
+?>
 </launch>

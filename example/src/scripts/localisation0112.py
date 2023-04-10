@@ -31,15 +31,15 @@ class Localiser():
         self.track_map=track_map(self.pos[0],self.pos[1],self.rot,[self.planned_path[self.path_number]])
         self.planned_path=self.track_map.path
 
-        windowName = "Map"
-        cv2.namedWindow(windowName,cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(windowName,700,700)
+        # windowName = "Map"
+        # cv2.namedWindow(windowName,cv2.WINDOW_NORMAL)
+        # cv2.resizeWindow(windowName,700,700)
 
         rospy.init_node('localisation_node', anonymous=True)
-        self.localisation_sub = rospy.Subscriber("/automobile/localisation", localisation, self.callback())
-        self.server = rospy.Service("get_direction", get_direction, self.doDir())
+        self.localisation_sub = rospy.Subscriber("/automobile/localisation", localisation, self.callback)
+        self.server = rospy.Service("get_direction", get_direction, self.doDir)
         self.rate = rospy.Rate(5)
-        # self.keyInput()
+        self.keyInput()
 
     def doDir(self,request):
         # get the next direction
@@ -88,6 +88,7 @@ class Localiser():
             self.position.put(p)
         self.pos = sum(positions)/len(positions)
         self.rot = data.rotA
+        # print(self.pos)
 
         # uncomment to show location on map
         # self.show_map()

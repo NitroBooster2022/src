@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
+import sys
 import rospy
 import cv2
 import os
 import numpy as np
-from utils.msg import localisation
+from utils.msg import localisation, IMU
 from pynput import keyboard
 from queue import Queue
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 from trackmap import track_map
 from utils.srv import *
 
@@ -18,10 +20,10 @@ class Localiser():
         self.position.put(np.array([0,0]))
         self.position.put(np.array([0,0]))
         self.position.put(np.array([0,0]))
-        self.pos = np.array([0,0])
+        self.pos = np.array([1,15])
         self.rot = 0
-        self.map = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/map.png')
-        self.map_history = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/map.png')
+        self.map = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/templates/map.png')
+        self.map_history = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/templates/map.png')
 
         # planned path
         # self.planned_path=['int1E','int2N','int5N','int6E','int6S','int4W','int3W','int1S','start']
@@ -31,9 +33,9 @@ class Localiser():
         self.track_map=track_map(self.pos[0],self.pos[1],self.rot,[self.planned_path[self.path_number]])
         self.planned_path=self.track_map.path
 
-        windowName = "Map"
-        cv2.namedWindow(windowName,cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(windowName,700,700)
+        # windowName = "Map"
+        # cv2.namedWindow(windowName,cv2.WINDOW_NORMAL)
+        # cv2.resizeWindow(windowName,700,700)
 
         rospy.init_node('localisation_node', anonymous=True)
         self.localisation_sub = rospy.Subscriber("/automobile/localisation", localisation, self.callback)
