@@ -1,13 +1,13 @@
 # src
 ***simulator code from: https://github.com/ECC-BFMC/Simulator***
 
-Requirements install:
+## Requirements install:
 
 1-open a terminal and cd to Simulator/src
 
 2-```pip install -r requirements.txt```
 
-Usage: (you have to change the path at line 154 of Simulator/src/control/CMakeLists.txt to your own ncnn path)
+## Usage: (you have to change the path at line 154 of Simulator/src/control/CMakeLists.txt to your own ncnn path)
 
 1-open a terminal and cd to Simulator
 
@@ -20,7 +20,7 @@ export ROS_PACKAGE_PATH="/home/{YOUR_USER}/Documents/Simulator/src:$ROS_PACKAGE_
 
 3-```source devel/setup.bash```
 
-Run simulator:
+## Run simulator:
 
 ```roslaunch sim_pkg map_with_car.launch```
 (you can replace "map_with_car.launch" with different launch files in sim_pkg/launch and/or modify them to add objects in the simulator)
@@ -36,7 +36,7 @@ Any other functions: ```rosrun control *.py``` (any python file in control/scrip
 (ex: ```rosrun control lane.py```
 ex: ```rosrun control lane```)
 
-Advanced stuff:
+## Advanced stuff:
 
 ```car_control.launch``` file arguments:
 
@@ -53,7 +53,7 @@ Advanced stuff:
 
 ex: ```roslaunch control car_control.launch show_sign:=True path:=/paths/path1.json```
 
-Files structures in src:
+## Files structures in src:
 
 control: our controller package
 
