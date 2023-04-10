@@ -10,15 +10,9 @@
 #include "include/yolo-fastestv2.h"
 using namespace std::chrono;
 
-// yoloFastestv2 api;
-// ros::Publisher sign_pub;
-// ros::Publisher lane_pub;
-raspicam::RaspiCam_Cv camera_;
 cv::Size imgSize;
 bool stopline;
 cv::Mat image;
-double num_iterations = 1;
-double total;
 
 int h = 480, w = 640;
 
@@ -103,10 +97,8 @@ double optimized_histogram(cv::Mat image, bool show = false) {
     }
 
     if (show) {
-        // Create the new cv::Mat object and initialize it with zeros
         cv::Mat padded_thresh = cv::Mat::zeros(480, 640, CV_8UC1);
 
-        // Copy the truncated array into the new cv::Mat object
         cv::Mat roi = padded_thresh(cv::Range(384, 384+thresh.rows), cv::Range::all());
         thresh.copyTo(roi);
         if (stopline) {
@@ -130,14 +122,12 @@ static void laneDetectionCallback(const ros::TimerEvent& event, ros::Publisher *
     pub->publish(lane_msg);
 }
 static void signDetectionCallback(const ros::TimerEvent& event, yoloFastestv2 *api, ros::Publisher *pub) {
-    // ... Sign detection code here, using the latest image from the PiCamera ...
     std::vector<TargetBox> boxes;
     api->detection(cv_image, boxes);
 
-    // Fill Sign message with all detected objects
     utils::Sign sign_msg;
     sign_msg.header.stamp = ros::Time::now();
-    sign_msg.header.frame_id = "camera_frame"; // Set to appropriate frame_id if needed
+    sign_msg.header.frame_id = "camera_frame"; 
 
     sign_msg.num = boxes.size();
 
@@ -166,10 +156,12 @@ int main(int argc, char** argv) {
     ros::Timer lane_timer = nh.createTimer(ros::Duration(1.0 / lane_pub_rate), [&](const ros::TimerEvent& event) { laneDetectionCallback(event, &lane_pub); });
     ros::Timer sign_timer = nh.createTimer(ros::Duration(1.0 / sign_pub_rate), [&](const ros::TimerEvent& event) { signDetectionCallback(event, &api, &sign_pub); });
 
+    raspicam::RaspiCam_Cv camera_;
     camera_.set(cv::CAP_PROP_FRAME_WIDTH, imgSize.width);
     camera_.set(cv::CAP_PROP_FRAME_HEIGHT, imgSize.height);
     camera_.set(cv::CAP_PROP_FPS, 15);
     camera_.set(cv::CAP_PROP_BRIGHTNESS, 42);
+    camera_.set( cv::CAP_PROP_FORMAT, CV_8UC1 );
 
     if (!camera_.open()) {
         ROS_ERROR("Failed to open the camera.");
