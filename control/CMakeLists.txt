@@ -153,7 +153,7 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
 )
 
-set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} /control/src)
+# set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} /control/src)
 
 find_package(ncnn REQUIRED)
 if (${ncnn_FOUND})
