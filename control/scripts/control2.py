@@ -1198,7 +1198,7 @@ class StateMachine():
         self.msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
         self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
-        
+
     #odom helper functions
     def pid(self, error):
         # self.error_sum += error * self.dt
@@ -1261,7 +1261,7 @@ class StateMachine():
     def leftpark_trajectory(self, x):
         return math.exp(3.57*x-4.2) #real dimensions
     def left_trajectory_sim(self, x):
-        return math.exp(3.57*x-3.33)
+        return math.exp(3.57*x-4.33)
     def right_trajectory_sim(self, x):
         return -math.exp(3.75*x-3.33)
     def left_exit_trajectory_sim(self, x):
