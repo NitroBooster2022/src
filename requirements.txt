@@ -2,3 +2,5 @@ pynput
 onnxruntime
 networkx
 scipy
+opencv-python >= 4.2.0
+numpy

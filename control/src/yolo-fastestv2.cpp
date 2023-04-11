@@ -5,7 +5,7 @@
 //模型的参数配置
 yoloFastestv2::yoloFastestv2()
 {   
-    printf("Creat yoloFastestv2 Detector...\n");
+    printf("Create yoloFastestv2 Detector...\n");
     //输出节点数
     numOutput = 2;
     //推理线程数

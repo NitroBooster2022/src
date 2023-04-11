@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+import rospy
+import numpy as np
+from message_filters import ApproximateTimeSynchronizer
+import message_filters
+import threading
+from utils.msg import Lane, Sign, localisation, IMU, encoder
+from std_msgs.msg import String
+
+class StateMachine():
+    #initialization
+    def __init__(self, simulation = True, planned_path = "/paths/path.json", custom_path = False):
+        rospy.init_node('lane_follower_node', anonymous=True)
+        self.cmd_vel_pub = rospy.Publisher("/automobile/command", String, queue_size=3)
+        self.rate = rospy.Rate(50)
+        self.dt = 1/50 #for PID
+        self.lane_sub = message_filters.Subscriber('lane', Lane, queue_size=3)
+        self.sign_sub = message_filters.Subscriber('sign', Sign, queue_size=3)
+        # self.localization_sub = message_filters.Subscriber("/automobile/localisation", localisation, queue_size=3)
+        self.imu_sub = message_filters.Subscriber("/automobile/IMU", IMU, queue_size=3)
+        self.encoder_sub = message_filters.Subscriber("/automobile/encoder", encoder, queue_size=3)
+        self.subscribers = []
+        self.subscribers.append(self.lane_sub)
+        self.subscribers.append(self.sign_sub)
+        # self.subscribers.append(self.localization_sub)
+        self.subscribers.append(self.imu_sub)
+        self.subscribers.append(self.encoder_sub)
+        
+        # Create an instance of TimeSynchronizer
+        ts = ApproximateTimeSynchronizer(self.subscribers, queue_size=3, slop=1.15)
+        ts.registerCallback(self.callback)
+
+        self.callback_thread = threading.Thread(target=self.run_callback)
+        self.action_thread = threading.Thread(target=self.run_action)
+        self.callback_thread.start()
+        self.action_thread.start()
+
+    def run_callback(self):
+        rospy.spin()
+    def run_action(self):
+        while not rospy.is_shutdown():
+            act = self.action()
+            if int(act)==1:
+                print(f"-----transitioning to '{self.states[self.state]}'-----")
+                if self.state==0:
+                    print("Speed is at "+str(self.maxspeed)+"m/s")
+            self.rate.sleep()
+    #callback function
+    def callback(self,lane,sign,imu,encoder):
+        self.process_yaw(imu.yaw)
+        self.velocity = encoder.speed
+        self.center = lane.center
+        self.ArrivedAtStopline = lane.stopline
+        self.detected_objects = sign.objects
+        self.numObj = sign.num
+        self.box1 = sign.box1
+        self.box2 = sign.box2
+        
+    def action(self):
+        if self.state==0: #lane following
+            return self.lanefollow()
+        elif self.state == 1: #Approaching Intersection
+            return self.approachInt()
+        elif self.state == 2: #Stopping at Intersection
+            return self.stopInt()
