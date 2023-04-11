@@ -74,6 +74,25 @@ double optimized_histogram(cv::Mat image, bool show = false) {
     hist = cv::Mat::zeros(1, w, CV_32SC1);
     cv::reduce(thresh, hist, 0, cv::REDUCE_SUM, CV_32S);
 
+    // apply masks
+    // img_rois = img_gray(cv::Range(300, 340), cv::Range::all());
+    // // cv::imshow("S", img_rois);
+    // // cv::waitKey(1);
+    // cv::minMaxLoc(img_roi, &minVal, &maxVal, &minLoc, &maxLoc); // Use img_roi or img_rois depending on your requirements
+    // threshold_value_stop = std::min(std::max(maxVal - 65.0, 30.0), 200.0);
+    
+    // cv::threshold(img_rois, threshs, threshold_value_stop, 255, cv::THRESH_BINARY);
+    // hists = cv::Mat::zeros(1, w, CV_32SC1);
+    // cv::reduce(threshs, hists, 0, cv::REDUCE_SUM, CV_32S);
+
+    // std::vector<int> stop_lanes = extract_lanes(hists);
+    // for (size_t i = 0; i < stop_lanes.size() / 2; ++i) {
+    //     if (abs(stop_lanes[2 * i] - stop_lanes[2 * i + 1]) > 370 && threshold_value > 30) {
+    //         stopline = true;
+    //         if (!show) return w / 2.0;
+    //     }
+    // }
+
     std::vector<int> lanes = extract_lanes(hist);
     std::vector<double> centers;
     for (size_t i = 0; i < lanes.size() / 2; ++i) {
@@ -146,8 +165,15 @@ static void signDetectionCallback(const ros::TimerEvent& event, yoloFastestv2 *a
 int main(int argc, char** argv) {
     ros::init(argc, argv, "object_detector");
     yoloFastestv2 api;
-    api.loadModel("/home/simonli/Documents/Simulator/src/control/src/model/alice7s-opt.param",
-                  "/home/simonli/Documents/Simulator/src/control/src/model/alice7s-opt.bin");
+    std::string filePathParam = __FILE__;
+    size_t pos = filePathParam.rfind("/") + 1;
+    filePathParam.replace(pos, std::string::npos, "model/alice7s-opt.param");
+    const char* param = filePathParam.c_str();
+    std::string filePathBin = __FILE__;
+    pos = filePathBin.rfind("/") + 1;
+    filePathBin.replace(pos, std::string::npos, "model/alice7s-opt.bin");
+    const char* bin = filePathBin.c_str();
+    api.loadModel(param,bin);
     ros::NodeHandle nh;
     ros::Publisher lane_pub = nh.advertise<utils::Lane>("lane", 3);
     ros::Publisher sign_pub = nh.advertise<utils::Sign>("sign", 3);
