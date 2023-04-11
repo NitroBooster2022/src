@@ -9,7 +9,7 @@ yoloFastestv2::yoloFastestv2()
     //输出节点数
     numOutput = 2;
     //推理线程数
-    numThreads = 1;
+    numThreads = 6;
     //anchor num
     numAnchor = 3;
     //类别数目
@@ -48,7 +48,7 @@ int yoloFastestv2::loadModel(const char* paramPath, const char* binPath)
     printf("Ncnn mode init:\n%s\n%s\n", paramPath, binPath);
 
     net.load_param(paramPath);
-    net.load_model(binPath);    
+    net.load_model(binPath);
 
     printf("Ncnn model init sucess...\n");
 

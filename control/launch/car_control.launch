@@ -1,5 +1,5 @@
 <launch>
-<arg name="show_sign"  default="False" doc="display sign detection window (True or False)"/>
+<!-- <arg name="show_sign"  default="False" doc="display sign detection window (True or False)"/> -->
 <!-- <arg name="show_lane"  default="False" doc="display lane detection window (True or False)"/> -->
 <arg name="method"  default="histogram" doc="method for lane detection (histogram or houghlines)"/>
 <arg name="simulation"  default="True" doc="Simulation mode (True or False)"/>
@@ -11,10 +11,11 @@
 <node pkg="control" args="--simulation $(arg simulation) --path $(arg path) --custom $(arg custom)" name="control" output="screen" type="control2.py" required="true"/>
 <node pkg="control" name="encoderSim" output="screen" type="encoderSim.py" required="true"/>
 <node pkg="control" name="lane" output="screen" type="lane" required="true"/>
-<node pkg="control" args="--show $(arg show_sign)" name="sign" output="screen" type="sign_onnx.py" required="true"/>
+<node pkg="control" name="sign" output="screen" type="signFastest" required="true"/>
 
-<!-- python lane -->
+<!-- python lane and sign -->
 <?ignore
 <node pkg="control" args="--show $(arg show_lane) --method $(arg method)" name="lane" output="screen" type="lane.py" required="true"/>
+<node pkg="control" args="--show $(arg show_sign)" name="sign" output="screen" type="sign_onnx.py" required="true"/>
 ?>
 </launch>
