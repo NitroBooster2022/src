@@ -5,7 +5,7 @@
 //模型的参数配置
 yoloFastestv2::yoloFastestv2()
 {   
-    printf("Creat yoloFastestv2 Detector...\n");
+    printf("Create yoloFastestv2 Detector...\n");
     //输出节点数
     numOutput = 2;
     //推理线程数
@@ -210,7 +210,7 @@ int yoloFastestv2::detection(const cv::Mat srcImg, std::vector<TargetBox> &dstBo
 
     //creat extractor
     ncnn::Extractor ex = net.create_extractor();
-    ex.set_num_threads(numThreads);
+    // ex.set_num_threads(numThreads);
 
     //set input tensor
     ex.input(inputName, inputImg);

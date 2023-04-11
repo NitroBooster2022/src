@@ -86,6 +86,8 @@ class StateMachine():
         self.numObj = -1
         self.box1 = []
         self.box2 = []
+        self.box3 = []
+        self.confidence = []
 
         #pose (will get them from localisation)
         self.x = 0.82
@@ -173,6 +175,8 @@ class StateMachine():
         self.timer6 = rospy.Time.now()
         self.odomTimer = rospy.Time.now()
         self.t2 = rospy.Time.now()
+        self.t3 = rospy.Time.now()
+        self.t4 = rospy.Time.now()
         self.cmd_vel_pub = rospy.Publisher("/automobile/command", String, queue_size=3)
         self.rate = rospy.Rate(50)
         self.dt = 1/50 #for PID
@@ -185,26 +189,22 @@ class StateMachine():
         # d = self.get_dotted("dotted").dotted
 
         # Subscribe to topics
-        self.lane_sub = message_filters.Subscriber('lane', Lane, queue_size=3)
-        self.sign_sub = message_filters.Subscriber('sign', Sign, queue_size=3)
+        self.lane_sub = rospy.Subscriber('lane', Lane, self.lane_callback, queue_size=3)
+        self.sign_sub = rospy.Subscriber('sign', Sign, self.sign_callback, queue_size=3)
         # self.localization_sub = message_filters.Subscriber("/automobile/localisation", localisation, queue_size=3)
-        self.imu_sub = message_filters.Subscriber("/automobile/IMU", IMU, queue_size=3)
-        self.encoder_sub = message_filters.Subscriber("/automobile/encoder", encoder, queue_size=3)
-        self.subscribers = []
-        self.subscribers.append(self.lane_sub)
-        self.subscribers.append(self.sign_sub)
-        # self.subscribers.append(self.localization_sub)
-        self.subscribers.append(self.imu_sub)
-        self.subscribers.append(self.encoder_sub)
+        self.imu_sub = rospy.Subscriber("/automobile/IMU", IMU, self.imu_callback, queue_size=3)
+        self.encoder_sub = rospy.Subscriber("/automobile/encoder", encoder, self.encoder_callback, queue_size=3)
+        self.lock = threading.Lock()
+        # self.subscribers = []
+        # self.subscribers.append(self.lane_sub)
+        # self.subscribers.append(self.sign_sub)
+        # # self.subscribers.append(self.localization_sub)
+        # self.subscribers.append(self.imu_sub)
+        # self.subscribers.append(self.encoder_sub)
         
         # Create an instance of TimeSynchronizer
-        ts = ApproximateTimeSynchronizer(self.subscribers, queue_size=3, slop=1.15)
-        ts.registerCallback(self.callback)
-
-        self.callback_thread = threading.Thread(target=self.run_callback)
-        self.action_thread = threading.Thread(target=self.run_action)
-        self.callback_thread.start()
-        self.action_thread.start()
+        # ts = ApproximateTimeSynchronizer(self.subscribers, queue_size=3, slop=1.15)
+        # ts.registerCallback(self.callback)
 
         #stop at shutdown
         def shutdown():
@@ -255,9 +255,14 @@ class StateMachine():
                 self.track_map.plan_path()
             # self.track_map.draw_map()
             #0:left, 1:straight, 2:right, 3:parkF, 4:parkP, 5:exitparkL, 6:exitparkR, 7:exitparkP
-            #8:enterhwLeft, 9:enterhwStright, 10:rdb, 11:exitrdbE, 12:exitrdbS, 13:exitrdbW, 14:curvedpath
+            #8:enterHWLeft, 9:enterHWStraight, 10:rdb, 11:exitrdbE, 12:exitrdbS, 13:exitrdbW, 14:curvedpath
             self.decisions = self.track_map.directions
             self.decisionsI = 0
+
+        self.callback_thread = threading.Thread(target=self.run_callback)
+        self.action_thread = threading.Thread(target=self.run_action)
+        self.callback_thread.start()
+        self.action_thread.start()
     
     def process_yaw_sim(self, yaw):
         self.yaw = yaw if yaw>0 else (6.2831853+yaw)
@@ -270,8 +275,6 @@ class StateMachine():
         rospy.spin()
     def run_action(self):
         while not rospy.is_shutdown():
-            print(f"time: {rospy.Time.now()- self.t2}")
-            self.t2 = rospy.Time.now()
             act = self.action()
             if int(act)==1:
                 print(f"-----transitioning to '{self.states[self.state]}'-----")
@@ -279,28 +282,13 @@ class StateMachine():
                     print("Speed is at "+str(self.maxspeed)+"m/s")
             self.rate.sleep()
     #callback function
-    def callback(self,lane,sign,imu,encoder):
-
-        self.dt = (rospy.Time.now()-self.timer6).to_sec()
-        self.timer6 = rospy.Time.now()
-
-        # Perform decision making tasks
-
-        # self.x = localization.posA
-        # self.y = 15.0-localization.posB
-        self.process_yaw(imu.yaw)
-        self.velocity = encoder.speed
+    def lane_callback(self,lane):
+        self.lock.acquire()
         self.center = lane.center
         self.ArrivedAtStopline = lane.stopline
-        self.detected_objects = sign.objects
-        self.numObj = sign.num
-        self.box1 = sign.box1
-        self.box2 = sign.box2
-
         # if there's a big shift in lane center: ignore due to delay
         if abs(self.center-self.pl)>250:
             self.center = self.pl
-
         # ignore one center measurement when we don't detect
         if self.center==320:
             c = self.center
@@ -308,6 +296,53 @@ class StateMachine():
             self.pl = c
         else:
             self.pl = self.center
+        self.lock.release()
+    def sign_callback(self,sign):
+        self.lock.acquire()
+        self.detected_objects = sign.objects
+        self.numObj = sign.num
+        self.box1 = sign.box1
+        self.box2 = sign.box2
+        self.box3 = sign.box3
+        self.confidence = sign.confidence
+        self.lock.release()
+    def encoder_callback(self,encoder):
+        self.lock.acquire()
+        self.velocity = encoder.speed
+        self.lock.release()
+    def imu_callback(self,imu):
+        self.lock.acquire()
+        self.process_yaw(imu.yaw)
+        self.lock.release()
+    # def callback(self,lane,sign,imu,encoder):
+
+    #     self.dt = (rospy.Time.now()-self.timer6).to_sec()
+    #     self.timer6 = rospy.Time.now()
+
+    #     # Perform decision making tasks
+
+    #     # self.x = localization.posA
+    #     # self.y = 15.0-localization.posB
+    #     self.process_yaw(imu.yaw)
+    #     self.velocity = encoder.speed
+    #     self.center = lane.center
+    #     self.ArrivedAtStopline = lane.stopline
+    #     self.detected_objects = sign.objects
+    #     self.numObj = sign.num
+    #     self.box1 = sign.box1
+    #     self.box2 = sign.box2
+
+    #     # if there's a big shift in lane center: ignore due to delay
+    #     if abs(self.center-self.pl)>250:
+    #         self.center = self.pl
+
+    #     # ignore one center measurement when we don't detect
+    #     if self.center==320:
+    #         c = self.center
+    #         self.center = self.pl
+    #         self.pl = c
+    #     else:
+    #         self.pl = self.center
         # print(self.center)
 
         # print("x,y,yaw,velocity,center,stopline: ", self.x, self.y, self.yaw, self.velocity, self.center, self.ArrivedAtStopline)
@@ -1415,12 +1450,6 @@ class StateMachine():
         cv2.createTrackbar('p',windowName,int(self.p*100000),600,self.changep)
         cv2.createTrackbar('d',windowName,int(self.d*100000),50,self.changed)
         cv2.createTrackbar('i',windowName,int(self.i*100000),100,self.changei)
-        # cv2.createTrackbar('kp',windowName,int(self.kp*1000),2000,self.changekp)
-        # cv2.createTrackbar('kd',windowName,int(self.kd*1000),1000,self.changekd)
-        # cv2.createTrackbar('ki',windowName,int(self.ki*1000),1000,self.changeki)
-        # cv2.createTrackbar('kp2',windowName,int(self.kp2*1000),2000,self.changekp2)
-        # cv2.createTrackbar('kd2',windowName,int(self.kd2*1000),2000,self.changekd2)
-        # cv2.createTrackbar('ki2',windowName,int(self.ki2*1000),2000,self.changeki2)
         cv2.imshow(windowName, image)
         key = cv2.waitKey(0)
     def save_object(self,v):
