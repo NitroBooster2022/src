@@ -16,7 +16,6 @@ public:
         image = cv::Mat::zeros(480, 640, CV_8UC1);
         stopline = false;
         dotted = false;
-        pl = 320;
         ros::Rate rate(15); 
         while (ros::ok()) {
             ros::spinOnce();
@@ -89,25 +88,6 @@ public:
         hist = cv::Mat::zeros(1, w, CV_32SC1);
         cv::reduce(thresh, hist, 0, cv::REDUCE_SUM, CV_32S);
 
-        // apply masks
-        // img_rois = img_gray(cv::Range(300, 340), cv::Range::all());
-        // // cv::imshow("S", img_rois);
-        // // cv::waitKey(1);
-        // cv::minMaxLoc(img_roi, &minVal, &maxVal, &minLoc, &maxLoc); // Use img_roi or img_rois depending on your requirements
-        // threshold_value_stop = std::min(std::max(maxVal - 65.0, 30.0), 200.0);
-        
-        // cv::threshold(img_rois, threshs, threshold_value_stop, 255, cv::THRESH_BINARY);
-        // hists = cv::Mat::zeros(1, w, CV_32SC1);
-        // cv::reduce(threshs, hists, 0, cv::REDUCE_SUM, CV_32S);
-
-        // std::vector<int> stop_lanes = extract_lanes(hists);
-        // for (size_t i = 0; i < stop_lanes.size() / 2; ++i) {
-        //     if (abs(stop_lanes[2 * i] - stop_lanes[2 * i + 1]) > 370 && threshold_value > 30) {
-        //         stopline = true;
-        //         if (!show) return w / 2.0;
-        //     }
-        // }
-
         std::vector<int> lanes = extract_lanes(hist);
         std::vector<double> centers;
         for (size_t i = 0; i < lanes.size() / 2; ++i) {
@@ -162,7 +142,6 @@ private:
     double total;
     cv::Mat maskh, masks, image, maskd;
     bool stopline, dotted;
-    int pl;
     int h = 480, w = 640;
     
     double minVal, maxVal;
@@ -172,7 +151,7 @@ private:
     cv::Mat thresh;
     cv::Mat hist;
     cv::Mat img_rois;
-    double threshold_value_stop;
+    // double threshold_value_stop;
     cv::Mat threshs;
     cv::Mat hists;
     void addSquare(cv::Mat& image) {
