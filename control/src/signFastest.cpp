@@ -37,20 +37,34 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg, yoloFastestv2 *api, ro
 
     sign_msg.num = boxes.size();
 
+    int bb = 0;
     for (const auto &box : boxes) {
         sign_msg.objects.push_back(box.cate);
-        sign_msg.box1.push_back(box.x1);
-        sign_msg.box1.push_back(box.y1);
-        sign_msg.box2.push_back(box.x2);
-        sign_msg.box2.push_back(box.y2);
+        if(bb==0){
+            sign_msg.box1.push_back(box.x1);
+            sign_msg.box1.push_back(box.y1);
+            sign_msg.box1.push_back(box.x2-box.x1);
+            sign_msg.box1.push_back(box.y2-box.y1);
+        } else if (bb==1){
+            sign_msg.box2.push_back(box.x1);
+            sign_msg.box2.push_back(box.y1);
+            sign_msg.box2.push_back(box.x2-box.x1);
+            sign_msg.box2.push_back(box.y2-box.y1);
+        } else if (bb == 2) {
+            sign_msg.box3.push_back(box.x1);
+            sign_msg.box3.push_back(box.y1);
+            sign_msg.box3.push_back(box.x2-box.x1);
+            sign_msg.box3.push_back(box.y2-box.y1);
+        }
         sign_msg.confidence.push_back(box.score);
+        bb++;
     }
 
     // Publish Sign message
     pub->publish(sign_msg);
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - start);
-    // std::cout << "sign durations: " << duration.count() << std::endl;
+    std::cout << "sign durations: " << duration.count() << std::endl;
     
     // for display
     // for (int i = 0; i < boxes.size(); i++) {
@@ -110,7 +124,7 @@ int main(int argc, char **argv) {
     ros::init(argc, argv, "object_detector");
     ros::NodeHandle nh;
     image_transport::ImageTransport it(nh);
-    ros::Publisher pub = nh.advertise<utils::Sign>("sign", 1000);
+    ros::Publisher pub = nh.advertise<utils::Sign>("sign", 10);
     image_transport::Subscriber sub = it.subscribe("automobile/image_raw", 1, boost::bind(&imageCallback, _1, &api, &pub));
 
     // Spin ROS node
