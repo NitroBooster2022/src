@@ -567,6 +567,7 @@ class StateMachine():
                 self.idle()
                 self.idle()
                 rospy.signal_shutdown("Exit")
+            print("decisionI is ", self.decisionsI)
             self.intersectionDecision = self.decisions[self.decisionsI] #replace this with service call
             self.decisionsI+=1
             if self.intersectionDecision == 8:

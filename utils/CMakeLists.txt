@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
    Lane.msg
    encoder.msg
    ImgInfo.msg
+   Sensors.msg
  )
  
 ## Generate services in the 'srv' folder
