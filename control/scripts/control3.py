@@ -315,52 +315,7 @@ class StateMachine():
         self.lock.acquire()
         self.process_yaw(imu.yaw)
         self.lock.release()
-    # def callback(self,lane,sign,imu,encoder):
 
-    #     self.dt = (rospy.Time.now()-self.timer6).to_sec()
-    #     self.timer6 = rospy.Time.now()
-
-    #     # Perform decision making tasks
-
-    #     # self.x = localization.posA
-    #     # self.y = 15.0-localization.posB
-    #     self.process_yaw(imu.yaw)
-    #     self.velocity = encoder.speed
-    #     self.center = lane.center
-    #     self.ArrivedAtStopline = lane.stopline
-    #     self.detected_objects = sign.objects
-    #     self.numObj = sign.num
-    #     self.box1 = sign.box1
-    #     self.box2 = sign.box2
-
-    #     # if there's a big shift in lane center: ignore due to delay
-    #     if abs(self.center-self.pl)>250:
-    #         self.center = self.pl
-
-    #     # ignore one center measurement when we don't detect
-    #     if self.center==320:
-    #         c = self.center
-    #         self.center = self.pl
-    #         self.pl = c
-    #     else:
-    #         self.pl = self.center
-        # print(self.center)
-
-        # print("x,y,yaw,velocity,center,stopline: ", self.x, self.y, self.yaw, self.velocity, self.center, self.ArrivedAtStopline)
-        # for i in range(self.numObj):
-        #     if i == 0:
-        #         print(self.numObj)
-        #         print(f"{self.class_names[self.detected_objects[i]]} detected! width, height: {self.box1[2]}, {self.box1[3]}")
-        #     elif i == 1:
-        #         print(f"{self.class_names[self.detected_objects[i]]} detected! width, height: {self.box2[2]}, {self.box2[3]}")
-        #     else:
-        #         print(f"{self.class_names[self.detected_objects[i]]} detected!")
-        # if int(self.action())==1:
-        #     print(f"-----transitioning to '{self.states[self.state]}'-----")
-        #     if self.state==0:
-        #         # self.pl = 320
-        #         print("Speed is at "+str(self.maxspeed)+"m/s")
-    
     #state machine
     def action(self):
         if self.state==0: #lane following

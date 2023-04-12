@@ -55,6 +55,57 @@ class track_map():
         self.directions = []
         # self.plan_path()
 
+        # Convert to undirected graph and compute shortest paths
+        # H = self.map_graph.to_undirected()
+
+        # # Use TSP algorithm to find shortest path
+        # tsp_path = nx.approximation.traveling_salesman_problem(H,weight="weight",nodes=H.nodes)
+
+        # # Convert TSP solution to directed path
+        # directed_path = []
+        # for i in range(len(tsp_path)-1):
+        #     u = tsp_path[i]
+        #     v = tsp_path[i+1]
+        #     directed_path += nx.shortest_path(self.map_graph, u, v)
+
+        # print(directed_path)
+        # print(len(directed_path))
+        # self.path = directed_path
+
+        # Check if all edges have been traversed
+        # all_edges = set(self.map_graph.edges())
+        # traversed_edges = set(zip(directed_path, directed_path[1:]))
+        # untraversed_edges = all_edges - traversed_edges
+        # # Print untraversed edges
+        # if untraversed_edges:
+        #     print("The following edges were not traversed:")
+        #     for u, v in untraversed_edges:
+        #         print(f"{u} -> {v}")
+        # else:
+        #     print("All edges have been traversed.")
+
+        # path = []
+        # for u, v in untraversed_edges:
+        #     shortest_path = nx.shortest_path(self.map_graph, u, v, weight='weight')
+        #     path += shortest_path[:-1]
+        # # path += [untraversed_edges[-1][-1]]
+
+        # print(path)
+
+        # traversed_edges = set(zip(path, path[1:]))
+        # untraversed_edges = untraversed_edges - traversed_edges
+        # # Print untraversed edges
+        # if untraversed_edges:
+        #     print("The following edges were not traversed:")
+        #     for u, v in untraversed_edges:
+        #         print(f"{u} -> {v}")
+        # else:
+        #     print("All edges have been traversed.")
+
+        # Save directed path to a JSON file
+        # with open('/home/antoinedeng/Documents/Simulator/src/control/scripts/directed_path.json', 'w') as outfile:
+        #     json.dump(directed_path, outfile)
+
     def get_location_cood(self,loc):
         return self.map_graph.nodes[loc]['coord']
 
@@ -94,6 +145,9 @@ class track_map():
         key = cv2.waitKey(0)
         # self.plan_path()
         cv2.destroyAllWindows()
+        # Save directed path to a JSON file
+        # with open('/home/antoinedeng/Documents/Simulator/src/control/scripts/directed_path2.json', 'w') as outfile:
+        #     json.dump(self.path, outfile)
 
     def mouse_event_handler(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
