@@ -33,7 +33,7 @@ export ROS_PACKAGE_PATH="/home/{YOUR_USER}/Documents/Simulator/src:$ROS_PACKAGE_
 ```roslaunch sim_pkg map_with_car.launch```
 (you can replace "map_with_car.launch" with different launch files in sim_pkg/launch and/or modify them to add objects in the simulator)
 
-Run controller or function nodes:
+## Run controller or function nodes:
 
 open new terminal with "Usage" (cd to Simulator and ```source devel/setup.bash```)
 
