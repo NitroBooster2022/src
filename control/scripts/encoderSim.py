@@ -73,9 +73,10 @@ class EncoderNode():
         # print("time: ", time.time()-t1)
 
 if __name__ == '__main__':
-    try:
-        node = EncoderNode()
-        node.rate.sleep()
-        rospy.spin()
-    except rospy.ROSInterruptException:
-        cv2.destroyAllWindows()
+    while not rospy.is_shutdown():
+        try:
+            node = EncoderNode()
+            node.rate.sleep()
+            rospy.spin()
+        except rospy.ROSInterruptException:
+            cv2.destroyAllWindows()

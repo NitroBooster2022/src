@@ -276,10 +276,11 @@ target_link_libraries(cameraNode
 catkin_install_python(PROGRAMS
   scripts/lane.py
   scripts/sign_onnx.py
-  scripts/realSensePub.py
-  scripts/trackObjectDistance.py
-  scripts/control2.py
-  scripts/localization.py
+  # scripts/realSensePub.py
+  # scripts/trackObjectDistance.py
+  scripts/control3.py
+  # scripts/localization.py
+  scripts/encoderSim.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

@@ -272,7 +272,8 @@ class StateMachine():
             self.yaw = newYaw if newYaw>0 else (6.2831853+newYaw)
 
     def run_callback(self):
-        rospy.spin()
+        while not rospy.is_shutdown():
+            rospy.spin()
     def run_action(self):
         while not rospy.is_shutdown():
             act = self.action()
@@ -567,7 +568,6 @@ class StateMachine():
                 self.idle()
                 self.idle()
                 rospy.signal_shutdown("Exit")
-            print("decisionI is ", self.decisionsI)
             self.intersectionDecision = self.decisions[self.decisionsI] #replace this with service call
             self.decisionsI+=1
             if self.intersectionDecision == 8:
