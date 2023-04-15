@@ -8,8 +8,10 @@
 #include "utils/Lane.h"
 #include "utils/Sign.h"
 #include "include/yolo-fastestv2.h"
+#include <boost/thread/mutex.hpp>
+#include <boost/thread.hpp>
 using namespace std::chrono;
-
+boost::mutex image_mutex;
 cv::Size imgSize;
 bool stopline;
 cv::Mat image;
@@ -175,7 +177,21 @@ static void signDetectionCallback(const ros::TimerEvent& event, yoloFastestv2 *a
     // Publish Sign message
     pub->publish(sign_msg);
 }
+void laneDetectionThread(ros::NodeHandle &nh) {
+    ros::Publisher lane_pub = nh.advertise<utils::Lane>("lane", 3);
+    double lane_pub_rate = 5.0;
+    ros::Timer lane_timer = nh.createTimer(ros::Duration(1.0 / lane_pub_rate), [&](const ros::TimerEvent& event) { laneDetectionCallback(event, &lane_pub); });
 
+    ros::spin();
+}
+
+void signDetectionThread(ros::NodeHandle &nh, yoloFastestv2 *api) {
+    ros::Publisher sign_pub = nh.advertise<utils::Sign>("sign", 3);
+    double sign_pub_rate = 2.0;
+    ros::Timer sign_timer = nh.createTimer(ros::Duration(1.0 / sign_pub_rate), [&](const ros::TimerEvent& event) { signDetectionCallback(event, api, &sign_pub); });
+
+    ros::spin();
+}
 int main(int argc, char** argv) {
     ros::init(argc, argv, "object_detector");
     yoloFastestv2 api;
@@ -189,19 +205,14 @@ int main(int argc, char** argv) {
     const char* bin = filePathBin.c_str();
     api.loadModel(param,bin);
     ros::NodeHandle nh;
-    ros::Publisher lane_pub = nh.advertise<utils::Lane>("lane", 3);
-    ros::Publisher sign_pub = nh.advertise<utils::Sign>("sign", 3);
+    boost::thread lane_thread(laneDetectionThread, std::ref(nh));
+    boost::thread sign_thread(signDetectionThread, std::ref(nh), &api);
     double lane_pub_rate = 5.0; // Adjust this value for lane_pub rate
     double sign_pub_rate = 2.0;
     ros::Timer lane_timer = nh.createTimer(ros::Duration(1.0 / lane_pub_rate), [&](const ros::TimerEvent& event) { laneDetectionCallback(event, &lane_pub); });
     ros::Timer sign_timer = nh.createTimer(ros::Duration(1.0 / sign_pub_rate), [&](const ros::TimerEvent& event) { signDetectionCallback(event, &api, &sign_pub); });
 
     raspicam::RaspiCam_Cv camera_;
-    // camera_.set(cv::CAP_PROP_FRAME_WIDTH, imgSize.width);
-    // camera_.set(cv::CAP_PROP_FRAME_HEIGHT, imgSize.height);
-    // camera_.set(cv::CAP_PROP_FPS, 15);
-    // camera_.set(cv::CAP_PROP_BRIGHTNESS, 42);
-    // camera_.set( cv::CAP_PROP_FORMAT, CV_8UC3);
 
     if (!camera_.open()) {
         ROS_ERROR("Failed to open the camera.");
@@ -213,12 +224,14 @@ int main(int argc, char** argv) {
 
     while(ros::ok()) {
         camera_.grab();
+        {
+        boost::lock_guard<boost::mutex> lock(image_mutex);
         camera_.retrieve(cv_image);
-        // cv::cvtColor(cv_image, cv_image, cv::COLOR_BGR2RGB);
-        cv::imshow("Camera", cv_image);
-        cv::waitKey(1);
+        }
         ros::spinOnce();
     }
+    lane_thread.join();
+    sign_thread.join();
     camera_.release();
     return 0;
 }
