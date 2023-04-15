@@ -1,0 +1,2 @@
+going from track3N to roundabout: can't see the crosswalk
+going from curvedpath to roundabout: can't see stopline at roundabout
