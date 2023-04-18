@@ -5,7 +5,6 @@ from message_filters import ApproximateTimeSynchronizer
 from std_msgs.msg import String, Byte
 from utils.msg import Lane, Sign, localisation, IMU, encoder
 from utils.srv import get_direction, dotted, nav
-import message_filters
 import time
 import math
 
@@ -22,6 +21,17 @@ from trackmap import track_map
 class StateMachine():
     #initialization
     def __init__(self, simulation = True, planned_path = "/paths/path.json", custom_path = False):
+        rospy.init_node('control_node', anonymous=True)
+        self.timer4 = rospy.Time.now()
+        self.timer5 = rospy.Time.now()
+        self.odomTimer = rospy.Time.now()
+        self.cmd_vel_pub = rospy.Publisher("/automobile/command", String, queue_size=3)
+        
+        #IMPORTANT**********
+        #Check for this
+        self.rate = rospy.Rate(50)
+        self.dt = 1/50 #for PID
+
         #simulation
         self.simulation = simulation
         if self.simulation:
@@ -40,6 +50,19 @@ class StateMachine():
                 self.track_map = track_map()
                 self.track_map.custum_path()
         else:
+            # serialNODE
+            from messageconverter import MessageConverter
+            import serial
+            devFile = '/dev/ttyACM2'
+            
+            # comm init
+            self.serialCom = serial.Serial(devFile,19200,timeout=1)
+            self.serialCom.flushInput()
+            self.serialCom.flushOutput()
+            
+            # message converted init
+            self.messageConverter = MessageConverter()
+            
             # get initial yaw from IMU
             self.initialYaw = 0
             while self.initialYaw==0:
@@ -57,18 +80,16 @@ class StateMachine():
             self.initializationTime = 10
             self.maxspeed = 0.125
             file = open(os.path.dirname(os.path.realpath(__file__))+'/PID.json', 'r')
-            #enable PID and encoder at the start to get messages from automobile/encoder
-            self.msg.data = '{"action":"5","activate": true}'
-            self.cmd_vel_pub.publish(self.msg)
-            self.cmd_vel_pub.publish(self.msg)
-            self.cmd_vel_pub.publish(self.msg)
-            self.msg.data = '{"action":"4","activate": true}'
-            self.cmd_vel_pub.publish(self.msg)
-            self.cmd_vel_pub.publish(self.msg)
-            self.cmd_vel_pub.publish(self.msg)
             #0:left, 1:straight, 2:right, 3:parkF, 4:parkP, 5:exitparkL, 6:exitparkR, 7:exitparkP
             #8:enterhwLeft, 9:enterhwStright, 10:rdb, 11:exitrdbE, 12:exitrdbS, 13:exitrdbW, 14:curvedpath
             self.decisions = [2,3,6,0,4]
+            # loc = rospy.wait_for_message("/automobile/localisation",localisation)
+            # self.x = loc.posA
+            # self.y = loc.posB
+            # print("x,y,yaw",self.x,self.y,self.yaw)
+            # self.planned_path = json.load(open(os.path.dirname(os.path.realpath(__file__))+planned_path, 'r'))
+            # self.track_map = track_map(self.x,self.y,self.yaw,self.planned_path)
+            # self.track_map.plan_path()
             self.decisionsI = 0
         #states
         self.states = ['Lane Following', "Approaching Intersection", "Stopping at Intersection", 
@@ -126,7 +147,6 @@ class StateMachine():
 
         #timers
         self.timer = None
-        self.timer2 = None
         self.timer3 = None
 
         #intersection & parking
@@ -166,20 +186,6 @@ class StateMachine():
         self.carCleared = None
         self.dotted = False
         self.ArrivedAtStopline = False
-        """
-        Initialize the lane follower node
-        """
-        rospy.init_node('lane_follower_node', anonymous=True)
-        self.timer4 = rospy.Time.now()
-        self.timer5 = rospy.Time.now()
-        self.timer6 = rospy.Time.now()
-        self.odomTimer = rospy.Time.now()
-        self.t2 = rospy.Time.now()
-        self.t3 = rospy.Time.now()
-        self.t4 = rospy.Time.now()
-        self.cmd_vel_pub = rospy.Publisher("/automobile/command", String, queue_size=3)
-        self.rate = rospy.Rate(50)
-        self.dt = 1/50 #for PID
 
         # Create service proxy
         # self.get_dir = rospy.ServiceProxy('get_direction',get_direction)
@@ -235,6 +241,8 @@ class StateMachine():
         self.rdbTransf = 0
         self.timerO = None
         self.carBlockSem = -1
+        self.toggle = 0
+        self.t1 = time.time()
         # self.trackbars()
 
         if self.simulation:
@@ -263,7 +271,18 @@ class StateMachine():
         self.action_thread = threading.Thread(target=self.run_action)
         self.callback_thread.start()
         self.action_thread.start()
-    
+
+    def _write(self, msg):
+        """ Represents the writing activity on the the serial.
+        """
+        # print(msg.data)
+        command = json.loads(msg.data)
+        command_msg = self.messageConverter.get_command(**command)
+        # print(command_msg)
+        self.serialCom.write(command_msg.encode('ascii'))
+        # buffer_size = self.serialCom.out_waiting
+        # print("Buffer size:", buffer_size)
+
     def process_yaw_sim(self, yaw):
         self.yaw = yaw if yaw>0 else (6.2831853+yaw)
     def process_yaw_real(self, yaw):
@@ -275,6 +294,8 @@ class StateMachine():
         while not rospy.is_shutdown():
             rospy.spin()
     def run_action(self):
+        # print("time: ", time.time()-self.t1)
+        # self.t1 = time.time()
         while not rospy.is_shutdown():
             act = self.action()
             if int(act)==1:
@@ -326,7 +347,6 @@ class StateMachine():
             return self.stopInt()
         elif self.state == 3: #Intersection Maneuvering
             return self.maneuverInt()
-            # return self.maneuverIntHC()
         elif self.state == 4: #Approaching Crosswalk
             return self.approachCrosswalk()
         elif self.state == 5: #Pedestrian
@@ -355,6 +375,16 @@ class StateMachine():
                 self.state = 0
                 return 1
             else:
+                # if self.toggle == 0:
+                #     self.toggle = 1
+                #     self.msg.data = '{"action":"4","activate": true}'
+                # elif self.toggle == 1: 
+                #     self.toggle = 2
+                #     self.idle()
+                # elif self.toggle == 2:
+                #     self.toggle = 0
+                #     self.msg.data = '{"action":"5","activate": true}'
+                # self.cmd_vel_pub.publish(self.msg)
                 return 0
         elif self.state == 11: #parked
             if self.decisionsI >= len(self.decisions):
@@ -661,7 +691,7 @@ class StateMachine():
                 if self.carBlockSem == 0:
                     self.timerO = None
                     return 0
-            if self.timerO == None:
+            if self.timerO is None:
                 self.timerO = rospy.Time.now() + rospy.Duration(1.57)
                 print("prepare to overtake")
             elif rospy.Time.now() >= self.timerO:
@@ -1368,7 +1398,7 @@ class StateMachine():
         size = max(box[2], box[3])
         if obj_id==12:
             size = min(box[2], box[3])
-        return size >= self.min_sizes[obj_id] and size <= self.max_sizes[obj_id] and conf >= 0.7
+        return size >= self.min_sizes[obj_id] and size <= self.max_sizes[obj_id] and conf >= 0.7 #check this
     def get_steering_angle(self):
         """
         Determine the steering angle based on the lane center
