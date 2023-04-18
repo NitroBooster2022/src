@@ -179,7 +179,7 @@ static void signDetectionCallback(const ros::TimerEvent& event, yoloFastestv2 *a
 }
 void laneDetectionThread(ros::NodeHandle &nh) {
     ros::Publisher lane_pub = nh.advertise<utils::Lane>("lane", 3);
-    double lane_pub_rate = 5.0;
+    double lane_pub_rate = 20.0;
     ros::Timer lane_timer = nh.createTimer(ros::Duration(1.0 / lane_pub_rate), [&](const ros::TimerEvent& event) { laneDetectionCallback(event, &lane_pub); });
 
     ros::spin();
@@ -205,9 +205,11 @@ int main(int argc, char** argv) {
     const char* bin = filePathBin.c_str();
     api.loadModel(param,bin);
     ros::NodeHandle nh;
+    ros::Publisher lane_pub = nh.advertise<utils::Lane>("lane", 3);
+    ros::Publisher sign_pub = nh.advertise<utils::Sign>("sign", 3);
     boost::thread lane_thread(laneDetectionThread, std::ref(nh));
     boost::thread sign_thread(signDetectionThread, std::ref(nh), &api);
-    double lane_pub_rate = 5.0; // Adjust this value for lane_pub rate
+    double lane_pub_rate = 20.0; // Adjust this value for lane_pub rate
     double sign_pub_rate = 2.0;
     ros::Timer lane_timer = nh.createTimer(ros::Duration(1.0 / lane_pub_rate), [&](const ros::TimerEvent& event) { laneDetectionCallback(event, &lane_pub); });
     ros::Timer sign_timer = nh.createTimer(ros::Duration(1.0 / sign_pub_rate), [&](const ros::TimerEvent& event) { signDetectionCallback(event, &api, &sign_pub); });

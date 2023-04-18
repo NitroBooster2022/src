@@ -256,10 +256,10 @@ class StateMachine():
             self.decisions = self.track_map.directions
             self.decisionsI = 0
 
-        self.callback_thread = threading.Thread(target=self.run_callback)
-        self.action_thread = threading.Thread(target=self.run_action)
-        self.callback_thread.start()
-        self.action_thread.start()
+        # self.callback_thread = threading.Thread(target=self.run_callback)
+        # self.action_thread = threading.Thread(target=self.run_action)
+        # self.callback_thread.start()
+        # self.action_thread.start()
 
     def _write(self, msg):
         """ Represents the writing activity on the the serial.
@@ -283,8 +283,8 @@ class StateMachine():
     #     while not rospy.is_shutdown():
     #         rospy.spin()
     # def run_action(self):
-          # print("time: ", time.time()-self.t1)
-          # self.t1 = time.time()
+    #     # print("time: ", time.time()-self.t1)
+    #     # self.t1 = time.time()
     #     while not rospy.is_shutdown():
     #         act = self.action()
     #         if int(act)==1:
@@ -292,6 +292,7 @@ class StateMachine():
     #             if self.state==0:
     #                 print("Speed is at "+str(self.maxspeed)+"m/s")
     #         self.rate.sleep()
+
     #callback functions
     def lane_callback(self,lane):
         self.center = lane.center
@@ -306,6 +307,8 @@ class StateMachine():
             self.pl = c
         else:
             self.pl = self.center
+        # print("time: ", time.time()-self.t1)
+        # self.t1 = time.time()
         act = self.action()
         if int(act)==1:
             print(f"-----transitioning to '{self.states[self.state]}'-----")
@@ -741,7 +744,6 @@ class StateMachine():
                 if abs(error) <= 0.05:
                     self.intersectionState += 1
                     # print("done adjusting angle!!")
-                    self.timer5 = rospy.Time.now()+rospy.Duration(3) #change to odom
                 self.publish_cmd_vel(-23, self.maxspeed*0.9)
                 return 0
             elif self.intersectionState==1: #adjusting
@@ -948,16 +950,16 @@ class StateMachine():
                 if abs(error) >= self.parallelParkAngle*np.pi/180:
                     self.intersectionState = 3 # skip adjusting 2
                     print(f"{self.parallelParkAngle} degrees...")
-                    self.timer5 = rospy.Time.now()+rospy.Duration(3) #change to odom
+                    # self.timer5 = rospy.Time.now()+rospy.Duration(3) #change to odom
                 self.publish_cmd_vel(23, -self.maxspeed*0.9)
                 return 0
-            elif self.intersectionState==2: #adjusting
-                if rospy.Time.now() >= self.timer5:
-                    self.intersectionState = 3
-                    self.timer5 = None
-                    # print("done going back. begin adjusting angle round2...")
-                self.publish_cmd_vel(0, -self.maxspeed*0.9)
-                return 0
+            # elif self.intersectionState==2: #adjusting
+            #     if rospy.Time.now() >= self.timer5:
+            #         self.intersectionState = 3
+            #         self.timer5 = None
+            #         # print("done going back. begin adjusting angle round2...")
+            #     self.publish_cmd_vel(0, -self.maxspeed*0.9)
+            #     return 0
             elif self.intersectionState==3: #adjusting
                 error = self.yaw - self.destinationAngle
                 if self.yaw>=5.73: #subtract 2pi to get small error
@@ -1180,7 +1182,6 @@ class StateMachine():
                 if abs(error) >= self.parallelParkAngle*np.pi/180:
                     self.intersectionState = 2
                     # print(f"{self.parallelParkAngle} degrees...")
-                    self.timer5 = rospy.Time.now()+rospy.Duration(3) #change to odom
                 self.publish_cmd_vel(-23, self.maxspeed*0.9)
                 return 0
             elif self.intersectionState==2: #adjusting
@@ -1300,7 +1301,7 @@ class StateMachine():
         return output
     def pid2(self, error):
         # self.error_sum2 += error * self.dt
-        dt = (rospy.Time.now()-self.timer5).to_sec()
+        dt = (rospy.Time.now()-self.timer4).to_sec()
         # rospy.loginfo("time: %.4f", self.dt)
         self.timer4 = rospy.Time.now()
         derivative = (error - self.last_error2) / dt
@@ -1392,7 +1393,9 @@ class StateMachine():
         :return: Steering angle in radians
         """
         # Calculate the steering angle in radians
-        image_center = 640 / 2 
+        self.dt = (rospy.Time.now()-self.timer4).to_sec()
+        self.timer4 = rospy.Time.now()
+        image_center = 640 / 2
         error = (self.center - image_center)
         d_error = (error-self.last)/self.dt
         self.last = error
