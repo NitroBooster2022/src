@@ -1,5 +1,3 @@
-# src
-***simulator code from: https://github.com/ECC-BFMC/Simulator***
 
 ## Requirements install:
 
