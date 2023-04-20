@@ -80,7 +80,7 @@ class ObjectDetector():
 
         # print(self.p)
         self.pub.publish(self.p)
-        # print("time: ",time.time()-t1)
+        print("time: ",time.time()-t1)
 
 #detector class
 class InferenceModel:

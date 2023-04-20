@@ -8,9 +8,10 @@
 #include "utils/Lane.h"
 #include "utils/Sign.h"
 #include "include/yolo-fastestv2.h"
-#include <thread>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread.hpp>
 using namespace std::chrono;
-
+boost::mutex image_mutex;
 cv::Size imgSize;
 bool stopline;
 cv::Mat image;
@@ -132,55 +133,7 @@ double optimized_histogram(cv::Mat image, bool show = false) {
     }
     return center;
 }
-static void laneDetection(ros::Publisher *pub) {
-    while (ros::ok()) {
-        auto start = high_resolution_clock::now();
-        double center = optimized_histogram(cv_image);
-        utils::Lane lane_msg;
-        lane_msg.center = center;
-        lane_msg.stopline = stopline;
-        lane_msg.header.stamp = ros::Time::now();
-        pub->publish(lane_msg);
-    }
-}
 
-static void signDetection(yoloFastestv2 *api, ros::Publisher *pub) {
-    while (ros::ok()) {
-        auto start = high_resolution_clock::now();
-        std::vector<TargetBox> boxes;
-        api->detection(cv_image, boxes);
-        utils::Sign sign_msg;
-        sign_msg.header.stamp = ros::Time::now();
-        sign_msg.header.frame_id = "camera_frame"; 
-
-        sign_msg.num = boxes.size();
-
-        int bb = 0;
-        for (const auto &box : boxes) {
-            sign_msg.objects.push_back(box.cate);
-            if(bb==0){
-                sign_msg.box1.push_back(box.x1);
-                sign_msg.box1.push_back(box.y1);
-                sign_msg.box1.push_back(box.x2-box.x1);
-                sign_msg.box1.push_back(box.y2-box.y1);
-            } else if (bb==1){
-                sign_msg.box2.push_back(box.x1);
-                sign_msg.box2.push_back(box.y1);
-                sign_msg.box2.push_back(box.x2-box.x1);
-                sign_msg.box2.push_back(box.y2-box.y1);
-            } else if (bb == 2) {
-                sign_msg.box3.push_back(box.x1);
-                sign_msg.box3.push_back(box.y1);
-                sign_msg.box3.push_back(box.x2-box.x1);
-                sign_msg.box3.push_back(box.y2-box.y1);
-            }
-            sign_msg.confidence.push_back(box.score);
-            bb++;
-        }
-        // Publish Sign message
-        pub->publish(sign_msg);
-    }
-}
 static void laneDetectionCallback(const ros::TimerEvent& event, ros::Publisher *pub) {
     double center = optimized_histogram(cv_image);
     utils::Lane lane_msg;
@@ -224,7 +177,21 @@ static void signDetectionCallback(const ros::TimerEvent& event, yoloFastestv2 *a
     // Publish Sign message
     pub->publish(sign_msg);
 }
+void laneDetectionThread(ros::NodeHandle &nh) {
+    ros::Publisher lane_pub = nh.advertise<utils::Lane>("lane", 3);
+    double lane_pub_rate = 20.0;
+    ros::Timer lane_timer = nh.createTimer(ros::Duration(1.0 / lane_pub_rate), [&](const ros::TimerEvent& event) { laneDetectionCallback(event, &lane_pub); });
 
+    ros::spin();
+}
+
+void signDetectionThread(ros::NodeHandle &nh, yoloFastestv2 *api) {
+    ros::Publisher sign_pub = nh.advertise<utils::Sign>("sign", 3);
+    double sign_pub_rate = 2.0;
+    ros::Timer sign_timer = nh.createTimer(ros::Duration(1.0 / sign_pub_rate), [&](const ros::TimerEvent& event) { signDetectionCallback(event, api, &sign_pub); });
+
+    ros::spin();
+}
 int main(int argc, char** argv) {
     ros::init(argc, argv, "object_detector");
     yoloFastestv2 api;
@@ -238,13 +205,14 @@ int main(int argc, char** argv) {
     const char* bin = filePathBin.c_str();
     api.loadModel(param,bin);
     ros::NodeHandle nh;
-
-    double lane_pub_rate = 5.0; // Adjust this value for lane_pub rate
+    ros::Publisher lane_pub = nh.advertise<utils::Lane>("lane", 3);
+    ros::Publisher sign_pub = nh.advertise<utils::Sign>("sign", 3);
+    boost::thread lane_thread(laneDetectionThread, std::ref(nh));
+    boost::thread sign_thread(signDetectionThread, std::ref(nh), &api);
+    double lane_pub_rate = 20.0; // Adjust this value for lane_pub rate
     double sign_pub_rate = 2.0;
-    // ros::Timer lane_timer = nh.createTimer(ros::Duration(1.0 / lane_pub_rate), [&](const ros::TimerEvent& event) { laneDetectionCallback(event, &lane_pub); });
-    // ros::Timer sign_timer = nh.createTimer(ros::Duration(1.0 / sign_pub_rate), [&](const ros::TimerEvent& event) { signDetectionCallback(event, &api, &sign_pub); });
-    std::thread lane_thread(laneDetection, &lane_pub);
-    std::thread sign_thread(signDetection, &api, &sign_pub);
+    ros::Timer lane_timer = nh.createTimer(ros::Duration(1.0 / lane_pub_rate), [&](const ros::TimerEvent& event) { laneDetectionCallback(event, &lane_pub); });
+    ros::Timer sign_timer = nh.createTimer(ros::Duration(1.0 / sign_pub_rate), [&](const ros::TimerEvent& event) { signDetectionCallback(event, &api, &sign_pub); });
 
     raspicam::RaspiCam_Cv camera_;
 
@@ -258,7 +226,10 @@ int main(int argc, char** argv) {
 
     while(ros::ok()) {
         camera_.grab();
+        {
+        boost::lock_guard<boost::mutex> lock(image_mutex);
         camera_.retrieve(cv_image);
+        }
         ros::spinOnce();
     }
     lane_thread.join();
