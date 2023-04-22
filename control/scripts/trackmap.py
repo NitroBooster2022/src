@@ -265,6 +265,8 @@ class track_map():
 
     def locate(self,x,y,rot):
         # get current location based on position and orientation
+        if rot > np.pi:
+            rot -= 2*np.pi
         if y>6.2:
             if x<1.3:
                 if y<10.75:
