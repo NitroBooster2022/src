@@ -61,31 +61,6 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg, yoloFastestv2 *api, ro
         bb++;
     }
 
-    // if(sign_msg.num==1){
-    //     ROS_INFO("My custom message: objects=[%d], box1=[%.1f, %.1f, %.1f, %.1f], num=%d, confidence=[%.1f]",
-    //     sign_msg.objects[0],
-    //     sign_msg.box1[0], sign_msg.box1[1], sign_msg.box1[2], sign_msg.box1[3],
-    //     sign_msg.num,
-    //     sign_msg.confidence[0]);
-    // }
-    // else if(sign_msg.num==2){
-    //     ROS_INFO("My custom message: objects=[%d, %d], box1=[%.1f, %.1f, %.1f, %.1f], box2=[%.1f, %.1f, %.1f, %.1f], num=%d, confidence=[%.1f, %.1f]",
-    //     sign_msg.objects[0], sign_msg.objects[1],
-    //     sign_msg.box1[0], sign_msg.box1[1], sign_msg.box1[2], sign_msg.box1[3],
-    //     sign_msg.box2[0], sign_msg.box2[1], sign_msg.box2[2], sign_msg.box2[3],
-    //     sign_msg.num,
-    //     sign_msg.confidence[0], sign_msg.confidence[1]);
-    // }
-    // else if(sign_msg.num==3){
-    //     ROS_INFO("My custom message: objects=[%d, %d, %d], box1=[%.1f, %.1f, %.1f, %.1f], box2=[%.1f, %.1f, %.1f, %.1f], box3=[%.1f, %.1f, %.1f, %.1f], num=%d, confidence=[%.1f, %.1f, %.1f]",
-    //     sign_msg.objects[0], sign_msg.objects[1], sign_msg.objects[2],
-    //     sign_msg.box1[0], sign_msg.box1[1], sign_msg.box1[2], sign_msg.box1[3],
-    //     sign_msg.box2[0], sign_msg.box2[1], sign_msg.box2[2], sign_msg.box2[3],
-    //     sign_msg.box3[0], sign_msg.box3[1], sign_msg.box3[2], sign_msg.box3[3],
-    //     sign_msg.num,
-    //     sign_msg.confidence[0], sign_msg.confidence[1], sign_msg.confidence[2]);
-    // }
-
     // Publish Sign message
     pub->publish(sign_msg);
     auto stop = high_resolution_clock::now();

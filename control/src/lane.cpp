@@ -26,13 +26,13 @@ public:
     void imageCallback(const sensor_msgs::ImageConstPtr& msg) {
         try {
             cv::Mat cv_image = cv_bridge::toCvShare(msg, "bgr8")->image;
-            auto start = high_resolution_clock::now();
+            // auto start = high_resolution_clock::now();
             double center = optimized_histogram(cv_image);
-            auto stop = high_resolution_clock::now();
-            auto duration = duration_cast<microseconds>(stop - start);
-            total+=static_cast<double>(duration.count());
-            double avg_duration = total / num_iterations;
-            num_iterations++;
+            // auto stop = high_resolution_clock::now();
+            // auto duration = duration_cast<microseconds>(stop - start);
+            // total+=static_cast<double>(duration.count());
+            // double avg_duration = total / num_iterations;
+            // num_iterations++;
 
             // std::cout << "durations: " << duration.count() << std::endl;
             // std::cout << "avg: " << avg_duration << std::endl;
@@ -141,7 +141,7 @@ public:
             }
             if (dotted) {
                 cv::putText(image, "DottedLine!", cv::Point(static_cast<int>(w*0.5), static_cast<int>(h * 0.5)), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 0, 255), 1, cv::LINE_AA);
-        }
+            }
             cv::line(image, cv::Point(static_cast<int>(center), image.rows), cv::Point(static_cast<int>(center), static_cast<int>(0.8 * image.rows)), cv::Scalar(0, 0, 255), 5);
             cv::Mat add;
             cv::cvtColor(padded_thresh, add, cv::COLOR_GRAY2BGR);
@@ -170,7 +170,7 @@ private:
     cv::Mat thresh;
     cv::Mat hist;
     cv::Mat img_rois;
-    // double threshold_value_stop;
+    double threshold_value_stop;
     cv::Mat threshs;
     cv::Mat hists;
     void addSquare(cv::Mat& image) {
