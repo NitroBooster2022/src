@@ -173,13 +173,6 @@ private:
     double threshold_value_stop;
     cv::Mat threshs;
     cv::Mat hists;
-    void addSquare(cv::Mat& image) {
-        cv::Point top_left(100, 100);
-        cv::Point bottom_right(200, 200);
-        cv::Scalar color(0, 255, 0); // Green
-        int thickness = 2;
-        cv::rectangle(image, top_left, bottom_right, color, thickness);
-    }
 };
 
 int main(int argc, char** argv) {
