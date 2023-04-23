@@ -49,7 +49,9 @@ ex: ```rosrun control lane```)
 ```xml
 <arg name="show_sign"  default="False" doc="display sign detection window (True or False)"/>
 <arg name="show_lane"  default="False" doc="display lane detection window (True or False)"/>
-<arg name="method"  default="histogram" doc="method for lane detection (histogram or houghlines)"/>
+<arg name="print_sign"  default="False" doc="print sign detection (True or False)"/>
+<arg name="print_lane"  default="False" doc="print lane detection (True or False)"/>
+<!-- <arg name="method"  default="histogram" doc="method for lane detection (histogram or houghlines)"/> -->
 <arg name="simulation"  default="True" doc="Simulation mode (True or False)"/>
 <arg name="path"  default="/paths/path.json" doc="the relative json file path to the planned path"/>
 <arg name="custom"  default="False" doc="user input map (True or False)"/>
