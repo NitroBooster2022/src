@@ -17,7 +17,7 @@
   <node pkg="sim_pkg" type="delay.sh" args="5 sim_pkg parking_signs.launch"       name="parking_signs"        output="screen"/>
   <!-- <node pkg="sim_pkg" type="delay.sh" args="5 sim_pkg pedestrian_objects.launch"  name="pedestrian_objects"   output="screen"/> -->
   <node pkg="sim_pkg" type="delay.sh" args="5 sim_pkg crosswalk_signs.launch"     name="crosswalk_signs"      output="screen"/>
-  <!-- <node pkg="sim_pkg" type="delay.sh" args="5 sim_pkg priority_signs.launch"      name="priority_signs"       output="screen"/> -->
+  <node pkg="sim_pkg" type="delay.sh" args="5 sim_pkg priority_signs.launch"      name="priority_signs"       output="screen"/>
   <node pkg="sim_pkg" type="delay.sh" args="5 sim_pkg roundabout_signs.launch"    name="roundabout_signs"     output="screen"/>
   <node pkg="sim_pkg" type="delay.sh" args="5 sim_pkg stop_signs.launch"          name="stop_signs"           output="screen"/>
   <node pkg="sim_pkg" type="delay.sh" args="5 sim_pkg obstacle_car.launch"        name="obstacle_car"         output="screen"/>
