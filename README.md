@@ -13,6 +13,8 @@
 
 - YoloFastestV2: https://github.com/xs2445/Yolo-FastestV2-NCNN-RasPi4B
 
+- raspicam: https://github.com/cedricve/raspicam
+
 ## Usage:
 
 1. open a terminal and cd to Simulator
