@@ -9,7 +9,7 @@ using namespace std::chrono;
 
 class LaneDetector {
 public:
-    LaneDetector() : it(nh) {
+    LaneDetector(bool showflag, bool printflag) : it(nh), showflag(showflag), printflag(printflag){
         image_sub = it.subscribe("/automobile/image_raw", 1, &LaneDetector::imageCallback, this);
         image_pub = it.advertise("/automobile/image_modified", 1);
         lane_pub = nh.advertise<utils::Lane>("/lane", 1);
@@ -26,13 +26,13 @@ public:
     void imageCallback(const sensor_msgs::ImageConstPtr& msg) {
         try {
             cv::Mat cv_image = cv_bridge::toCvShare(msg, "bgr8")->image;
-            auto start = high_resolution_clock::now();
-            double center = optimized_histogram(cv_image);
-            auto stop = high_resolution_clock::now();
-            auto duration = duration_cast<microseconds>(stop - start);
-            total+=static_cast<double>(duration.count());
-            double avg_duration = total / num_iterations;
-            num_iterations++;
+            // auto start = high_resolution_clock::now();
+            double center = optimized_histogram(cv_image, showflag, printflag);
+            // auto stop = high_resolution_clock::now();
+            // auto duration = duration_cast<microseconds>(stop - start);
+            // total+=static_cast<double>(duration.count());
+            // double avg_duration = total / num_iterations;
+            // num_iterations++;
 
             // std::cout << "durations: " << duration.count() << std::endl;
             // std::cout << "avg: " << avg_duration << std::endl;
@@ -74,7 +74,7 @@ public:
         return lane_indices;
     }
 
-    double optimized_histogram(cv::Mat image, bool show = false) {
+    double optimized_histogram(cv::Mat image, bool show = false, bool print = false) {
         stopline = false;
         cv::cvtColor(image, img_gray, cv::COLOR_BGR2GRAY);
 
@@ -141,12 +141,15 @@ public:
             }
             if (dotted) {
                 cv::putText(image, "DottedLine!", cv::Point(static_cast<int>(w*0.5), static_cast<int>(h * 0.5)), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 0, 255), 1, cv::LINE_AA);
-        }
+            }
             cv::line(image, cv::Point(static_cast<int>(center), image.rows), cv::Point(static_cast<int>(center), static_cast<int>(0.8 * image.rows)), cv::Scalar(0, 0, 255), 5);
             cv::Mat add;
             cv::cvtColor(padded_thresh, add, cv::COLOR_GRAY2BGR);
             cv::imshow("Lane", image + add);
             cv::waitKey(1);
+        }
+        if (print) {
+            std::cout << "center: " << center << std::endl;
         }
         return center;
     }
@@ -170,20 +173,40 @@ private:
     cv::Mat thresh;
     cv::Mat hist;
     cv::Mat img_rois;
-    // double threshold_value_stop;
+    double threshold_value_stop;
     cv::Mat threshs;
     cv::Mat hists;
-    void addSquare(cv::Mat& image) {
-        cv::Point top_left(100, 100);
-        cv::Point bottom_right(200, 200);
-        cv::Scalar color(0, 255, 0); // Green
-        int thickness = 2;
-        cv::rectangle(image, top_left, bottom_right, color, thickness);
-    }
+    bool showflag, printflag;
 };
 
 int main(int argc, char** argv) {
+    int opt;
+    bool showFlag = false;
+    bool printFlag = false;
+    
+    // Loop through command line arguments
+    while ((opt = getopt(argc, argv, "hs:p:")) != -1) {
+        switch (opt) {
+            case 's':
+                if (std::strcmp(optarg, "True") == 0) {
+                    showFlag = true;
+                }
+                break;
+            case 'p':
+                if (std::strcmp(optarg, "True") == 0) {
+                    printFlag = true;
+                }
+                break;
+            case 'h':
+                std::cout << "-s to display image\n";
+                std::cout << "-p to print detection\n";
+                exit(0);
+            default:
+                std::cerr << "Invalid argument\n";
+                exit(1);
+        }
+    }
     ros::init(argc, argv, "CAMnod");
-    LaneDetector laneDetector;
+    LaneDetector laneDetector(showFlag, printFlag);
     return 0;
 }
