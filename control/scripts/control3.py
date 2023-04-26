@@ -94,8 +94,8 @@ class StateMachine():
         #sign
         self.class_names = ['oneway', 'highwayentrance', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayexit', 'priority',
                 'lights','block','pedestrian','car','others','nothing']
-        self.min_sizes = [25,25,30,000,40,42,25,25,25,130,50,72,130]
-        self.max_sizes = [50,75,70,000,75,150,50,75,75,350,170,200,300]
+        self.min_sizes = [25,25,40,50,40,40,30,25,25,130,75,72,130]
+        self.max_sizes = [100,75,125,100,120,125,70,75,100,350,170,250,300]
         self.center = -1
         self.detected_objects = []
         self.numObj = -1
@@ -529,9 +529,9 @@ class StateMachine():
             else:
                 self.idle()
                 return 0
-        elif self.entering_roundabout(): #revamp this
-                self.state = 1 #should be approaching roundabout state similar to approachInt
-                return 1
+        # elif self.entering_roundabout(): #revamp this
+        #     self.state = 1 #should be approaching roundabout state similar to approachInt
+        #     return 1
         elif self.parking_detected():
             # if not at parking decision yet pass
             if self.decisionsI >= len(self.decisions):
@@ -758,7 +758,7 @@ class StateMachine():
             if self.intersectionDecision == 1:
                 arrived = arrived and abs(x)>=self.offsets_x[self.intersectionDecision] and abs(y-self.offsets_y[self.intersectionDecision]) < 0.2
             # if self.roadblock:
-            #     arrived = arrived and error < 0.2 
+            #     arrived = arrived and error < 0.2
             # print("yaw_error: ")
             # print(str(self.yaw-self.destinationAngle))
             if arrived:
@@ -1516,9 +1516,9 @@ class StateMachine():
     def stop_sign_detected(self):
         return self.object_detected(2)
     def highway_entrance_detected(self):
-        return self.object_detected(7)
-    def highway_exit_detected(self):
         return self.object_detected(1)
+    def highway_exit_detected(self):
+        return self.object_detected(7)
     def light_detected(self):
         return self.object_detected(9)
     def parking_detected(self):
@@ -1739,7 +1739,7 @@ if __name__ == '__main__':
     parser.add_argument("--custom", type=str, default=False, help="Custom path")
     # args, unknown = parser.parse_known_args()
     args = parser.parse_args(rospy.myargv()[1:])
-    s = args.simulation=="True" 
+    s = args.simulation=="True"
     c = args.custom=="True"
     node = StateMachine(simulation=s,planned_path=args.path,custom_path=c)
     rospy.spin()
