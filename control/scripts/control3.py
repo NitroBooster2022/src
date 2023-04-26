@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import rospy
 import numpy as np
-from message_filters import ApproximateTimeSynchronizer
 from std_msgs.msg import String, Byte
 from utils.msg import Lane, Sign, localisation, IMU, encoder
 from utils.srv import get_direction, dotted, nav
@@ -11,7 +10,6 @@ import math
 import cv2
 import os
 import json
-import threading
 import argparse
 
 import sys
