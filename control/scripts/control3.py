@@ -10,7 +10,6 @@ import math
 import cv2
 import os
 import json
-import threading
 import argparse
 
 import sys
