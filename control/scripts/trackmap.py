@@ -252,7 +252,7 @@ class track_map():
             return True
         else:
             return False
-    
+
     def can_overtake(self,x,y,rot):
         return self.locate(x,y,rot) in self.dashedlines
 
