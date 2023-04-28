@@ -147,11 +147,11 @@ int main(int argc, char **argv) {
 
     std::string filePathParam = __FILE__;
     size_t pos = filePathParam.rfind("/") + 1;
-    filePathParam.replace(pos, std::string::npos, "model/amy357s-opt.param");
+    filePathParam.replace(pos, std::string::npos, "model/sissi11-opt.param");
     const char* param = filePathParam.c_str();
     std::string filePathBin = __FILE__;
     pos = filePathBin.rfind("/") + 1;
-    filePathBin.replace(pos, std::string::npos, "model/amy357s-opt.bin");
+    filePathBin.replace(pos, std::string::npos, "model/sissi11-opt.bin");
     const char* bin = filePathBin.c_str();
 
     api.loadModel(param,bin);
