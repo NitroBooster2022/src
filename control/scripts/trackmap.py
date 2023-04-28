@@ -118,7 +118,7 @@ class track_map():
     def get_location_cood(self,loc):
         return self.map_graph.nodes[loc]['coord']
 
-    def custum_path(self):
+    def custum_path(self, save=False):
         print("---Click on map to input path---")
         print("---Press any keys to continue---")
         self.regions = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/templates/map_graphv2.drawio.png')
@@ -130,6 +130,10 @@ class track_map():
         cv2.imshow(windowName,self.regions)
         key = cv2.waitKey(0)
         # self.plan_path()
+        if save:
+            # Save directed path to a JSON file
+            with open(os.path.dirname(os.path.realpath(__file__))+'/paths/test/curvedpath.json', 'w') as outfile:
+                json.dump(self.planned_path, outfile)
         cv2.destroyAllWindows()
 
     def mouse_event_handler(self, event, x, y, flags, param):
@@ -570,10 +574,10 @@ if __name__ == '__main__':
     m = json.load(open(os.path.dirname(os.path.realpath(__file__))+'/paths/path.json', 'r'))
     # print(m)
     node = track_map(0,15,1.5,m)
-    node.get_location_dest('start')
+    # node.get_location_dest('start')
     # node.make_map()
     # node.draw_map()
-    # node.custum_path()
+    # node.custum_path(save=True)
     # node.plan_path()
     # node.draw_map_edgelist()
     # node.draw_map_graphml()
