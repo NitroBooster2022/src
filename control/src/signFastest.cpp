@@ -7,8 +7,6 @@
 #include "utils/Sign.h"
 #include <chrono>
 using namespace std::chrono;
-#include <iostream>
-#include <string>
 
 static const char* class_names[] = {
         "oneway", "highwayentrance", "stopsign", "roundabout", "park", "crosswalk", "noentry", "highwayexit", "priority",
@@ -113,9 +111,10 @@ int main(int argc, char **argv) {
     int opt;
     bool showFlag = false;
     bool printFlag = false;
+    std::string modelnum = "11";
     
     // Loop through command line arguments
-    while ((opt = getopt(argc, argv, "hs:p:")) != -1) {
+    while ((opt = getopt(argc, argv, "hs:p:m:")) != -1) {
         switch (opt) {
             case 's':
                 if (std::strcmp(optarg, "True") == 0) {
@@ -127,9 +126,14 @@ int main(int argc, char **argv) {
                     printFlag = true;
                 }
                 break;
+            case 'm':
+                // modelnum = std::stoi(optarg); // convert optarg to integer
+                modelnum = optarg;
+                break;
             case 'h':
                 std::cout << "-s to display image\n";
                 std::cout << "-p to print detection\n";
+                std::cout << "-m to set the model number\n";
                 exit(0);
             default:
                 std::cerr << "Invalid argument\n";
@@ -147,11 +151,11 @@ int main(int argc, char **argv) {
 
     std::string filePathParam = __FILE__;
     size_t pos = filePathParam.rfind("/") + 1;
-    filePathParam.replace(pos, std::string::npos, "model/sissi11-opt.param");
+    filePathParam.replace(pos, std::string::npos, "model/sissi"+modelnum+"-opt.param");
     const char* param = filePathParam.c_str();
     std::string filePathBin = __FILE__;
     pos = filePathBin.rfind("/") + 1;
-    filePathBin.replace(pos, std::string::npos, "model/sissi11-opt.bin");
+    filePathBin.replace(pos, std::string::npos, "model/sissi"+modelnum+"-opt.bin");
     const char* bin = filePathBin.c_str();
 
     api.loadModel(param,bin);
