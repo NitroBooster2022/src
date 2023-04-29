@@ -224,8 +224,9 @@ class StateMachine():
             else:
                 msg = String()
                 msg.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
-                for haha in range(10):
+                for haha in range(20):
                     self._write(msg)
+                    print("stop!")
                     self.rate.sleep()
         
         rospy.on_shutdown(shutdown)
@@ -247,7 +248,6 @@ class StateMachine():
         self.adjustYawError = 0.1
         self.roadblock = False
         self.localise_before_decision = False
-        # self.trackbars()
 
         if self.simulation:
             self.plan_path(custom_path, planned_path)
@@ -647,7 +647,7 @@ class StateMachine():
             if self.simulation:
                 dests = self.track_map.get_location_dest(self.full_path[self.decisionsI])
             else:
-                dests = [0,1]
+                dests = [0,1] #CHANGE
             if self.intersectionDecision == 0:
                 if 1 in dests:
                     self.destinationAngle -= np.pi/2
@@ -1599,7 +1599,6 @@ class StateMachine():
             self.msg.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
             self._write(self.msg)
 
-
     #odom helper functions
     def pid(self, error):
         # self.error_sum += error * self.dt
@@ -1654,7 +1653,7 @@ class StateMachine():
     def left_trajectory_real(self, x):
         return math.exp(3.57*x-4.3)
     def right_trajectory_real(self, x):
-        return -math.exp(4*x-2.05)
+        return -math.exp(4*x-2.35)
     def left_exit_trajectory_real(self, x):
         return math.exp(4*x-3.05)
     def right_exit_trajectory_real(self, x):
@@ -1699,7 +1698,7 @@ class StateMachine():
         if obj_id==10:
             conf_thresh = 0.35
         else:
-            conf_thresh = 0.7
+            conf_thresh = 0.8
         return size >= self.min_sizes[obj_id] and size <= self.max_sizes[obj_id] and conf >= conf_thresh #check this
     def get_steering_angle(self,offset=0):
         """
@@ -1744,55 +1743,6 @@ class StateMachine():
         self.msg2.data = '{"action":"2","steerAngle":'+str(float(steering_angle))+'}'
         self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
-
-    #PID tuning
-    def trackbars(self):
-        windowName = "Params"
-        image = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/map.png')
-        cv2.namedWindow(windowName,cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(windowName,480,360)
-        cv2.createTrackbar('Save',windowName,0,1,self.save_object)
-        cv2.createTrackbar('View',windowName,0,1,self.view)
-        cv2.createTrackbar('p',windowName,int(self.p*100000),600,self.changep)
-        cv2.createTrackbar('d',windowName,int(self.d*100000),50,self.changed)
-        cv2.createTrackbar('i',windowName,int(self.i*100000),100,self.changei)
-        cv2.imshow(windowName, image)
-        key = cv2.waitKey(0)
-    def save_object(self,v):
-        file = open(os.path.dirname(os.path.realpath(__file__))+'/PID.json', 'w')
-        data = {"p":self.p,"d":self.d,"i":self.i,"kp":self.kp,"kd":self.kd,"ki":self.ki,"kp2":self.kp2,"kd2":self.kd2,"ki2":self.ki2}
-        json.dump(data, file)
-        self.view(0)
-    def view(self,v):
-        print("=========== PIDS ============"+'\n'+
-            "p           "+str(self.p)+
-            "\nd         "+str(self.d)+
-            "\ni         "+str(self.i)+
-            "\nkp         "+str(self.kp)+
-            "\nkd         "+str(self.kd)+
-            "\nki         "+str(self.ki)+
-            "\nkp2        "+str(self.kp2)+
-            "\nkd2        "+str(self.kd2)+
-            "\nki2        "+str(self.ki2)        
-        )
-    def changep(self,v):
-        self.p = v/100000
-    def changed(self,v):
-        self.d = v/100000
-    def changei(self,v):
-        self.i = v/100000
-    def changekp(self,v):
-        self.kp = v/1000
-    def changekd(self,v):
-        self.kd = v/1000
-    def changeki(self,v):
-        self.ki = v/1000
-    def changekp2(self,v):
-        self.kp2 = v/1000
-    def changekd2(self,v):
-        self.kd2 = v/1000
-    def changeki2(self,v):
-        self.ki2 = v/1000
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='State Machine for Robot Control.')
