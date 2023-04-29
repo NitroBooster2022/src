@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 import rospy
 import numpy as np
+from message_filters import ApproximateTimeSynchronizer
 from std_msgs.msg import String, Byte
-from utils.msg import Lane, Sign, localisation, IMU, encoder
+from utils.msg import Lane, Sign, localisation, IMU, Sensors, encoder
 # from utils.srv import get_direction, dotted, nav
 import time
 import math
@@ -19,8 +20,10 @@ from trackmap import track_map
 
 class StateMachine():
     #initialization
-    def __init__(self, simulation = True, planned_path = "/paths/path.json", custom_path = False):
+    def __init__(self, simulation = False, planned_path = "/paths/path.json", custom_path = False):
         rospy.init_node('control_node', anonymous=True)
+        # self.cmd_vel_pub = rospy.Publisher("/automobile/command", String, queue_size=3)
+        
         self.rate = rospy.Rate(25)
         self.dt = 1/25 #for PID
 
@@ -28,10 +31,6 @@ class StateMachine():
         self.simulation = simulation
         if self.simulation:
             print("Simulation mode")
-            self.publish_cmd_vel = self.publish_cmd_vel_sim
-            self.cmd_vel_pub = rospy.Publisher("/automobile/command", String, queue_size=3)
-            self.min_sizes = [25,25,40,50,40,35,30,25,25,130,75,72,130]
-            self.max_sizes = [100,75,125,100,120,125,70,75,100,350,170,250,300]
             self.odomRatio = 1
             self.process_yaw = self.process_yaw_sim
             self.left_trajectory = self.left_trajectory_sim
@@ -51,9 +50,7 @@ class StateMachine():
             from messageconverter import MessageConverter
             import serial
             devFile = '/dev/ttyACM0'
-            self.publish_cmd_vel = self.publish_cmd_vel_real
-            self.min_sizes = [25,25,40,50,40,35,30,25,25,130,75,72,130]
-            self.max_sizes = [100,75,125,100,120,125,70,75,100,350,170,250,300]
+            
             # comm init
             self.serialCom = serial.Serial(devFile,19200,timeout=1)
             self.serialCom.flushInput()
@@ -68,6 +65,8 @@ class StateMachine():
             while self.initialYaw==0:
                 imu = rospy.wait_for_message("/automobile/IMU",IMU)
                 self.initialYaw = imu.yaw
+                # sensorData = rospy.wait_for_message("automobile/sensors",Sensors)
+                # self.initialYaw = sensorData.yaw
                 print("initialYaw: "+str(self.initialYaw))
             print("Real mode")
             self.odomRatio = 0.0066
@@ -87,8 +86,8 @@ class StateMachine():
             #0:left, 1:straight, 2:right, 3:parkF, 4:parkP, 5:exitparkL, 6:exitparkR, 7:exitparkP
             #8:enterhwLeft, 9:enterhwStright, 10:rdb, 11:exitrdbE, 12:exitrdbS, 13:exitrdbW, 14:curvedpath
             # self.decisions = [2,3,6,0,4]
-            # self.decisions = [2,2,2,2,2,2,2,2,2]
-            self.decisions = [10,12] if self.simulation else [2,2,2,2,2,2,2,2,2]
+            self.decisions = [2,2,2,2,2,2,2,2,2]
+            # self.decisions = [10,12]
             self.decisionsI = 0
             self.full_path = ['test','test','test','test','test','test','test','test','test','test','test','test','test']
             self.planned_path = ['test1']
@@ -102,8 +101,8 @@ class StateMachine():
         #sign
         self.class_names = ['oneway', 'highwayentrance', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayexit', 'priority',
                 'lights','block','pedestrian','car','others','nothing']
-        # self.min_sizes = [25,25,40,50,40,35,30,25,25,130,75,72,130]
-        # self.max_sizes = [100,75,125,100,120,125,70,75,100,350,170,250,300]
+        self.min_sizes = [25,25,40,50,40,35,30,25,25,130,75,72,130]
+        self.max_sizes = [100,75,125,100,120,125,70,75,100,350,170,250,300]
         self.center = -1
         self.detected_objects = []
         self.numObj = -1
@@ -205,28 +204,23 @@ class StateMachine():
         self.lane_sub = rospy.Subscriber('lane', Lane, self.lane_callback, queue_size=3)
         self.sign_sub = rospy.Subscriber('sign', Sign, self.sign_callback, queue_size=3)
         # self.localization_sub = message_filters.Subscriber("/automobile/localisation", localisation, queue_size=3)
+        # self.sensors_sub = rospy.Subscriber("/automobile/sensors", Sensors, self.sensors_callback, queue_size=3)
         self.imu_sub = rospy.Subscriber("/automobile/IMU", IMU, self.imu_callback, queue_size=3)
         self.encoder_sub = rospy.Subscriber("/automobile/encoder", encoder, self.encoder_callback, queue_size=3)
 
         #stop at shutdown
         def shutdown():
-            if self.simulation:
-                pub = rospy.Publisher("/automobile/command", String, queue_size=3)
-                msg = String()
-                msg2 = String()
-                # msg.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
-                msg.data = '{"action":"1","speed":'+str(0.0)+'}'
-                msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
-                for haha in range(10):
-                    pub.publish(msg2)
-                    pub.publish(msg)
-                    self.rate.sleep()
-            else:
-                msg = String()
-                msg.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
-                for haha in range(10):
-                    self._write(msg)
-                    self.rate.sleep()
+            # pub = rospy.Publisher("/automobile/command", String, queue_size=3)
+            msg = String()
+            # msg2 = String()
+            msg.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
+            # msg.data = '{"action":"1","speed":'+str(0.0)+'}'
+            # msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
+            for haha in range(20):
+                self._write(msg)
+                print("stop!")
+                # pub.publish(msg)
+                self.rate.sleep()
         
         rospy.on_shutdown(shutdown)
 
@@ -247,16 +241,10 @@ class StateMachine():
         self.adjustYawError = 0.1
         self.roadblock = False
         self.localise_before_decision = False
-        # self.trackbars()
 
         if self.simulation:
             self.plan_path(custom_path, planned_path)
 
-        # self.callback_thread = threading.Thread(target=self.run_callback)
-        # self.action_thread = threading.Thread(target=self.run_action)
-        # self.callback_thread.start()
-        # self.action_thread.start()
-    
     def localise(self):
         try:
             imu = rospy.wait_for_message("/automobile/IMU",IMU)
@@ -372,20 +360,6 @@ class StateMachine():
             newYaw = -((yaw-self.initialYaw)*3.14159/180)
             self.yaw = newYaw if newYaw>0 else (6.2831853+newYaw)
 
-    # def run_callback(self):
-    #     while not rospy.is_shutdown():
-    #         rospy.spin()
-    # def run_action(self):
-    #     # print("time: ", time.time()-self.t1)
-    #     # self.t1 = time.time()
-    #     while not rospy.is_shutdown():
-    #         act = self.action()
-    #         if int(act)==1:
-    #             print(f"-----transitioning to '{self.states[self.state]}'-----")
-    #             if self.state==0:
-    #                 print("Speed is at "+str(self.maxspeed)+"m/s")
-    #         self.rate.sleep()
-
     #callback functions
     def lane_callback(self,lane):
         self.center = lane.center
@@ -414,6 +388,9 @@ class StateMachine():
         self.box2 = sign.box2
         self.box3 = sign.box3
         self.confidence = sign.confidence
+    # def sensors_callback(self,sensors):
+    #     self.velocity = sensors.speed
+    #     self.process_yaw(sensors.yaw)
     def encoder_callback(self,encoder):
         self.velocity = encoder.speed
     def imu_callback(self,imu):
@@ -459,24 +436,15 @@ class StateMachine():
             else:
                 if self.toggle == 0:
                     self.toggle = 1
-                    if self.simulation:
-                        self.idle()
-                    else:
-                        self.msg.data = '{"action":"4","activate": true}'
-                    # self.msg.data = '{"action":"4","activate": true}'
+                    self.msg.data = '{"action":"4","activate": true}'
                 elif self.toggle == 1: 
                     self.toggle = 2
                     self.idle()
                 elif self.toggle == 2:
                     self.toggle = 0
-                    if self.simulation:
-                        self.idle()
-                    else:
-                        self.msg.data = '{"action":"5","activate": true}'
-                    # self.msg.data = '{"action":"5","activate": true}'
+                    self.msg.data = '{"action":"5","activate": true}'
                 # self.cmd_vel_pub.publish(self.msg)
-                if self.simulation:
-                    self._write(self.msg)
+                self._write(self.msg)
                 return 0
         elif self.state == 11: #parked
             if self.decisionsI >= len(self.decisions):
@@ -644,10 +612,8 @@ class StateMachine():
         if self.roadblock_detected() and not self.roadblock and (abs(self.yaw-self.destinationAngle) <= 0.25 or abs(self.yaw-self.destinationAngle) >= 6.03):
             self.roadblock = True
             print("roadblock detected: recalculate path")
-            if self.simulation:
-                dests = self.track_map.get_location_dest(self.full_path[self.decisionsI])
-            else:
-                dests = [0,1] #CHANGE. for testing only
+            # dests = self.track_map.get_location_dest(self.full_path[self.decisionsI])
+            dests = [0,1]
             if self.intersectionDecision == 0:
                 if 1 in dests:
                     self.destinationAngle -= np.pi/2
@@ -1588,17 +1554,14 @@ class StateMachine():
     #controller functions
     def idle(self):
         # self.cmd_vel_pub(0.0, 0.0)
-        # self.msg.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
+        self.msg.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
         # self.cmd_vel_pub.publish(self.msg)
-        if self.simulation:
-            self.msg.data = '{"action":"1","speed":'+str(0.0)+'}'
-            self.msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
-            self.cmd_vel_pub.publish(self.msg)
-            self.cmd_vel_pub.publish(self.msg2)
-        else:
-            self.msg.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
-            self._write(self.msg)
-
+        # self.msg.data = '{"action":"1","speed":'+str(0.0)+'}'
+        # self.msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
+        self._write(self.msg)
+        # self._write(self.msg2)
+        # self.cmd_vel_pub.publish(self.msg)
+        # self.cmd_vel_pub.publish(self.msg2)
 
     #odom helper functions
     def pid(self, error):
@@ -1719,7 +1682,7 @@ class StateMachine():
         self.last = error
         steering_angle = (error*self.p+d_error*self.d)
         return steering_angle
-    def publish_cmd_vel_real(self, steering_angle, velocity = None, clip = True):
+    def publish_cmd_vel(self, steering_angle, velocity = None, clip = True):
         """
         Publish the steering command to the cmd_vel topic
         :param steering_angle: Steering angle in radians
@@ -1728,6 +1691,10 @@ class StateMachine():
             velocity = self.maxspeed
         if clip:
             steering_angle = np.clip(steering_angle*180/np.pi, -22.9, 22.9)
+        # self.msg.data = '{"action":"1","speed":'+str(float("{:.4f}".format(velocity)))+'}'
+        # self.msg2.data = '{"action":"2","steerAngle":'+str(float("{:.2f}".format(steering_angle)))+'}'
+        # print(self.msg.data)
+        # print(self.msg2.data)
         if self.toggle == 0:
             self.toggle = 1
             self.msg.data = '{"action":"1","speed":'+str(float("{:.4f}".format(velocity)))+'}'
@@ -1735,64 +1702,9 @@ class StateMachine():
             self.toggle = 0
             self.msg.data = '{"action":"2","steerAngle":'+str(float("{:.2f}".format(steering_angle)))+'}'
         self._write(self.msg)
-    def publish_cmd_vel_sim(self, steering_angle, velocity = None, clip = True):
-        if velocity is None:
-            velocity = self.maxspeed
-        if clip:
-            steering_angle = np.clip(steering_angle*180/np.pi, -22.9, 22.9)
-        self.msg.data = '{"action":"1","speed":'+str(velocity)+'}'
-        self.msg2.data = '{"action":"2","steerAngle":'+str(float(steering_angle))+'}'
-        self.cmd_vel_pub.publish(self.msg)
-        self.cmd_vel_pub.publish(self.msg2)
-
-    #PID tuning
-    def trackbars(self):
-        windowName = "Params"
-        image = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/map.png')
-        cv2.namedWindow(windowName,cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(windowName,480,360)
-        cv2.createTrackbar('Save',windowName,0,1,self.save_object)
-        cv2.createTrackbar('View',windowName,0,1,self.view)
-        cv2.createTrackbar('p',windowName,int(self.p*100000),600,self.changep)
-        cv2.createTrackbar('d',windowName,int(self.d*100000),50,self.changed)
-        cv2.createTrackbar('i',windowName,int(self.i*100000),100,self.changei)
-        cv2.imshow(windowName, image)
-        key = cv2.waitKey(0)
-    def save_object(self,v):
-        file = open(os.path.dirname(os.path.realpath(__file__))+'/PID.json', 'w')
-        data = {"p":self.p,"d":self.d,"i":self.i,"kp":self.kp,"kd":self.kd,"ki":self.ki,"kp2":self.kp2,"kd2":self.kd2,"ki2":self.ki2}
-        json.dump(data, file)
-        self.view(0)
-    def view(self,v):
-        print("=========== PIDS ============"+'\n'+
-            "p           "+str(self.p)+
-            "\nd         "+str(self.d)+
-            "\ni         "+str(self.i)+
-            "\nkp         "+str(self.kp)+
-            "\nkd         "+str(self.kd)+
-            "\nki         "+str(self.ki)+
-            "\nkp2        "+str(self.kp2)+
-            "\nkd2        "+str(self.kd2)+
-            "\nki2        "+str(self.ki2)        
-        )
-    def changep(self,v):
-        self.p = v/100000
-    def changed(self,v):
-        self.d = v/100000
-    def changei(self,v):
-        self.i = v/100000
-    def changekp(self,v):
-        self.kp = v/1000
-    def changekd(self,v):
-        self.kd = v/1000
-    def changeki(self,v):
-        self.ki = v/1000
-    def changekp2(self,v):
-        self.kp2 = v/1000
-    def changekd2(self,v):
-        self.kd2 = v/1000
-    def changeki2(self,v):
-        self.ki2 = v/1000
+        # self._write(self.msg2)
+        # self.cmd_vel_pub.publish(self.msg)
+        # self.cmd_vel_pub.publish(self.msg2)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='State Machine for Robot Control.')
