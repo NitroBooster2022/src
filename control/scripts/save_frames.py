@@ -17,7 +17,7 @@ class CameraHandler():
         self.cv_image = np.zeros((640, 480))
         rospy.init_node('CAMnod', anonymous=True)
         r = rospy.Rate(10)
-        self.save_path = os.path.dirname(os.path.realpath(__file__))+'/images8/'
+        self.save_path = os.path.dirname(os.path.realpath(__file__))+'/images/'
         self.i = 0
         self.image_sub = rospy.Subscriber("/automobile/image_raw", Image, self.callback)
         rospy.spin()

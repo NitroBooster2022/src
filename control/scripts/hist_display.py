@@ -65,7 +65,7 @@ def display_optimized_histogram(image_path):
     def on_submit(text):
         image_path = text
         try:
-            image = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/images/images/'+image_path+'.png')
+            image = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/images/'+image_path+'.jpg')
         except:
             print("invalid path")
         image = cv2.resize(image, (640, 480))
@@ -187,5 +187,5 @@ def display_optimized_histogram(image_path):
     plt.show()
 
 if __name__ == '__main__':
-    image_path = os.path.dirname(os.path.realpath(__file__))+'/images/images/a1.png'
+    image_path = os.path.dirname(os.path.realpath(__file__))+'/images/0.jpg'
     display_optimized_histogram(image_path)
