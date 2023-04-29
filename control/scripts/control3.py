@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import rospy
 import numpy as np
-from message_filters import ApproximateTimeSynchronizer
 from std_msgs.msg import String, Byte
 from utils.msg import Lane, Sign, localisation, IMU, encoder
 # from utils.srv import get_direction, dotted, nav
@@ -22,8 +21,6 @@ class StateMachine():
     #initialization
     def __init__(self, simulation = True, planned_path = "/paths/path.json", custom_path = False):
         rospy.init_node('control_node', anonymous=True)
-        self.cmd_vel_pub = rospy.Publisher("/automobile/command", String, queue_size=3)
-        
         self.rate = rospy.Rate(25)
         self.dt = 1/25 #for PID
 
@@ -31,6 +28,10 @@ class StateMachine():
         self.simulation = simulation
         if self.simulation:
             print("Simulation mode")
+            self.publish_cmd_vel = self.publish_cmd_vel_sim
+            self.cmd_vel_pub = rospy.Publisher("/automobile/command", String, queue_size=3)
+            self.min_sizes = [25,25,40,50,40,35,30,25,25,130,75,72,130]
+            self.max_sizes = [100,75,125,100,120,125,70,75,100,350,170,250,300]
             self.odomRatio = 1
             self.process_yaw = self.process_yaw_sim
             self.left_trajectory = self.left_trajectory_sim
@@ -50,7 +51,9 @@ class StateMachine():
             from messageconverter import MessageConverter
             import serial
             devFile = '/dev/ttyACM0'
-            
+            self.publish_cmd_vel = self.publish_cmd_vel_real
+            self.min_sizes = [25,25,30,000,40,42,25,25,25,130,100,72,130]
+            self.max_sizes = [50,75,70,000,75,150,50,75,75,200,150,200,300]
             # comm init
             self.serialCom = serial.Serial(devFile,19200,timeout=1)
             self.serialCom.flushInput()
@@ -99,8 +102,8 @@ class StateMachine():
         #sign
         self.class_names = ['oneway', 'highwayentrance', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayexit', 'priority',
                 'lights','block','pedestrian','car','others','nothing']
-        self.min_sizes = [25,25,40,50,40,35,30,25,25,130,75,72,130]
-        self.max_sizes = [100,75,125,100,120,125,70,75,100,350,170,250,300]
+        # self.min_sizes = [25,25,40,50,40,35,30,25,25,130,75,72,130]
+        # self.max_sizes = [100,75,125,100,120,125,70,75,100,350,170,250,300]
         self.center = -1
         self.detected_objects = []
         self.numObj = -1
@@ -207,16 +210,23 @@ class StateMachine():
 
         #stop at shutdown
         def shutdown():
-            pub = rospy.Publisher("/automobile/command", String, queue_size=3)
-            msg = String()
-            msg2 = String()
-            # msg.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
-            msg.data = '{"action":"1","speed":'+str(0.0)+'}'
-            msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
-            for haha in range(10):
-                pub.publish(msg2)
-                pub.publish(msg)
-                self.rate.sleep()
+            if self.simulation:
+                pub = rospy.Publisher("/automobile/command", String, queue_size=3)
+                msg = String()
+                msg2 = String()
+                # msg.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
+                msg.data = '{"action":"1","speed":'+str(0.0)+'}'
+                msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
+                for haha in range(10):
+                    pub.publish(msg2)
+                    pub.publish(msg)
+                    self.rate.sleep()
+            else:
+                msg = String()
+                msg.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
+                for haha in range(10):
+                    self._write(msg)
+                    self.rate.sleep()
         
         rospy.on_shutdown(shutdown)
 
@@ -449,16 +459,24 @@ class StateMachine():
             else:
                 if self.toggle == 0:
                     self.toggle = 1
-                    self.idle()
+                    if self.simulation:
+                        self.idle()
+                    else:
+                        self.msg.data = '{"action":"4","activate": true}'
                     # self.msg.data = '{"action":"4","activate": true}'
                 elif self.toggle == 1: 
                     self.toggle = 2
                     self.idle()
                 elif self.toggle == 2:
                     self.toggle = 0
-                    self.idle()
+                    if self.simulation:
+                        self.idle()
+                    else:
+                        self.msg.data = '{"action":"5","activate": true}'
                     # self.msg.data = '{"action":"5","activate": true}'
                 # self.cmd_vel_pub.publish(self.msg)
+                if self.simulation:
+                    self._write(self.msg)
                 return 0
         elif self.state == 11: #parked
             if self.decisionsI >= len(self.decisions):
@@ -626,7 +644,10 @@ class StateMachine():
         if self.roadblock_detected() and not self.roadblock and (abs(self.yaw-self.destinationAngle) <= 0.25 or abs(self.yaw-self.destinationAngle) >= 6.03):
             self.roadblock = True
             print("roadblock detected: recalculate path")
-            dests = self.track_map.get_location_dest(self.full_path[self.decisionsI])
+            if self.simulation:
+                dests = self.track_map.get_location_dest(self.full_path[self.decisionsI])
+            else:
+                dests = [0,1]
             if self.intersectionDecision == 0:
                 if 1 in dests:
                     self.destinationAngle -= np.pi/2
@@ -1569,10 +1590,15 @@ class StateMachine():
         # self.cmd_vel_pub(0.0, 0.0)
         # self.msg.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
         # self.cmd_vel_pub.publish(self.msg)
-        self.msg.data = '{"action":"1","speed":'+str(0.0)+'}'
-        self.msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
-        self.cmd_vel_pub.publish(self.msg)
-        self.cmd_vel_pub.publish(self.msg2)
+        if self.simulation:
+            self.msg.data = '{"action":"1","speed":'+str(0.0)+'}'
+            self.msg2.data = '{"action":"2","steerAngle":'+str(0.0)+'}'
+            self.cmd_vel_pub.publish(self.msg)
+            self.cmd_vel_pub.publish(self.msg2)
+        else:
+            self.msg.data = '{"action":"3","brake (steerAngle)":'+str(0.0)+'}'
+            self._write(self.msg)
+
 
     #odom helper functions
     def pid(self, error):
@@ -1693,11 +1719,23 @@ class StateMachine():
         self.last = error
         steering_angle = (error*self.p+d_error*self.d)
         return steering_angle
-    def publish_cmd_vel(self, steering_angle, velocity = None, clip = True):
+    def publish_cmd_vel_real(self, steering_angle, velocity = None, clip = True):
         """
         Publish the steering command to the cmd_vel topic
         :param steering_angle: Steering angle in radians
         """
+        if velocity is None:
+            velocity = self.maxspeed
+        if clip:
+            steering_angle = np.clip(steering_angle*180/np.pi, -22.9, 22.9)
+        if self.toggle == 0:
+            self.toggle = 1
+            self.msg.data = '{"action":"1","speed":'+str(float("{:.4f}".format(velocity)))+'}'
+        else:
+            self.toggle = 0
+            self.msg.data = '{"action":"2","steerAngle":'+str(float("{:.2f}".format(steering_angle)))+'}'
+        self._write(self.msg)
+    def publish_cmd_vel_sim(self, steering_angle, velocity = None, clip = True):
         if velocity is None:
             velocity = self.maxspeed
         if clip:
