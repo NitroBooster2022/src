@@ -1919,26 +1919,16 @@ class StateMachine():
         if minSize is None:
             minSize = self.min_sizes[obj_id]
         maxSize = self.max_sizes[obj_id]
-        if self.numObj >= 2:
-            if self.detected_objects[0]==obj_id: 
-                box = self.box1 
-                conf = self.confidence[0]
+        boxes = [self.box1, self.box2, self.box3, self.box4]
+        for i in range(self.numObj):    
+            if self.detected_objects[i]==obj_id: 
+                box = boxes[i]
+                conf = self.confidence[i]
                 size = min(box[2], box[3]) #height
                 if size >= minSize and size <= maxSize and conf >= 0.753:
                     car_sizes.append([box[2],box[3]])
-            elif self.detected_objects[1]==obj_id:
-                box = self.box2
-                conf = self.confidence[1]
-                size = min(box[2], box[3]) #height
-                if size >= minSize and size <= maxSize and conf >= 0.753:
-                    car_sizes.append([box[2],box[3]])
-        elif self.numObj == 1:
-            if self.detected_objects[0]==obj_id: 
-                box = self.box1 
-                conf = self.confidence[0]
-                size = min(box[2], box[3])
-                if size >= minSize and size <= maxSize and conf >= 0.753:
-                    car_sizes.append([box[2],box[3]])
+            if i>=3: 
+                break
         return car_sizes
     def object_detected(self, obj_id):
         if self.numObj >= 2:
