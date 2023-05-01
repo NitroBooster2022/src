@@ -183,6 +183,7 @@ def display_optimized_histogram(image_path):
         ax[3].plot([centers[i],centers[i]], [480, 380], 'r-', linewidth=5)
     ax[3].plot([center, center], [480, 380], 'g-', linewidth=5)
     ax[3].set_title('Detected Lanes and Lane center')
+    ax[3].text(center, 350, str(center), fontsize=12, color='green')
 
     plt.show()
 
