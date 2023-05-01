@@ -12,6 +12,7 @@ import os
 import json
 import threading
 import argparse
+import socket
 
 import sys
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
@@ -252,6 +253,17 @@ class StateMachine():
         self.adjustYawError = 0.1 #yaw adjust for intersection maneuvering
         self.localise_before_decision = False
 
+        self._init_socket_semaphore()
+    
+    def _init_socket_semaphore(self):
+        # Communication parameters, create and bind socket
+        self.PORT = 50007
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #(internet, UDP)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        self.sock.bind(('', self.PORT))
+        self.sock.settimeout(1)
+
     def localise(self):
         try:
             imu = rospy.wait_for_message("/automobile/IMU",IMU)
@@ -391,6 +403,7 @@ class StateMachine():
         self.box1 = sign.box1
         self.box2 = sign.box2
         self.box3 = sign.box3
+        self.box4 = sign.box4
         self.confidence = sign.confidence
     def encoder_callback(self,encoder):
         self.velocity = encoder.speed
@@ -1045,7 +1058,7 @@ class StateMachine():
             #     return 0
             self.publish_cmd_vel(0, self.maxspeed*0.8)
         return 0
-        
+    
     def overtake(self):
         #/entry: checkDotted
         #action: overtake or wait
@@ -1264,7 +1277,7 @@ class StateMachine():
                 self.publish_cmd_vel(self.pid(error), self.maxspeed*0.9)
                 return 0
         return 0
-
+    
     def park(self):
         if self.pedestrian_appears():
             print("pedestrian appears!!! -> state 5")
@@ -1276,7 +1289,7 @@ class StateMachine():
             print("done parking maneuvering. Stopping vehicle...")
             self.doneParking = False #reset
             self.state = 11 #parked
-            self.parkingDecision = -1
+            self.parkingDecision = -1 #3 = normal, 4 = parallel
             self.initialPoints = None #reset initial points
             self.timerP = None
             self.pl = 320
@@ -1331,6 +1344,7 @@ class StateMachine():
                 elif error<-np.pi:
                     error+=2*np.pi
                 if x >= self.offset:
+                    print("done going straight.")
                     self.intersectionState = 1
                     self.error_sum = 0 #reset pid errors
                     self.last_error = 0
@@ -1362,17 +1376,72 @@ class StateMachine():
                     return 0
                 self.publish_cmd_vel(-23, -self.maxspeed*0.9)
                 return 0
-        elif self.parkingDecision == 3:
+        elif self.parkingDecision == 3: #front parking
             if self.initialPoints is None:
                 self.set_current_angle()
                 # print("current orientation: ", self.directions[self.orientation], self.orientations[self.orientation])
                 # print("destination orientation: ", self.destinationOrientation, self.destinationAngle)
                 self.initialPoints = np.array([self.x, self.y])
                 # print("initialPoints points: ", self.initialPoints)
-                self.offset = 0.5 if self.simulation else 0.2 + self.parksize
-                self.offset += 0.3 if self.carsize>0 else 0
+                self.offset = 0.35 if self.simulation else 0.2 + self.parksize
+                # self.offset += 0.49 if self.carsize>0 else 0
+                carSizes = self.get_car_size(minSize = 40)
+                print("car sizes: ", carSizes)
+                if len(carSizes)==0:
+                    print("no car in sight. park in first spot")
+                elif len(carSizes)==1:
+                    [width,height] = carSizes[0]
+                    if width/height<1.6:
+                        if height<60:
+                            print(f"1 car found. W/H ratio is {width/height}. likely in lane. proceeding to park in first spot")
+                        else:
+                            print(f"lane car found. W/H ratio is {width/height}. parking operation aborted...")
+                            self.doneParking = False #reset
+                            self.state = 0
+                            self.parkingDecision = -1 #3 = normal, 4 = parallel
+                            self.initialPoints = None #reset initial points
+                            self.timerP = None
+                            self.pl = 320
+                            self.decisionsI+=1
+                            return 1
+                    elif height>65:
+                        print(f"1 car found. Size is {height}. likely in first spot. proceeding to park in second spot")
+                        self.offset += 0.49
+                    else: 
+                        print(f"1 car found. Size is {height}. likely in second spot. proceeding to park in first spot")
+                else:
+                    parkedCarDetected = False
+                    laneCarDetected = False
+                    laneCarHeight = 0
+                    parkedCarHeight = 0
+                    for [width,height] in carSizes:
+                        if parkedCarDetected and laneCarDetected:
+                            break
+                        if width/height>1.6:
+                            laneCarHeight = height
+                            parkedCarDetected = True
+                        else:
+                            print(f"2 cars found. W/H ratio is {width/height}.")
+                            laneCarHeight = height
+                            laneCarDetected = True
+                    if laneCarHeight >= 60:
+                        print("lane car too close. parking operation aborted...")
+                        print(f"lane car found. W/H ratio is {width/height}. parking operation aborted...")
+                        self.doneParking = False #reset
+                        self.state = 0
+                        self.parkingDecision = -1 #3 = normal, 4 = parallel
+                        self.initialPoints = None #reset initial points
+                        self.timerP = None
+                        self.pl = 320
+                        self.decisionsI+=1
+                        return 1
+                    elif parkedCarHeight >= 65:
+                        print(f"1 car found. Size is {height}. likely in first spot. proceeding to park in second spot")
+                        self.offset += 0.49
+                    else:
+                        print(f"1 car found. Size is {height}. likely in second spot. proceeding to park in first spot")
                 self.carsize = 0
-                # print("begin going straight for "+str(self.offset)+"m")
+                print("begin going straight for "+str(self.offset)+"m")
                 self.odomX, self.odomY = 0.0, 0.0 #reset x,y
                 self.timerodom = rospy.Time.now()
                 self.intersectionState = 0 #going straight:0, trajectory following:1, adjusting angle2: 2..
@@ -1707,16 +1776,44 @@ class StateMachine():
     def is_green(self):
         self.orientation = np.argmin([abs(self.yaw),abs(self.yaw-1.5708),abs((self.yaw)-3.14159),abs(self.yaw-4.71239),abs(self.yaw-6.28319)])%4
         if self.orientation==1 or self.orientation==3: #N or S
-            topic = 'start'
+            # topic = 'start' #'anitmaster'
+            try:
+                data, addr = self.sock.recvfrom(4096) # buffer size is 1024 bytes
+                dat = data.decode('utf-8')
+                dat = json.loads(dat)
+                ID = int(dat['id'])
+                state = int(dat['state'])
+                if (ID == 1) or (ID == 2):
+                    return True if state == 2 else False
+                else:
+                    return True if state == 0 else False
+            except Exception as e:
+                if str(e) !="timed out":
+                    print("Receiving data failed with error: " + str(e))
+                    return False
         else:
-            topic = 'master'
-        try:
-            self.idle()
-            state=rospy.wait_for_message('/automobile/trafficlight/'+topic,Byte,timeout=1)#0=red,1=yellow,2=green
-        except:
-            print("traffic light timed out")
-            return True
-        return True if state.data == 2 else False
+            # topic = 'master' #'slave'
+            try:
+                data, addr = self.sock.recvfrom(4096) # buffer size is 1024 bytes
+                dat = data.decode('utf-8')
+                dat = json.loads(dat)
+                ID = int(dat['id'])
+                state = int(dat['state'])
+                if (ID == 3) or (ID == 4):
+                    return True if state == 2 else False
+                else:
+                    return True if state == 0 else False
+            except Exception as e:
+                if str(e) !="timed out":
+                    print("Receiving data failed with error: " + str(e))
+                    return False
+        # try:
+        #     self.idle()
+        #     state=rospy.wait_for_message('/automobile/trafficlight/'+topic,Byte,timeout=1)#0=red,1=yellow,2=green
+        # except:
+        #     print("traffic light timed out")
+        #     return True
+        # return True if state.data == 2 else False
     def crosswalk_sign_detected(self):
         return self.object_detected(5)
     def pedestrian_appears(self):

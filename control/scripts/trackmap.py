@@ -577,6 +577,7 @@ if __name__ == '__main__':
     # node.get_location_dest('start')
     # node.make_map()
     # node.draw_map()
+    # node.custum_path()
     # node.custum_path(save=True)
     # node.plan_path()
     # node.draw_map_edgelist()
