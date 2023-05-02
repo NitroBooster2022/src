@@ -12,6 +12,7 @@ import os
 import json
 import threading
 import argparse
+import socket
 
 import sys
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
@@ -54,7 +55,7 @@ class StateMachine():
             devFile = '/dev/ttyACM0'
             self.publish_cmd_vel = self.publish_cmd_vel_real
             self.min_sizes = [25,25,40,50,45,35,30,25,25,150,75,72,125]
-            self.max_sizes = [100,75,125,100,120,125,70,75,100,350,170,250,320]
+            self.max_sizes = [100,75,125,100,120,125,70,75,100,350,170,250,300]
             # comm init
             self.serialCom = serial.Serial(devFile,19200,timeout=1)
             self.serialCom.flushInput()
@@ -250,11 +251,22 @@ class StateMachine():
 
         self.rdbExitYaw = 0
         # self.rdbTransf = 0
-        self.carBlockSem = -1
+        # self.carBlockSem = -1
         self.toggle = 0
         # self.t1 = time.time()
         self.adjustYawError = 0.2 #yaw adjust for intersection maneuvering
         self.localise_before_decision = False
+
+        self._init_socket_semaphore()
+    
+    def _init_socket_semaphore(self):
+        # Communication parameters, create and bind socket
+        self.PORT = 50007
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #(internet, UDP)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        self.sock.bind(('', self.PORT))
+        self.sock.settimeout(1)
 
     def localise(self):
         try:
@@ -789,7 +801,7 @@ class StateMachine():
             self.odomX, self.odomY = 0.0, 0.0 #reset x,y
             self.timerodom = rospy.Time.now()
             self.intersectionState = 0 #adjusting angle:0, trajectory following:1, adjusting angle2: 2..
-            self.adjustYawError = 0.2 if self.intersectionDecision!=1 else 0.1
+            self.adjustYawError = 0.2 if self.intersectionDecision!=1 else 0.05
         self.odometry()
         poses = np.array([self.odomX,self.odomY])
         poses = poses.dot(self.rotation_matrices[self.orientation])
@@ -1022,7 +1034,7 @@ class StateMachine():
             self.timerodom = rospy.Time.now()
             self.intersectionState = 0 #going straight:0, trajectory following:1, adjusting angle2: 2..
             self.localise()
-            if self.x > 11 and self.y <4: 
+            if self.x > 11 and self.y < 4:
                 print("inside curved region")
                 print(self.full_path[self.decisionsI])
                 p = self.full_path[self.decisionsI]
@@ -1081,7 +1093,7 @@ class StateMachine():
             #     return 0
             self.publish_cmd_vel(0, self.maxspeed)
         return 0
-        
+    
     def overtake(self):
         #/entry: checkDotted
         #action: overtake or wait
@@ -1666,24 +1678,7 @@ class StateMachine():
             poses = poses.dot(self.rotation_matrices[self.orientation])
             x,y = -poses[0], -poses[1]
             # print("position: ",x,y)
-            if self.intersectionState==0: #adjusting
-                error = self.yaw-self.currentAngle
-                if error>np.pi:
-                    error-=2*np.pi
-                elif error<-np.pi:
-                    error+=2*np.pi
-                # print("yaw, curAngle, error: ", self.yaw, self.currentAngle, error)
-                if abs(error) <= 0.07:
-                    self.intersectionState+=1 #done adjusting
-                    # print("done adjusting angle. Transitioning to trajectory following")
-                    # print(f"current position: ({self.odomX},{self.odomY})")
-                    self.error_sum = 0 #reset pid errors
-                    self.last_error = 0
-                    return 0
-                else:
-                    self.publish_cmd_vel(self.pid(error), self.maxspeed)
-                    return 0
-            elif self.intersectionState==1: #trajectory following
+            if self.intersectionState==1: #trajectory following
                 desiredY = self.trajectory(x)
                 error = y - desiredY
                 # print("x, y_error: ",x,abs(error) )
@@ -1859,16 +1854,44 @@ class StateMachine():
     def is_green(self):
         self.orientation = np.argmin([abs(self.yaw),abs(self.yaw-1.5708),abs((self.yaw)-3.14159),abs(self.yaw-4.71239),abs(self.yaw-6.28319)])%4
         if self.orientation==1 or self.orientation==3: #N or S
-            topic = 'start'
+            # topic = 'start' #'anitmaster'
+            try:
+                data, addr = self.sock.recvfrom(4096) # buffer size is 1024 bytes
+                dat = data.decode('utf-8')
+                dat = json.loads(dat)
+                ID = int(dat['id'])
+                state = int(dat['state'])
+                if (ID == 1) or (ID == 2):
+                    return True if state == 2 else False
+                else:
+                    return True if state == 0 else False
+            except Exception as e:
+                if str(e) !="timed out":
+                    print("Receiving data failed with error: " + str(e))
+                    return False
         else:
-            topic = 'master'
-        try:
-            self.idle()
-            state=rospy.wait_for_message('/automobile/trafficlight/'+topic,Byte,timeout=1)#0=red,1=yellow,2=green
-        except:
-            print("traffic light timed out")
-            return True
-        return True if state.data == 2 else False
+            # topic = 'master' #'slave'
+            try:
+                data, addr = self.sock.recvfrom(4096) # buffer size is 1024 bytes
+                dat = data.decode('utf-8')
+                dat = json.loads(dat)
+                ID = int(dat['id'])
+                state = int(dat['state'])
+                if (ID == 3) or (ID == 4):
+                    return True if state == 2 else False
+                else:
+                    return True if state == 0 else False
+            except Exception as e:
+                if str(e) !="timed out":
+                    print("Receiving data failed with error: " + str(e))
+                    return False
+        # try:
+        #     self.idle()
+        #     state=rospy.wait_for_message('/automobile/trafficlight/'+topic,Byte,timeout=1)#0=red,1=yellow,2=green
+        # except:
+        #     print("traffic light timed out")
+        #     return True
+        # return True if state.data == 2 else False
     def crosswalk_sign_detected(self):
         return self.object_detected(5)
     def pedestrian_appears(self):
