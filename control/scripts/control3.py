@@ -243,6 +243,7 @@ class StateMachine():
 
         #size of detected objects
         self.parksize = 0
+        self.parkSecond = False
         self.carsize = 0
 
         #flag for light, highway, curvedpath and roadblock
@@ -560,7 +561,7 @@ class StateMachine():
             self.state = 7 #switch lane
             return 1
         
-        roadblock_sizes =  self.get_obj_size(obj = 10)
+        roadblock_sizes =  self.get_obj_size(obj_id = 10)
         num = len(roadblock_sizes)
         rightBlock = False
         for box in roadblock_sizes:
@@ -572,7 +573,7 @@ class StateMachine():
                 print("roadblock detected, waiting for 2s to ascertain position")
                 self.timerO = rospy.Time.now() + rospy.Duration(2)
                 self.highwaySide = 1
-            if rospy.Time.now() >= self.timerO:
+            if rospy.Time.now() >= self.timerO and num < 2:
                 print("overtake roadblock!") 
                 self.timerO = None
                 self.history = self.state
@@ -1322,6 +1323,7 @@ class StateMachine():
             self.initialPoints = None #reset initial points
             self.timerP = None
             self.pl = 320
+            self.parkSecond = False
             return 1
         elif self.parkingDecision < 0:
             if self.decisionsI >= len(self.decisions):
@@ -1356,7 +1358,7 @@ class StateMachine():
                 # print("destination orientation: ", self.destinationOrientation, self.destinationAngle)
                 self.initialPoints = np.array([self.x, self.y])
                 # print("initialPoints points: ", self.initialPoints)
-                self.offset = 1.95 if self.simulation else 2.1 + self.parksize
+                self.offset = 1.975 if self.simulation else 2.1 + self.parksize
 
                 carSizes = self.get_car_size(minSize = 40)
                 # print("car sizes: ", carSizes)
@@ -1401,6 +1403,7 @@ class StateMachine():
                             self.decisionsI+=1
                             return 1
                         elif parkedCarHeight >= 65:
+                            self.parkSecond = True
                             print(f"1 car found. Size is {height}. likely in first spot. proceeding to park in second spot")
                             self.offset += 0.72
                         else:
@@ -1438,6 +1441,11 @@ class StateMachine():
                     # print("done going straight. begin adjusting angle...")
                     # print("current angle, destination: ", self.yaw, self.destinationAngle)
                 self.publish_cmd_vel(self.pid(error), self.maxspeed*0.9)
+                if not self.parkSecond:
+                    if self.update_belief(x):
+                        self.parkSecond = True
+                        self.offset += 0.72
+                        print("second spot detected. adjusting offset to ", self.offset)
                 return 0
             if self.intersectionState==1: #adjusting
                 error = self.yaw - self.destinationAngle
@@ -1463,6 +1471,7 @@ class StateMachine():
                     return 0
                 self.publish_cmd_vel(-23, -self.maxspeed)
                 return 0
+            
         elif self.parkingDecision == 3: #front parking
             if self.initialPoints is None:
                 self.set_current_angle()
@@ -1471,7 +1480,7 @@ class StateMachine():
                 self.initialPoints = np.array([self.x, self.y])
                 # print("initialPoints points: ", self.initialPoints)
                 self.offset = 0.35 if self.simulation else 0.2 + self.parksize
-                # self.offset += 0.49 if self.carsize>0 else 0
+                # self.offset += 0.463 if self.carsize>0 else 0
                 carSizes = self.get_car_size(minSize = 40)
                 print("car sizes: ", carSizes)
                 if len(carSizes)==0:
@@ -1493,7 +1502,8 @@ class StateMachine():
                             return 1
                     elif height>65:
                         print(f"1 car found. Size is {height}. likely in first spot. proceeding to park in second spot")
-                        self.offset += 0.49
+                        self.offset += 0.457
+                        self.parkSecond = True
                     else: 
                         print(f"1 car found. Size is {height}. likely in second spot. proceeding to park in first spot")
                 else:
@@ -1524,7 +1534,7 @@ class StateMachine():
                         return 1
                     elif parkedCarHeight >= 65:
                         print(f"1 car found. Size is {height}. likely in first spot. proceeding to park in second spot")
-                        self.offset += 0.49
+                        self.offset += 0.457
                     else:
                         print(f"1 car found. Size is {height}. likely in second spot. proceeding to park in first spot")
                 self.carsize = 0
@@ -1552,6 +1562,10 @@ class StateMachine():
                     # error = self.yaw-self.currentAngle
                     # self.publish_cmd_vel(self.pid(error), self.maxspeed)
                     # print(str(x))
+                    if not self.parkSecond:
+                        if self.update_belief(x):
+                            self.parkSecond = True
+                            self.offset += 0.457
                     return 0
             elif self.intersectionState==1: #trajectory following
                 desiredY = self.trajectory(x)
@@ -1606,7 +1620,71 @@ class StateMachine():
                     # print(f"current odom position: ({self.odomX},{self.odomY})")
                     self.doneParking = True
                     return 0
-    
+    def update_belief(self, x):
+        carSizes = self.get_car_size(minSize = 40)
+        if len(carSizes)==0:
+            return False
+        if self.parkingDecision == 4: #parallel
+            if len(carSizes) > 1:
+                carsDetected = 0
+                carHeights = [0,0]
+                carX = [0,0]
+                for [x, y ,width,height] in carSizes:
+                    if carsDetected > 1:
+                        break
+                    if width/height<1.6:
+                        carHeights[carsDetected] = height
+                        carX[carsDetected] = x
+                        carsDetected += 1
+                if carX[0] < carX[1]:
+                    # laneCarHeight = carHeights[0]
+                    parkedCarHeight = carHeights[1]
+                else:
+                    # laneCarHeight = carHeights[1]
+                    parkedCarHeight = carHeights[0]
+                distanceToParked = self.carsize_to_distance(parkedCarHeight)
+                if parkedCarHeight!= 0 and distanceToParked+x <= 1.5:
+                    print(f"2 cars found. distance is {distanceToParked+x}. likely in first spot.")
+                    return True
+            elif len(carSizes)==1:
+                [_,_,width,height] = carSizes[0]
+                distanceToParked = self.carsize_to_distance(height)
+                if height!= 0 and distanceToParked+x <= 1.5:
+                    print(f"1 car found. distance is {distanceToParked+x}. likely in first spot.")
+                    return True
+            return False
+        elif self.parkingDecision == 3: #forward
+            carSizes = self.get_car_size(minSize = 40, conf_thresh = 0.375)
+            if len(carSizes)==0:
+                return False
+            elif len(carSizes)==1:
+                [_, _, width,height] = carSizes[0]
+                if width/height>1.6:
+                    distance = self.carsize_to_distance(height)
+                    if distance+x <= 1.35:
+                        print(f"1 car found. Size is {height}. likely in first spot. proceeding to park in second spot")
+                        return True
+                return False
+            else:
+                parkedCarDetected = False
+                laneCarDetected = False
+                laneCarHeight = 0
+                parkedCarHeight = 0
+                for [_,_,width,height] in carSizes:
+                    if parkedCarDetected and laneCarDetected:
+                        break
+                    if width/height>1.6:
+                        laneCarHeight = height
+                        parkedCarDetected = True
+                    else:
+                        print(f"2 cars found. W/H ratio is {width/height}.")
+                        laneCarHeight = height
+                        laneCarDetected = True
+                distanceToParked = self.carsize_to_distance(parkedCarHeight)
+                if parkedCarHeight!= 0 and distanceToParked+x <= 1.35:
+                    print(f"2 cars found. Size is {laneCarHeight}. likely in first spot. proceeding to park in second spot")
+                    return True
+        return False
     def exitPark(self):
         if self.pedestrian_appears():
             print("pedestrian appears!!! -> state 5")
@@ -1991,6 +2069,9 @@ class StateMachine():
         return -math.sqrt(u)+0.25 if yaw<np.pi/2 or yaw>3*np.pi/2 else math.sqrt(u)+0.25
 
     #others
+    def carsize_to_distance(self, height):
+        # return 0.92523112 - 0.42423197*height + 0.28328111*height*height - 0.08428235*height*height*height
+        return 84.89/(height - 3.137)
     def get_obj_size(self, obj_id = 10, minSize = None):
         car_sizes = []
         if minSize is None:
@@ -2007,9 +2088,10 @@ class StateMachine():
             if i>=3: 
                 break
         return car_sizes
-    def get_car_size(self, minSize = None):
+    def get_car_size(self, minSize = None, conf_thresh = None):
         obj_id = 12 #car id
         car_sizes = []
+        thresh = 0.753 if conf_thresh is None else conf_thresh
         if minSize is None:
             minSize = self.min_sizes[obj_id]
         maxSize = self.max_sizes[obj_id]
@@ -2019,7 +2101,7 @@ class StateMachine():
                 box = boxes[i]
                 conf = self.confidence[i]
                 size = min(box[2], box[3]) #height
-                if size >= minSize and size <= maxSize and conf >= 0.753:
+                if size >= minSize and size <= maxSize and conf >= thresh:
                     car_sizes.append(box)
             if i>=3: 
                 break

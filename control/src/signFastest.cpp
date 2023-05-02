@@ -171,9 +171,14 @@ int main(int argc, char **argv) {
     image_transport::ImageTransport it(nh);
     ros::Publisher pub = nh.advertise<utils::Sign>("sign", 10);
     image_transport::Subscriber sub = it.subscribe("automobile/image_raw", 1, boost::bind(&imageCallback, _1, &api, &pub, showFlag, printFlag));
+    //define rate
+    ros::Rate loop_rate(2.5);
 
     // Spin ROS node
-    ros::spin();
+    while(ros::ok()) {
+        ros::spinOnce();
+        loop_rate.sleep();
+    }
 
     return 0;
 }
