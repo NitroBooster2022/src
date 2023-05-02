@@ -789,7 +789,7 @@ class StateMachine():
             self.odomX, self.odomY = 0.0, 0.0 #reset x,y
             self.timerodom = rospy.Time.now()
             self.intersectionState = 0 #adjusting angle:0, trajectory following:1, adjusting angle2: 2..
-            self.adjustYawError = 0.2 if self.intersectionDecision!=1 else 0.1
+            self.adjustYawError = 0.2 if self.intersectionDecision!=1 else 0.05
         self.odometry()
         poses = np.array([self.odomX,self.odomY])
         poses = poses.dot(self.rotation_matrices[self.orientation])
@@ -1022,7 +1022,7 @@ class StateMachine():
             self.timerodom = rospy.Time.now()
             self.intersectionState = 0 #going straight:0, trajectory following:1, adjusting angle2: 2..
             self.localise()
-            if self.x > 11 and self.y <4: 
+            if self.x > 11 and self.y < 4:
                 print("inside curved region")
                 print(self.full_path[self.decisionsI])
                 p = self.full_path[self.decisionsI]
@@ -1666,24 +1666,7 @@ class StateMachine():
             poses = poses.dot(self.rotation_matrices[self.orientation])
             x,y = -poses[0], -poses[1]
             # print("position: ",x,y)
-            if self.intersectionState==0: #adjusting
-                error = self.yaw-self.currentAngle
-                if error>np.pi:
-                    error-=2*np.pi
-                elif error<-np.pi:
-                    error+=2*np.pi
-                # print("yaw, curAngle, error: ", self.yaw, self.currentAngle, error)
-                if abs(error) <= 0.07:
-                    self.intersectionState+=1 #done adjusting
-                    # print("done adjusting angle. Transitioning to trajectory following")
-                    # print(f"current position: ({self.odomX},{self.odomY})")
-                    self.error_sum = 0 #reset pid errors
-                    self.last_error = 0
-                    return 0
-                else:
-                    self.publish_cmd_vel(self.pid(error), self.maxspeed)
-                    return 0
-            elif self.intersectionState==1: #trajectory following
+            if self.intersectionState==1: #trajectory following
                 desiredY = self.trajectory(x)
                 error = y - desiredY
                 # print("x, y_error: ",x,abs(error) )
