@@ -107,6 +107,7 @@ class StateMachine():
         self.laneOvertakeAngle = np.pi*0.175
         self.laneOvertakeCD = 2
         self.overtakeDuration = 1
+        self.roadblock = True
 
         #sign
         self.class_names = ['oneway', 'highwayentrance', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayexit', 'priority',
@@ -559,38 +560,30 @@ class StateMachine():
             self.overtakeAngle = np.pi*0.2
             self.state = 7 #switch lane
             return 1
-        # elif self.car_detected() or self.carBlockSem > 0:
-        #     if self.cp: #can't overtake in curved path
-        #         self.idle()
-        #         return 0
-        #     if self.car_detected():
-        #         self.carBlockSem = 20
-        #     else:
-        #         self.carBlockSem -= 1
-        #         if self.carBlockSem == 0:
-        #             self.timerO = None
-        #             return 0
-        #     if self.timerO is None:
-        #         self.timerO = rospy.Time.now() + rospy.Duration(1.57)
-        #         print("prepare to overtake")
-        #     elif rospy.Time.now() >= self.timerO:
-        #         self.timerO = None
-        #         self.carBlockSem = -1
-        #         # check for dotted line overtaking
-        #         # self.localise()
-        #         # if self.track_map.can_overtake(self.x,self.y,self.yaw):
-        #         #     self.history = self.state
-        #         #     self.state = 7
-        #         #     return 1
-        #         # else:
-        #         #     self.idle()
-        #         #     return 0
-        #         self.history = self.state
-        #         self.state = 7
-        #         return 1
-        #     else:
-        #         self.idle()
-        #         return 0
+        
+        roadblock_sizes =  self.get_obj_size(obj = 10)
+        num = len(roadblock_sizes)
+        rightBlock = False
+        for box in roadblock_sizes:
+            if box[0] + box[2]/2 > 144:
+                rightBlock = True
+                break
+        if num > 0 and rightBlock:
+            if self.timerO is None:
+                print("roadblock detected, waiting for 2s to ascertain position")
+                self.timerO = rospy.Time.now() + rospy.Duration(2)
+                self.highwaySide = 1
+            if rospy.Time.now() >= self.timerO:
+                print("overtake roadblock!") 
+                self.timerO = None
+                self.history = self.state
+                self.overtakeAngle = np.pi*0.3
+                self.roadblock = True
+                self.state = 7 #overtake
+                return 1
+            else:
+                self.publish_cmd_vel(0,0)
+                return 0
         elif self.parking_detected():
             # if not at parking decision yet pass
             if self.decisionsI >= len(self.decisions):
@@ -1016,13 +1009,15 @@ class StateMachine():
             self.history = None
             self.initialPoints = None #reset initial points
             self.timerP = None
-            self.highwaySide *= -1
+            if not self.overtake:
+                self.highwaySide *= -1 
+                if self.highwaySide == -1:
+                    self.timer2 = rospy.Time.now() + rospy.Duration(self.laneOvertakeCD) #tune this
+                    print("cooldown is ", self.laneOvertakeCD)
+            self.overtake = False
             self.pl = 320
             self.overtakeAngle = np.pi/5
             self.laneOvertakeAngle = np.pi*0.175
-            if self.highwaySide == -1:
-                self.timer2 = rospy.Time.now() + rospy.Duration(self.laneOvertakeCD) #tune this
-                print("cooldown is ", self.laneOvertakeCD)
             return 1
         if self.initialPoints is None:
             self.overtaking_angle = self.yaw 
@@ -1991,6 +1986,22 @@ class StateMachine():
         return -math.sqrt(u)+0.25 if yaw<np.pi/2 or yaw>3*np.pi/2 else math.sqrt(u)+0.25
 
     #others
+    def get_obj_size(self, obj_id = 10, minSize = None):
+        car_sizes = []
+        if minSize is None:
+            minSize = self.min_sizes[obj_id]
+        maxSize = self.max_sizes[obj_id]
+        boxes = [self.box1, self.box2, self.box3, self.box4]
+        for i in range(self.numObj):    
+            if self.detected_objects[i]==obj_id: 
+                box = boxes[i]
+                conf = self.confidence[i]
+                size = min(box[2], box[3]) if (obj_id == 12 or obj_id == 10) else max(box[2], box[3]) #height
+                if size >= minSize and size <= maxSize and conf >= 0.753:
+                    car_sizes.append(box)
+            if i>=3: 
+                break
+        return car_sizes
     def get_car_size(self, minSize = None):
         obj_id = 12 #car id
         car_sizes = []
