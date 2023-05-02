@@ -251,7 +251,7 @@ class StateMachine():
 
         self.rdbExitYaw = 0
         # self.rdbTransf = 0
-        # self.carBlockSem = -1s
+        # self.carBlockSem = -1
         self.toggle = 0
         # self.t1 = time.time()
         self.adjustYawError = 0.2 #yaw adjust for intersection maneuvering

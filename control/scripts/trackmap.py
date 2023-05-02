@@ -582,4 +582,4 @@ if __name__ == '__main__':
     # node.custum_path(save=True)
     # node.plan_path()
     # node.draw_map_edgelist()
-    node.draw_map_graphml()
+    # node.draw_map_graphml()
