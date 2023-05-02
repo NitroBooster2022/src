@@ -12,7 +12,6 @@ import os
 import json
 import threading
 import argparse
-import socket
 
 import sys
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
@@ -32,7 +31,7 @@ class StateMachine():
             self.publish_cmd_vel = self.publish_cmd_vel_sim
             self.cmd_vel_pub = rospy.Publisher("/automobile/command", String, queue_size=3)
             self.min_sizes = [25,25,40,50,45,35,30,25,25,130,75,72,125]
-            self.max_sizes = [100,75,125,100,120,125,70,75,100,350,170,250,300]
+            self.max_sizes = [100,75,125,100,120,125,70,75,100,350,170,250,320]
             self.odomRatio = 1
             self.process_yaw = self.process_yaw_sim
             self.left_trajectory = self.left_trajectory_sim
@@ -55,7 +54,7 @@ class StateMachine():
             devFile = '/dev/ttyACM0'
             self.publish_cmd_vel = self.publish_cmd_vel_real
             self.min_sizes = [25,25,40,50,45,35,30,25,25,150,75,72,125]
-            self.max_sizes = [100,75,125,100,120,125,70,75,100,350,170,250,300]
+            self.max_sizes = [100,75,125,100,120,125,70,75,100,350,170,250,320]
             # comm init
             self.serialCom = serial.Serial(devFile,19200,timeout=1)
             self.serialCom.flushInput()
@@ -104,6 +103,9 @@ class StateMachine():
         self.highwaySpeed = self.maxspeed*1.33
         self.highwayRight = True
         self.highwaySide = 1 #1:right, -1:left
+        self.laneOvertakeAngle = np.pi*0.175
+        self.laneOvertakeCD = 2
+        self.overtakeDuration = 1
 
         #sign
         self.class_names = ['oneway', 'highwayentrance', 'stopsign', 'roundabout', 'park', 'crosswalk', 'noentry', 'highwayexit', 'priority',
@@ -164,6 +166,7 @@ class StateMachine():
         self.timerO = None
         self.timer1 = None
         self.timer2 = None
+        self.exitCD = rospy.Time.now()
         self.flag1 = True
 
         #intersection & parking
@@ -250,19 +253,8 @@ class StateMachine():
         self.carBlockSem = -1
         self.toggle = 0
         # self.t1 = time.time()
-        self.adjustYawError = 0.1 #yaw adjust for intersection maneuvering
+        self.adjustYawError = 0.2 #yaw adjust for intersection maneuvering
         self.localise_before_decision = False
-
-        self._init_socket_semaphore()
-    
-    def _init_socket_semaphore(self):
-        # Communication parameters, create and bind socket
-        self.PORT = 50007
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #(internet, UDP)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        self.sock.bind(('', self.PORT))
-        self.sock.settimeout(1)
 
     def localise(self):
         try:
@@ -442,6 +434,7 @@ class StateMachine():
             self.idle()
             return 0
         elif self.state == 10: #initialization state
+            # self.localise()
             if self.timer is None:
                 print("Initializing controller...")
                 self.timer = rospy.Time.now() + rospy.Duration(self.initializationTime)
@@ -490,14 +483,14 @@ class StateMachine():
     #actions
     def lanefollow(self):
         #transition events
-        if self.stop_sign_detected():
+        if self.stop_sign_detected() and self.timer2 is None:
             print("stop sign detected -> state 1")
             self.intersectionStop = True
             self.state = 1
             self.timer0 = None
             self.timer2 = None
             return 1
-        elif self.light_detected():
+        elif self.light_detected() and self.timer2 is None:
             if self.is_green():
                 print("green light detected -> state 1")
                 self.intersectionStop = False
@@ -509,7 +502,7 @@ class StateMachine():
             self.timer2 = None
             self.timer0 = None
             return 1
-        elif self.crosswalk_sign_detected():
+        elif self.crosswalk_sign_detected() and self.timer2 is None:
             print("crosswalk sign detected -> state 4")
             self.state = 4
             return 1
@@ -521,7 +514,12 @@ class StateMachine():
             return 1
         car_sizes =  self.get_car_size(minSize = 100)
         num = len(car_sizes)
-        if num > 0:
+        rightCar = False
+        for box in car_sizes:
+            if box[0] + box[2]/2 > 144:
+                rightCar = True
+                break
+        if num > 0 and rightCar and rospy.Time.now() > self.exitCD:
             if self.timerO is None:
                 print("car detected, waiting for 2s to ascertain car's speed")
                 self.timerO = rospy.Time.now() + rospy.Duration(2)
@@ -602,6 +600,7 @@ class StateMachine():
                     self.carsize = max(self.box1[2], self.box1[3])
             self.parksize = self.parksize*0.00263
             print("about to park -> 9")
+            self.timer0 = None
             self.state = 9
             return 1
         elif self.ArrivedAtStopline:
@@ -738,6 +737,7 @@ class StateMachine():
                 print("done new path after roadblock")
             self.initialPoints = None #reset initial points
             self.pl = 320
+            self.adjustYawError = 0.2
             return 1
         elif self.intersectionDecision < 0:
             if self.decisionsI >= len(self.decisions):
@@ -789,7 +789,7 @@ class StateMachine():
             self.odomX, self.odomY = 0.0, 0.0 #reset x,y
             self.timerodom = rospy.Time.now()
             self.intersectionState = 0 #adjusting angle:0, trajectory following:1, adjusting angle2: 2..
-            self.adjustYawError = 0.15 if self.intersectionDecision!=1 else 0.05
+            self.adjustYawError = 0.2 if self.intersectionDecision!=1 else 0.1
         self.odometry()
         poses = np.array([self.odomX,self.odomY])
         poses = poses.dot(self.rotation_matrices[self.orientation])
@@ -809,7 +809,7 @@ class StateMachine():
                 self.last_error = 0
                 return 0
             else:
-                self.publish_cmd_vel(self.pid(error), self.maxspeed*0.9)
+                self.publish_cmd_vel(self.pid(error), self.maxspeed)
                 return 0
         elif self.intersectionState==1: #trajectory following
             desiredY = self.trajectory(x)
@@ -831,15 +831,15 @@ class StateMachine():
             # steering_angle = self.pid2(error)
             # print("steering: ",steering_angle)
             # print("x, y, desiredY, angle, steer: ", x, y, desiredY, self.yaw, steering_angle*180/3.14159)
-            self.publish_cmd_vel(self.pid2(error), self.maxspeed*0.9)
+            self.publish_cmd_vel(self.pid2(error), self.maxspeed)
             return 0
     
     def approachCrosswalk(self):
         #Transition events
         if self.timer is None: #start timer.
             # 13s*0.66*0.135m/s = 1.16m
-            print("slowing down to "+str(0.66*self.maxspeed)+"m/s")
-            t = 1.16/(0.66*self.maxspeed) # calculate time based on speed
+            print("slowing down to "+str(0.8*self.maxspeed)+"m/s")
+            t = 1.16/(0.8*self.maxspeed) # calculate time based on speed
             self.timer = rospy.Time.now() + rospy.Duration(t)
         if rospy.Time.now() >= self.timer:
             print("crosswalk passed, speed back up to "+str(self.maxspeed)+"m/s")
@@ -855,7 +855,7 @@ class StateMachine():
             return 1
         #Action: slow down
         # Publish the steering command
-        self.publish_cmd_vel(self.get_steering_angle(offset=40), self.maxspeed*0.66) #Slower
+        self.publish_cmd_vel(self.get_steering_angle(offset=40), self.maxspeed*0.8) #Slower
         return 0
     
     def stopPedestrian(self):
@@ -958,7 +958,7 @@ class StateMachine():
                         self.state = 7 #overtake
                         return 1
                     else: # on left side.
-                        carSizeRatio = car_sizes[0][0]/car_sizes[0][1]
+                        carSizeRatio = car_sizes[0][2]/car_sizes[0][3]
                         if carSizeRatio >= 1.6: #means car is on other lane
                             print("car detected but it's on the right. ignore.")
                             self.publish_cmd_vel(self.get_steering_angle(offset = 37.5), self.highwaySpeed)
@@ -1000,15 +1000,17 @@ class StateMachine():
             print("done overtaking. Back to lane following...")
             self.doneManeuvering = False #reset
             self.state = self.history if self.history is not None else 0
-            cooldown = 5 if self.history == 6 else 2 #6 is highway
+            # cooldown = 5 if self.history == 6 else 2 #6 is highway
             self.history = None
             self.initialPoints = None #reset initial points
             self.timerP = None
             self.highwaySide *= -1
             self.pl = 320
             self.overtakeAngle = np.pi/5
+            self.laneOvertakeAngle = np.pi*0.175
             if self.highwaySide == -1:
-                self.timer2 = rospy.Time.now() + rospy.Duration(cooldown) #tune this
+                self.timer2 = rospy.Time.now() + rospy.Duration(self.laneOvertakeCD) #tune this
+                print("cooldown is ", self.laneOvertakeCD)
             return 1
         if self.initialPoints is None:
             self.overtaking_angle = self.yaw 
@@ -1019,6 +1021,27 @@ class StateMachine():
             self.odomX, self.odomY = 0.0, 0.0 #reset x,y
             self.timerodom = rospy.Time.now()
             self.intersectionState = 0 #going straight:0, trajectory following:1, adjusting angle2: 2..
+            self.localise()
+            if self.x > 11 and self.y <4: 
+                print("inside curved region")
+                print(self.full_path[self.decisionsI])
+                p = self.full_path[self.decisionsI]
+                if p == "track2N" or p == "roundabout" or p == "highwayS" or p == "curvedpath":
+                    print("on inner side")
+                    self.overtakeDuration = 1
+                    self.laneOvertakeAngle = 0.06*np.pi if self.highwaySide == 1 else 0.357*np.pi
+                    self.laneOvertakeCD = 5
+                    print("overtake angle is ", self.laneOvertakeAngle)
+                else:
+                    print("on outer side")
+                    self.overtakeDuration = 0.5 if self.highwaySide == 1 else 0.5
+                    self.laneOvertakeAngle = 0.24*np.pi if self.highwaySide == 1 else 0.1*np.pi
+                    self.laneOvertakeCD = 4
+                    print("overtake angle is ", self.laneOvertakeAngle)
+            else: 
+                self.overtakeDuration = 1
+                self.laneOvertakeCD = 2
+                self.laneOvertakeAngle = np.pi*0.175
         if self.intersectionState==0: #adjusting
             error = self.yaw - (self.overtaking_angle)
             if error>np.pi:
@@ -1026,15 +1049,15 @@ class StateMachine():
             elif error<-np.pi:
                 error+=2*np.pi
             # print("yaw, error: ", self.yaw, error)
-            if abs(error) >= np.pi*0.175:
+            if abs(error) >= self.laneOvertakeAngle:
                 self.intersectionState += 1
                 print("done adjusting angle 0!!")
                 return 0
-            self.publish_cmd_vel(-23*self.highwaySide, self.maxspeed*0.8)
+            self.publish_cmd_vel(-23*self.highwaySide, self.maxspeed)
             return 0
         elif self.intersectionState==1: #adjusting
             if self.timer1 is None:
-                self.timer1 = rospy.Time.now() + rospy.Duration(1)
+                self.timer1 = rospy.Time.now() + rospy.Duration(self.overtakeDuration)
             if rospy.Time.now() >= self.timer1:
                 print("done changinng lane!!")
                 self.doneManeuvering = True
@@ -1056,9 +1079,9 @@ class StateMachine():
             #     self.error_sum = 0 #reset pid errors
             #     self.last_error = 0
             #     return 0
-            self.publish_cmd_vel(0, self.maxspeed*0.8)
+            self.publish_cmd_vel(0, self.maxspeed)
         return 0
-    
+        
     def overtake(self):
         #/entry: checkDotted
         #action: overtake or wait
@@ -1277,7 +1300,7 @@ class StateMachine():
                 self.publish_cmd_vel(self.pid(error), self.maxspeed*0.9)
                 return 0
         return 0
-    
+
     def park(self):
         if self.pedestrian_appears():
             print("pedestrian appears!!! -> state 5")
@@ -1320,18 +1343,76 @@ class StateMachine():
                 self.plan_new_path()
                 print("self.parkingDecision id wrong: ",self.parkingDecision)
             print("parking decision: going " + self.decisionList[self.parkingDecision])
-        if self.parkingDecision == 4:
+        if self.parkingDecision == 4: #parallel
             if self.initialPoints is None:
                 self.set_current_angle()
                 # print("current orientation: ", self.directions[self.orientation], self.orientations[self.orientation])
                 # print("destination orientation: ", self.destinationOrientation, self.destinationAngle)
                 self.initialPoints = np.array([self.x, self.y])
                 # print("initialPoints points: ", self.initialPoints)
-                self.offset = 3.2 if self.simulation else 2.1 + self.parksize
-                # print("begin going straight for "+str(self.offset)+"m")
+                self.offset = 1.95 if self.simulation else 2.1 + self.parksize
+
+                carSizes = self.get_car_size(minSize = 40)
+                # print("car sizes: ", carSizes)
+                if len(carSizes)==0:
+                    print("no car in sight. park in first spot")
+                else:
+                    if self.timer0 is None:
+                        self.timer0 = rospy.Time.now() + rospy.Duration(3)
+                        print("car detected. waiting for 3 seconds")
+                    if rospy.Time.now() < self.timer0:
+                        self.initialPoints = None
+                        return 0
+                    if len(carSizes) > 1:
+                        carsDetected = 0
+                        carHeights = [0,0]
+                        carX = [0,0]
+                        for [x, y ,width,height] in carSizes:
+                            if carsDetected > 1:
+                                break
+                            if width/height<1.6:
+                                carHeights[carsDetected] = height
+                                carX[carsDetected] = x
+                                carsDetected += 1
+                        if carX[0] < carX[1]:
+                            laneCarHeight = carHeights[0]
+                            parkedCarHeight = carHeights[1]
+                        else:
+                            laneCarHeight = carHeights[1]
+                            parkedCarHeight = carHeights[0]
+                        print(f"lane car height: {laneCarHeight}, parked car height: {parkedCarHeight}")
+                        if max(carHeights) < 57:
+                            print("first spot likely empty. proceed to park there")
+                        if laneCarHeight >= 60:
+                            print("lane car too close. parking operation aborted...")
+                            print(f"lane car found. W/H ratio is {width/height}. parking operation aborted...")
+                            self.doneParking = False #reset
+                            self.state = 0
+                            self.parkingDecision = -1 #3 = normal, 4 = parallel
+                            self.initialPoints = None #reset initial points
+                            self.timerP = None
+                            self.pl = 320
+                            self.decisionsI+=1
+                            return 1
+                        elif parkedCarHeight >= 65:
+                            print(f"1 car found. Size is {height}. likely in first spot. proceeding to park in second spot")
+                            self.offset += 0.72
+                        else:
+                            print(f"1 car found. Size is {height}. likely in second spot. proceeding to park in first spot")
+                    elif len(carSizes)==1:
+                        [_,_,width,height] = carSizes[0]
+                        if height < 60:
+                            print(f"1 car found. W/H ratio is {width/height}. likely in lane. proceeding to park in first spot")
+                        else:
+                            print(f"1 car found. Size is {height}. likely in first spot. proceeding to park in second spot")
+                            self.offset += 0.72
+                print("offset is ", self.offset)
                 self.odomX, self.odomY = 0.0, 0.0 #reset x,y
+                print("begin going straight for "+str(self.offset)+"m")
                 self.timerodom = rospy.Time.now()
                 self.intersectionState = 0 #going straight:0, trajectory following:1, adjusting angle2: 2..
+                self.timer0 = None
+
             self.odometry()
             poses = np.array([self.odomX, self.odomY])
             poses = poses.dot(self.rotation_matrices[self.orientation])
@@ -1362,7 +1443,7 @@ class StateMachine():
                 if abs(error) >= self.parallelParkAngle*np.pi/180:
                     self.intersectionState = 2
                     print(f"{self.parallelParkAngle} degrees...")
-                self.publish_cmd_vel(23, -self.maxspeed*0.9)
+                self.publish_cmd_vel(23, -self.maxspeed)
                 return 0
             elif self.intersectionState==2: #adjusting
                 error = self.yaw - self.destinationAngle
@@ -1374,7 +1455,7 @@ class StateMachine():
                     # print("done")
                     self.doneParking = True
                     return 0
-                self.publish_cmd_vel(-23, -self.maxspeed*0.9)
+                self.publish_cmd_vel(-23, -self.maxspeed)
                 return 0
         elif self.parkingDecision == 3: #front parking
             if self.initialPoints is None:
@@ -1390,7 +1471,7 @@ class StateMachine():
                 if len(carSizes)==0:
                     print("no car in sight. park in first spot")
                 elif len(carSizes)==1:
-                    [width,height] = carSizes[0]
+                    [_, _, width,height] = carSizes[0]
                     if width/height<1.6:
                         if height<60:
                             print(f"1 car found. W/H ratio is {width/height}. likely in lane. proceeding to park in first spot")
@@ -1479,7 +1560,7 @@ class StateMachine():
                     return 0
                 # steering_angle = self.pid2(error)
                 # print("x, y, desiredY, angle: ", x, y, desiredY, steering_angle*57.29578)
-                self.publish_cmd_vel(self.pid2(error), self.maxspeed*0.9)
+                self.publish_cmd_vel(self.pid2(error), self.maxspeed)
                 return 0
             elif self.intersectionState == 2: #adjust angle 2
                 error = self.yaw-self.destinationAngle
@@ -1533,8 +1614,10 @@ class StateMachine():
             self.exitDecision = -1 #reset
             self.state = 0 #go back to lane following
             self.initialPoints = None #reset initial points
-            self.timerP = None # useless comment
+            self.timerP = None
+            self.exitCD = rospy.Time.now() + rospy.Duration(3.57)
             self.pl = 320
+            self.adjustYawError = 0.2
             return 1
         elif self.exitDecision < 0:
             if self.decisionsI >= len(self.decisions):
@@ -1575,7 +1658,7 @@ class StateMachine():
                 # print("initialPoints points: ", self.initialPoints)
                 self.odomX, self.odomY = 0.0, 0.0 #reset x,y
                 self.timerodom = rospy.Time.now()
-                self.adjustYawError = 0.40 if self.exitDecision==5 else 0.05
+                self.adjustYawError = 0.40 if self.exitDecision==5 else 0.07
                 self.intersectionState = 1
             self.yaw=(self.yaw+3.14159)%(6.28318) #flip Yaw
             self.odometry()
@@ -1590,7 +1673,7 @@ class StateMachine():
                 elif error<-np.pi:
                     error+=2*np.pi
                 # print("yaw, curAngle, error: ", self.yaw, self.currentAngle, error)
-                if abs(error) <= 0.05:
+                if abs(error) <= 0.07:
                     self.intersectionState+=1 #done adjusting
                     # print("done adjusting angle. Transitioning to trajectory following")
                     # print(f"current position: ({self.odomX},{self.odomY})")
@@ -1598,7 +1681,7 @@ class StateMachine():
                     self.last_error = 0
                     return 0
                 else:
-                    self.publish_cmd_vel(self.pid(error), self.maxspeed*0.9)
+                    self.publish_cmd_vel(self.pid(error), self.maxspeed)
                     return 0
             elif self.intersectionState==1: #trajectory following
                 desiredY = self.trajectory(x)
@@ -1616,7 +1699,7 @@ class StateMachine():
                 # steering_angle = self.pid2(error)
                 # print("steering: ",steering_angle)
                 # print("x, y, desiredY, angle, steer: ", x, y, desiredY, self.yaw, steering_angle*180/3.14159)
-                self.publish_cmd_vel(-self.pid2(error), -self.maxspeed*0.9)
+                self.publish_cmd_vel(-self.pid2(error), -self.maxspeed)
                 return 0
             elif self.intersectionState == 2: #adjust angle 2
                 error = self.yaw-self.destinationAngle
@@ -1632,7 +1715,7 @@ class StateMachine():
                     self.last_error = 0
                     return 0
                 else:
-                    self.publish_cmd_vel(self.pid(error), self.maxspeed*0.9)
+                    self.publish_cmd_vel(self.pid(error), self.maxspeed)
                     return 0
         elif self.exitDecision == 7:
             if self.initialPoints is None:
@@ -1659,7 +1742,7 @@ class StateMachine():
                     self.error_sum = 0 #reset pid errors
                     self.last_error = 0
                     # print("current angle, destination: ", self.yaw, self.destinationAngle)
-                self.publish_cmd_vel(self.pid(error), self.maxspeed*0.9)
+                self.publish_cmd_vel(self.pid(error), self.maxspeed)
                 return 0
             if self.intersectionState==1: #adjusting
                 error = self.yaw - self.destinationAngle
@@ -1671,7 +1754,7 @@ class StateMachine():
                 if abs(error) >= self.parallelParkAngle*np.pi/180:
                     self.intersectionState = 2
                     # print(f"{self.parallelParkAngle} degrees...")
-                self.publish_cmd_vel(-23, self.maxspeed*0.9)
+                self.publish_cmd_vel(-23, self.maxspeed)
                 return 0
             elif self.intersectionState==2: #adjusting
                 error = self.yaw - self.destinationAngle
@@ -1685,7 +1768,7 @@ class StateMachine():
                     self.error_sum = 0 #reset pid errors
                     self.last_error = 0
                     return 0
-                self.publish_cmd_vel(23, self.maxspeed*0.9)
+                self.publish_cmd_vel(23, self.maxspeed)
                 return 0
     
     def curvedpath(self):
@@ -1757,7 +1840,7 @@ class StateMachine():
                 self.last_error = 0
                 return 0
             else:
-                self.publish_cmd_vel(self.pid(error), self.maxspeed*0.9)
+                self.publish_cmd_vel(self.pid(error), self.maxspeed)
                 return 0
     
     #transition events
@@ -1776,44 +1859,16 @@ class StateMachine():
     def is_green(self):
         self.orientation = np.argmin([abs(self.yaw),abs(self.yaw-1.5708),abs((self.yaw)-3.14159),abs(self.yaw-4.71239),abs(self.yaw-6.28319)])%4
         if self.orientation==1 or self.orientation==3: #N or S
-            # topic = 'start' #'anitmaster'
-            try:
-                data, addr = self.sock.recvfrom(4096) # buffer size is 1024 bytes
-                dat = data.decode('utf-8')
-                dat = json.loads(dat)
-                ID = int(dat['id'])
-                state = int(dat['state'])
-                if (ID == 1) or (ID == 2):
-                    return True if state == 2 else False
-                else:
-                    return True if state == 0 else False
-            except Exception as e:
-                if str(e) !="timed out":
-                    print("Receiving data failed with error: " + str(e))
-                    return False
+            topic = 'start'
         else:
-            # topic = 'master' #'slave'
-            try:
-                data, addr = self.sock.recvfrom(4096) # buffer size is 1024 bytes
-                dat = data.decode('utf-8')
-                dat = json.loads(dat)
-                ID = int(dat['id'])
-                state = int(dat['state'])
-                if (ID == 3) or (ID == 4):
-                    return True if state == 2 else False
-                else:
-                    return True if state == 0 else False
-            except Exception as e:
-                if str(e) !="timed out":
-                    print("Receiving data failed with error: " + str(e))
-                    return False
-        # try:
-        #     self.idle()
-        #     state=rospy.wait_for_message('/automobile/trafficlight/'+topic,Byte,timeout=1)#0=red,1=yellow,2=green
-        # except:
-        #     print("traffic light timed out")
-        #     return True
-        # return True if state.data == 2 else False
+            topic = 'master'
+        try:
+            self.idle()
+            state=rospy.wait_for_message('/automobile/trafficlight/'+topic,Byte,timeout=1)#0=red,1=yellow,2=green
+        except:
+            print("traffic light timed out")
+            return True
+        return True if state.data == 2 else False
     def crosswalk_sign_detected(self):
         return self.object_detected(5)
     def pedestrian_appears(self):
@@ -1903,7 +1958,7 @@ class StateMachine():
     def right_trajectory_sim(self, x):
         return -math.exp(3.75*x-3.33)
     def left_exit_trajectory_sim(self, x):
-        return math.exp(3.75*x-3.03)
+        return math.exp(3*x-1.05)
     def right_exit_trajectory_sim(self, x):
         return -math.exp(3.75*x-3.03)
     def rdb_trajectory(self, x, t):
@@ -1926,7 +1981,7 @@ class StateMachine():
                 conf = self.confidence[i]
                 size = min(box[2], box[3]) #height
                 if size >= minSize and size <= maxSize and conf >= 0.753:
-                    car_sizes.append([box[2],box[3]])
+                    car_sizes.append(box)
             if i>=3: 
                 break
         return car_sizes
@@ -1995,6 +2050,8 @@ class StateMachine():
             steering_angle = np.clip(steering_angle*180/np.pi, -22.9, 22.9)
         self.msg.data = '{"action":"1","speed":'+str(velocity)+'}'
         self.msg2.data = '{"action":"2","steerAngle":'+str(float(steering_angle))+'}'
+        # print(self.msg.data)
+        # print(self.msg2.data)
         self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
 
