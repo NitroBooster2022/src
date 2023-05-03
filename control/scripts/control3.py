@@ -2073,7 +2073,7 @@ class StateMachine():
         # return 0.92523112 - 0.42423197*height + 0.28328111*height*height - 0.08428235*height*height*height
         return 84.89/(height - 3.137)
     def get_obj_size(self, obj_id = 10, minSize = None):
-        car_sizes = []
+        sizes = []
         if minSize is None:
             minSize = self.min_sizes[obj_id]
         maxSize = self.max_sizes[obj_id]
@@ -2084,10 +2084,10 @@ class StateMachine():
                 conf = self.confidence[i]
                 size = min(box[2], box[3]) if (obj_id == 12 or obj_id == 10) else max(box[2], box[3]) #height
                 if size >= minSize and size <= maxSize and conf >= 0.753:
-                    car_sizes.append(box)
-            if i>=3: 
+                    sizes.append(box)
+            if i>=3:
                 break
-        return car_sizes
+        return sizes
     def get_car_size(self, minSize = None, conf_thresh = None):
         obj_id = 12 #car id
         car_sizes = []
