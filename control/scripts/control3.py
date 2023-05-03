@@ -1511,7 +1511,7 @@ class StateMachine():
                     laneCarDetected = False
                     laneCarHeight = 0
                     parkedCarHeight = 0
-                    for [width,height] in carSizes:
+                    for [_,_,width,height] in carSizes:
                         if parkedCarDetected and laneCarDetected:
                             break
                         if width/height>1.6:
@@ -2131,7 +2131,7 @@ class StateMachine():
         else:
             conf_thresh = 0.8
         return size >= self.min_sizes[obj_id] and size <= self.max_sizes[obj_id] and conf >= conf_thresh #check this
-    def get_steering_angle(self,offset=20):
+    def get_steering_angle(self,offset=30):
         """
         Determine the steering angle based on the lane center
         :param center: lane center
