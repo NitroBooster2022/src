@@ -43,12 +43,12 @@ public:
 
             // Publish the modified image
             sensor_msgs::ImagePtr modified_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", cv_image).toImageMsg();
-            image_pub.publish(modified_msg);
+            // image_pub.publish(modified_msg);
             utils::Lane lane_msg;
             lane_msg.center = center;
             lane_msg.stopline = stopline;
             lane_msg.header.stamp = ros::Time::now();
-            lane_pub.publish(lane_msg);
+            // lane_pub.publish(lane_msg);
 
         } catch (cv_bridge::Exception& e) {
             ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
