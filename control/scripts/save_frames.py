@@ -16,14 +16,14 @@ class CameraHandler():
         self.bridge = CvBridge()
         self.cv_image = np.zeros((640, 480))
         rospy.init_node('CAMnod', anonymous=True)
-        r = rospy.Rate(10)
-        self.save_path = os.path.dirname(os.path.realpath(__file__))+'/images11/'
+        self.r = rospy.Rate(2.5)
+        self.save_path = os.path.dirname(os.path.realpath(__file__))+'/rf2/'
         #create path
         os.makedirs(self.save_path, exist_ok=True)
         self.i = 0
         self.image_sub = rospy.Subscriber("/automobile/image_raw", Image, self.callback)
         rospy.spin()
-        r.sleep()
+        self.r.sleep()
 
     def callback(self, data):
         """
@@ -36,6 +36,7 @@ class CameraHandler():
         cv2.imshow("Frame preview", self.cv_image)
         cv2.waitKey(1)
         self.i+=1
+        self.r.sleep()
         # cv2.imshow("Frame preview", self.cv_image)
         # key = cv2.waitKey(1)
     

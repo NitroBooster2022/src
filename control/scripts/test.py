@@ -6,14 +6,14 @@ from utils.msg import Lane, Sign, localisation, IMU, encoder
 # from utils.srv import get_direction, dotted, nav
 import time
 import math
+import matplotlib.pyplot as plt
+from gazebo_msgs.msg import ModelStates
 
-import cv2
 import os
 import json
-import threading
 import argparse
 import socket
-
+import threading
 import sys
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 from trackmap import track_map
@@ -22,9 +22,14 @@ class StateMachine():
     #initialization
     def __init__(self, simulation = False, planned_path = "/paths/path.json", custom_path = False):
         rospy.init_node('control_node', anonymous=True)
-        self.rate = rospy.Rate(25)
-        self.dt = 1/25 #for PID
-
+        self.rateVal = 5.0
+        self.rate = rospy.Rate(self.rateVal)
+        self.dt = 1/self.rateVal #for PID
+        self.wheelbase = 0.27
+        self.testTimer = None
+        self.testCounter = 0
+        # self.tests.append([10, 0.2, 23.0])
+        # self.tests.append([10, 0.2, -15.0])
         #simulation
         self.simulation = simulation
         if self.simulation:
@@ -99,9 +104,9 @@ class StateMachine():
         #states
         self.states = ['Lane Following', "Approaching Intersection", "Stopping at Intersection", 
                        "Intersection Maneuvering", "Approaching Crosswalk", "Pedestrian", "Highway",
-                       "overtaking", "Roundabout", "Parking", "Initial", "Parked", "Curvedpath"] #13 states
-        self.state = 10 #initial
-        self.history = 0
+                       "overtaking", "Roundabout", "Parking", "Initial", "Parked", "Curvedpath", "13", "14", "testing"] #13 states
+        self.state = 10 #test
+        self.history = 15
         self.highwaySpeed = self.maxspeed*1.33
         self.highwayRight = True
         self.highwaySide = 1 #1:right, -1:left
@@ -215,7 +220,10 @@ class StateMachine():
         # self.localization_sub = message_filters.Subscriber("/automobile/localisation", localisation, queue_size=3)
         self.imu_sub = rospy.Subscriber("/automobile/IMU", IMU, self.imu_callback, queue_size=3)
         self.encoder_sub = rospy.Subscriber("/automobile/encoder", encoder, self.encoder_callback, queue_size=3)
-
+        # self.localization_sub = rospy.Subscriber("/automobile/localisation", localisation, self.localization_callback, queue_size=3)
+        self.twist_sub = rospy.Subscriber("/gazebo/model_states", ModelStates, self.twist_callback, queue_size=3)
+        self.gps_x = 0.0
+        self.gps_y = 0.0
         print("hello1")
         #stop at shutdown
         def shutdown():
@@ -260,6 +268,10 @@ class StateMachine():
         # self.t1 = time.time()
         self.adjustYawError = 0.2 #yaw adjust for intersection maneuvering
         self.localise_before_decision = False
+        self.callback_thread = threading.Thread(target=self.run_callback)
+        self.action_thread = threading.Thread(target=self.run_action)
+        self.callback_thread.start()
+        self.action_thread.start()
     
     def _init_socket_semaphore(self):
         # Communication parameters, create and bind socket
@@ -382,6 +394,14 @@ class StateMachine():
             newYaw = -((yaw-self.initialYaw)*3.14159/180)
             self.yaw = newYaw if newYaw>0 else (6.2831853+newYaw)
 
+    def run_callback(self):
+        rospy.spin()
+    def run_action(self):
+        while not rospy.is_shutdown():
+            act = self.action()
+            if int(act)==1:
+                print(f"transitioning to '{self.states[self.state]}'")
+            self.rate.sleep()
     #callback functions
     def lane_callback(self,lane):
         self.center = lane.center
@@ -414,13 +434,112 @@ class StateMachine():
         self.confidence = sign.confidence
     def encoder_callback(self,encoder):
         self.velocity = encoder.speed
+        # act = self.action()
+        # if int(act)==1:
+        #     print(f"-----transitioning to '{self.states[self.state]}'-----")
+        #     if self.state==0:
+        #         print("Speed is at "+str(self.maxspeed)+"m/s")
+        # self.rate.sleep()
     def imu_callback(self,imu):
         self.process_yaw(imu.yaw)
+    def localization_callback(self,localization):
+        self.gps_x = localization.posA
+        self.gps_y = localization.posA
+    def twist_callback(self, ModelStates):
+        try:
+            i = ModelStates.name.index("automobile") # index of the car
+        except:
+            return
+        self.gps_x = ModelStates.pose[i].position.x
+        self.gps_y = ModelStates.pose[i].position.y
 
     #state machine
     def action(self):
         if self.state==0: #lane following
             return self.lanefollow()
+        elif self.state == 15: #test
+            print(self.initialPoints)
+            if self.initialPoints is None:
+                self.tests = []
+                self.testDuration = 15.0
+                self.testSpeed = 0.2
+                self.testAngle = 23.0
+                self.updateMethod = "euler"
+                self.update_states = self.update_states_rk4 if self.updateMethod=="rk4" else self.update_states_euler
+                self.tests.append([self.testDuration,  self.testSpeed, self.testAngle]) # duration, speed, angle
+                self.initialPoints = np.array([self.gps_x, self.gps_y, self.yaw])
+                print("initial points: ", self.initialPoints)
+                self.timerodom = rospy.Time.now()
+                if self.testCounter >= len(self.tests):
+                    print("Test complete")
+                    exit()
+                [self.testDuration, self.testSpeed, self.testAngle] = self.tests[self.testCounter]
+                self.testTimer = rospy.Time.now()+rospy.Duration(self.testDuration)
+                print("hello~~")
+                print(f"test {self.testCounter+1}: {self.testDuration}s, {self.testSpeed}m/s, {self.testAngle}deg")
+                self.odomX, self.odomY, self.odomYaw = 0.0, 0.0, self.initialPoints[2]
+                self.groundValues = []
+                self.measuredValues = []
+            if rospy.Time.now() >= self.testTimer:
+                self.state = 15
+                self.testCounter += 1
+                print("Test complete")
+                print(f"x = {self.gps_x-self.initialPoints[0]}, y = {self.gps_y-self.initialPoints[1]}, yaw = {self.yaw-self.initialPoints[2]}")
+                self.initialPoints = None
+                self.testTimer = None
+                for _ in range(15):
+                    self.idle()
+                # save ground truth and measured values
+                # np.savetxt("groundValues.txt", self.groundValues)
+                # np.savetxt("measuredValues.txt", self.measuredValues)
+                # Plot ground truth and measured values instead of saving to .txt files
+                groundValues = np.array(self.groundValues)
+                measuredValues = np.array(self.measuredValues)
+
+                errors = groundValues - measuredValues  # calculate errors
+
+                labels = ['X', 'Y', 'Yaw', 'Velocity']
+                fig, axs = plt.subplots(2, len(labels), figsize=(10,10))
+
+                # plot the ground and measured values
+                for i, label in enumerate(labels):
+                    axs[0, i].plot(groundValues[:, i], label='Ground')
+                    axs[0, i].plot(measuredValues[:, i], label='Measured')
+                    axs[0, i].set_title(f"{label} Over Time")
+                    axs[0, i].legend()
+
+                    # plot the error
+                    axs[1, i].plot(errors[:, i], label='Error')
+                    axs[1, i].set_title(f"Error in {label}")
+
+                    # calculate statistics and add them to the error plot
+                    min_error = np.min(errors[:, i])
+                    max_error = np.max(errors[:, i])
+                    mean_error = np.mean(np.abs(errors[:, i]))
+
+                    stats_text = f"Min: {min_error:.2f}\nMax: {max_error:.2f}\nMean: {mean_error:.2f}"
+                    axs[1, i].text(0.05, 0.95, stats_text, transform=axs[1, i].transAxes, verticalalignment='top')
+
+                plt.tight_layout()
+                plt.savefig(f'/home/simonli/Documents/Simulator/src/control/scripts/testPlots/plot_{self.updateMethod}_Dur{self.testDuration}_vel{self.testSpeed}_angle{self.testAngle}_rate{int(round(self.rateVal))}.png')
+                exit()
+                return 1
+            self.update_states(self.velocity, self.testAngle)
+            groundYaw = self.yaw-self.initialPoints[2]
+            groundYaw = np.fmod(groundYaw, 2*np.pi)
+            if groundYaw < 0:
+                groundYaw += 2*np.pi
+            measuredYaw = self.odomYaw - self.initialPoints[2]
+            measuredYaw = np.fmod(measuredYaw, 2*np.pi)
+            if measuredYaw < 0:
+                measuredYaw += 2*np.pi
+            self.groundValues.append([self.gps_x-self.initialPoints[0], self.gps_y-self.initialPoints[1], groundYaw, self.velocity])
+            self.measuredValues.append([self.odomX, self.odomY, measuredYaw, self.testSpeed])
+            print("ground truth: ", self.groundValues[-1])
+            print("measured: ", self.measuredValues[-1])
+            print("error: ", np.array(self.groundValues[-1])-np.array(self.measuredValues[-1]))
+            self.publish_cmd_vel(self.testAngle, velocity=self.testSpeed)
+            return 0
         elif self.state == 1: #Approaching Intersection
             return self.approachInt()
         elif self.state == 2: #Stopping at Intersection
@@ -2014,6 +2133,50 @@ class StateMachine():
         output = self.kp2 * error + self.kd2 * derivative #+ self.ki2 * self.error_sum2
         self.last_error2 = error
         return output
+    def update_states_euler(self, speed, steering_angle):
+        dt = (rospy.Time.now()-self.timerodom).to_sec()
+        self.timerodom = rospy.Time.now()
+        magnitude = speed*dt*self.odomRatio
+        # self.odomX += magnitude * math.cos(self.odomYaw)
+        # self.odomY += magnitude * math.sin(self.odomYaw)
+        self.odomYaw += magnitude*math.tan(-steering_angle*math.pi/180)/self.wheelbase
+        self.odomYaw = np.fmod(self.odomYaw, 2*math.pi)
+        if self.odomYaw < 0: #convert to 0-2pi
+            self.odomYaw += 2*np.pi
+        self.odomX += magnitude * math.cos(self.odomYaw)
+        self.odomY += magnitude * math.sin(self.odomYaw)
+        return
+    def update_states_rk4(self, speed, steering_angle):
+        dt = (rospy.Time.now()-self.timerodom).to_sec()
+        self.timerodom = rospy.Time.now()
+        magnitude = speed * dt * self.odomRatio
+        yaw_rate = magnitude * math.tan(-steering_angle*math.pi/180) / self.wheelbase
+        
+        # Runge-Kutta 4th order method
+        k1_x = magnitude * math.cos(self.yaw)
+        k1_y = magnitude * math.sin(self.yaw)
+        k1_yaw = yaw_rate
+
+        k2_x = magnitude * math.cos(self.yaw + dt/2 * k1_yaw)
+        k2_y = magnitude * math.sin(self.yaw + dt/2 * k1_yaw)
+        k2_yaw = yaw_rate
+
+        k3_x = magnitude * math.cos(self.yaw + dt/2 * k2_yaw)
+        k3_y = magnitude * math.sin(self.yaw + dt/2 * k2_yaw)
+        k3_yaw = yaw_rate
+
+        k4_x = magnitude * math.cos(self.yaw + dt * k3_yaw)
+        k4_y = magnitude * math.sin(self.yaw + dt * k3_yaw)
+        k4_yaw = yaw_rate
+
+        self.odomX += 1 / 6 * (k1_x + 2 * k2_x + 2 * k3_x + k4_x)
+        self.odomY += 1 / 6 * (k1_y + 2 * k2_y + 2 * k3_y + k4_y)
+        self.odomYaw += 1 / 6 * (k1_yaw + 2 * k2_yaw + 2 * k3_yaw + k4_yaw)
+
+        self.odomYaw = np.fmod(self.odomYaw, 2*math.pi)
+        if self.odomYaw < 0: #convert to 0-2pi
+            self.odomYaw += 2*np.pi
+        return
     def odometry(self):
         dt = (rospy.Time.now()-self.timerodom).to_sec()
         self.timerodom = rospy.Time.now()
@@ -2158,7 +2321,7 @@ class StateMachine():
         if velocity is None:
             velocity = self.maxspeed
         if clip:
-            steering_angle = np.clip(steering_angle*180/np.pi, -22.9, 22.9)
+            steering_angle = np.clip(steering_angle*180/np.pi, -23.0*np.pi/180.0, 23.0*np.pi/180.0)
         if self.toggle == 0:
             self.toggle = 1
             self.msg.data = '{"action":"1","speed":'+str(float("{:.4f}".format(velocity)))+'}'
@@ -2170,7 +2333,7 @@ class StateMachine():
         if velocity is None:
             velocity = self.maxspeed
         if clip:
-            steering_angle = np.clip(steering_angle*180/np.pi, -22.9, 22.9)
+            steering_angle = np.clip(steering_angle*180/np.pi, -23, 23)
         self.msg.data = '{"action":"1","speed":'+str(velocity)+'}'
         self.msg2.data = '{"action":"2","steerAngle":'+str(float(steering_angle))+'}'
         # print(self.msg.data)
@@ -2187,5 +2350,6 @@ if __name__ == '__main__':
     args = parser.parse_args(rospy.myargv()[1:])
     s = args.simulation=="True"
     c = args.custom=="True"
-    node = StateMachine(simulation=s,planned_path=args.path,custom_path=c)
-    rospy.spin()
+    node = StateMachine(simulation=True,planned_path=args.path,custom_path=c)
+    while not rospy.is_shutdown():
+        rospy.spin()

@@ -15,7 +15,7 @@ def sync_callback(sign_msg, localization_msg):
     confidence = sign_msg.confidence
     boxes = [sign_msg.box1, sign_msg.box2, sign_msg.box3, sign_msg.box4]
     for i in range(numObj):
-        if detected_objects[i] == 12 and confidence[i] > 0.7:
+        if detected_objects[i] == 4 and confidence[i] > 0.7:
             height = boxes[i][3]
             break
     if height > 0:
@@ -41,7 +41,7 @@ sync.registerCallback(sync_callback)
 # Initialize distances and sizes arrays
 distances = []
 sizes = []
-rate = rospy.Rate(10)
+rate = rospy.Rate(20)
 rospy.loginfo("Waiting for messages...")
 
 while not rospy.is_shutdown():

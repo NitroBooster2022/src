@@ -18,7 +18,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg, yoloFastestv2 *api, ro
     // Convert ROS image to OpenCV image
     cv_bridge::CvImagePtr cv_ptr;
     try {
-        cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::RGB8);
+        cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
         // cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::RGB8);
     } catch (cv_bridge::Exception &e) {
         ROS_ERROR("cv_bridge exception: %s", e.what());
@@ -65,7 +65,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg, yoloFastestv2 *api, ro
     }
 
     // Publish Sign message
-    pub->publish(sign_msg);
+    // pub->publish(sign_msg);
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - start);
     // std::cout << "sign durations: " << duration.count() << std::endl;
@@ -156,11 +156,13 @@ int main(int argc, char **argv) {
 
     std::string filePathParam = __FILE__;
     size_t pos = filePathParam.rfind("/") + 1;
-    filePathParam.replace(pos, std::string::npos, "model/sissi"+modelnum+"-opt.param");
+    // filePathParam.replace(pos, std::string::npos, "model/sissi"+modelnum+"-opt.param");
+    filePathParam.replace(pos, std::string::npos, "model/sissi753-opt.param");
     const char* param = filePathParam.c_str();
     std::string filePathBin = __FILE__;
     pos = filePathBin.rfind("/") + 1;
-    filePathBin.replace(pos, std::string::npos, "model/sissi"+modelnum+"-opt.bin");
+    // filePathBin.replace(pos, std::string::npos, "model/sissi"+modelnum+"-opt.bin");
+    filePathBin.replace(pos, std::string::npos, "model/sissi753-opt.bin");
     const char* bin = filePathBin.c_str();
 
     api.loadModel(param,bin);
