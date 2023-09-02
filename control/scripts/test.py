@@ -383,7 +383,7 @@ class StateMachine():
         command = json.loads(msg.data)
         command_msg = self.messageConverter.get_command(**command)
         # print(command_msg)
-        self.serialCom.write(command_msg.encode('ascii'))
+        self.serialCom.write(coffsetommand_msg.encode('ascii'))
         # buffer_size = self.serialCom.out_waiting
         # print("Buffer size:", buffer_size)
 
@@ -461,10 +461,11 @@ class StateMachine():
             print(self.initialPoints)
             if self.initialPoints is None:
                 self.tests = []
-                self.testDuration = 15.0
-                self.testSpeed = 0.2
+                self.testDuration = 31.0
+                self.testSpeed = 0.5
                 self.testAngle = 23.0
-                self.updateMethod = "euler"
+                self.updateMethod = "rk4"
+                self.followLane = True
                 self.update_states = self.update_states_rk4 if self.updateMethod=="rk4" else self.update_states_euler
                 self.tests.append([self.testDuration,  self.testSpeed, self.testAngle]) # duration, speed, angle
                 self.initialPoints = np.array([self.gps_x, self.gps_y, self.yaw])
@@ -519,12 +520,14 @@ class StateMachine():
 
                     stats_text = f"Min: {min_error:.2f}\nMax: {max_error:.2f}\nMean: {mean_error:.2f}"
                     axs[1, i].text(0.05, 0.95, stats_text, transform=axs[1, i].transAxes, verticalalignment='top')
-
+                self.testAngle = "_lanefollow" if self.followLane else self.testAngle
                 plt.tight_layout()
                 plt.savefig(f'/home/simonli/Documents/Simulator/src/control/scripts/testPlots/plot_{self.updateMethod}_Dur{self.testDuration}_vel{self.testSpeed}_angle{self.testAngle}_rate{int(round(self.rateVal))}.png')
                 exit()
                 return 1
-            self.update_states(self.velocity, self.testAngle)
+            self.testAngle = np.clip(self.get_steering_angle()*180/np.pi, -23, 23) if self.followLane else self.testAngle
+            print("testAngle: ", self.testAngle)
+            self.update_states(self.testSpeed, self.testAngle)
             groundYaw = self.yaw-self.initialPoints[2]
             groundYaw = np.fmod(groundYaw, 2*np.pi)
             if groundYaw < 0:
@@ -617,125 +620,125 @@ class StateMachine():
     #actions
     def lanefollow(self):
         #transition events
-        if self.stop_sign_detected() and self.timer2 is None:
-            print("stop sign detected -> state 1")
-            self.intersectionStop = True
-            self.state = 1
-            self.timer0 = None
-            self.timer2 = None
-            return 1
-        elif self.light_detected() and self.timer2 is None:
-            if self.is_green():
-                print("green light detected -> state 1")
-                self.intersectionStop = False
-            else:
-                print("red light detected -> state 1")
-                self.intersectionStop = True
-                self.light = True
-            self.state = 1
-            self.timer2 = None
-            self.timer0 = None
-            return 1
-        elif self.crosswalk_sign_detected() and self.timer2 is None:
-            print("crosswalk sign detected -> state 4")
-            self.state = 4
-            return 1
-        elif self.pedestrian_appears():
-            print("pedestrian appears!!! -> state 5")
-            self.history = self.state
-            self.state = 5
-            self.timerPedestrian = rospy.Time.now()+rospy.Duration(2.5)
-            return 1
-        car_sizes =  self.get_car_size(minSize = 100)
-        num = len(car_sizes)
-        rightCar = False
-        for box in car_sizes:
-            if box[0] + box[2]/2 > 144:
-                rightCar = True
-                break
-        if num > 0 and rightCar and rospy.Time.now() > self.exitCD:
-            if self.timerO is None:
-                print("car detected, waiting for 2s to ascertain car's speed")
-                self.timerO = rospy.Time.now() + rospy.Duration(2)
-                self.highwaySide = 1
-                self.numCars, self.firstDetectionSizes = num, car_sizes
-            if rospy.Time.now() >= self.timerO:
-                if num < 2:
-                    print("only one car, overtake, side is ", self.highwaySide) 
-                    self.timerO = None
-                    self.history = self.state
-                    self.overtakeAngle = np.pi*0.3
-                    self.state = 7 #overtake
-                    return 1
-                self.idle()
-                return 0
-            else:
-                self.publish_cmd_vel(0,0)
-                return 0
-        if self.timer2 is not None and rospy.Time.now() >= self.timer2 and self.highwaySide == -1:
-            #go back to right side
-            print("timer2 expired & no car in sight. going back to right side")
-            self.timerO = None
-            self.timer2 = None
-            self.history = self.state
-            self.overtakeAngle = np.pi*0.2
-            self.state = 7 #switch lane
-            return 1
+        # if self.stop_sign_detected() and self.timer2 is None:
+        #     print("stop sign detected -> state 1")
+        #     self.intersectionStop = True
+        #     self.state = 1
+        #     self.timer0 = None
+        #     self.timer2 = None
+        #     return 1
+        # elif self.light_detected() and self.timer2 is None:
+        #     if self.is_green():
+        #         print("green light detected -> state 1")
+        #         self.intersectionStop = False
+        #     else:
+        #         print("red light detected -> state 1")
+        #         self.intersectionStop = True
+        #         self.light = True
+        #     self.state = 1
+        #     self.timer2 = None
+        #     self.timer0 = None
+        #     return 1
+        # elif self.crosswalk_sign_detected() and self.timer2 is None:
+        #     print("crosswalk sign detected -> state 4")
+        #     self.state = 4
+        #     return 1
+        # elif self.pedestrian_appears():
+        #     print("pedestrian appears!!! -> state 5")
+        #     self.history = self.state
+        #     self.state = 5
+        #     self.timerPedestrian = rospy.Time.now()+rospy.Duration(2.5)
+        #     return 1
+        # car_sizes =  self.get_car_size(minSize = 100)
+        # num = len(car_sizes)
+        # rightCar = False
+        # for box in car_sizes:
+        #     if box[0] + box[2]/2 > 144:
+        #         rightCar = True
+        #         break
+        # if num > 0 and rightCar and rospy.Time.now() > self.exitCD:
+        #     if self.timerO is None:
+        #         print("car detected, waiting for 2s to ascertain car's speed")
+        #         self.timerO = rospy.Time.now() + rospy.Duration(2)
+        #         self.highwaySide = 1
+        #         self.numCars, self.firstDetectionSizes = num, car_sizes
+        #     if rospy.Time.now() >= self.timerO:
+        #         if num < 2:
+        #             print("only one car, overtake, side is ", self.highwaySide) 
+        #             self.timerO = None
+        #             self.history = self.state
+        #             self.overtakeAngle = np.pi*0.3
+        #             self.state = 7 #overtake
+        #             return 1
+        #         self.idle()
+        #         return 0
+        #     else:
+        #         self.publish_cmd_vel(0,0)
+        #         return 0
+        # if self.timer2 is not None and rospy.Time.now() >= self.timer2 and self.highwaySide == -1:
+        #     #go back to right side
+        #     print("timer2 expired & no car in sight. going back to right side")
+        #     self.timerO = None
+        #     self.timer2 = None
+        #     self.history = self.state
+        #     self.overtakeAngle = np.pi*0.2
+        #     self.state = 7 #switch lane
+        #     return 1
         
-        roadblock_sizes =  self.get_obj_size(obj_id = 10)
-        num = len(roadblock_sizes)
-        rightBlock = False
-        for box in roadblock_sizes:
-            if box[0] + box[2]/2 > 144:
-                rightBlock = True
-                break
-        if num > 0 and rightBlock:
-            if self.timerO is None:
-                print("roadblock detected, waiting for 2s to ascertain position")
-                self.timerO = rospy.Time.now() + rospy.Duration(2)
-                self.highwaySide = 1
-            if rospy.Time.now() >= self.timerO and num < 2:
-                print("overtake roadblock!") 
-                self.timerO = None
-                self.history = self.state
-                self.overtakeAngle = np.pi*0.3
-                self.roadblock = True
-                self.state = 7 #overtake
-                return 1
-            else:
-                self.publish_cmd_vel(0,0)
-                return 0
-        elif self.parking_detected():
-            # if not at parking decision yet pass
-            if self.decisionsI >= len(self.decisions):
-                self.publish_cmd_vel(self.get_steering_angle())
-                return 0
-            elif (self.decisions[self.decisionsI] != 3 and self.decisions[self.decisionsI] != 4):
-                self.publish_cmd_vel(self.get_steering_angle())
-                return 0
-            if self.detected_objects[0] == 4:
-                self.parksize = max(self.box1[2], self.box1[3])
-                try:
-                    if self.detected_objects[1] == 12:
-                        self.carsize = max(self.box2[2], self.box2[3])
-                except:
-                    self.carsize = 0
-            else:
-                self.parksize = max(self.box2[2], self.box2[3])
-                if self.detected_objects[0] == 12:
-                    self.carsize = max(self.box1[2], self.box1[3])
-            self.parksize = self.parksize*0.00263
-            print("about to park -> 9")
-            self.timer0 = None
-            self.state = 9
-            return 1
-        elif self.ArrivedAtStopline:
-            print("signless intersection detected... -> state 3")
-            self.doneManeuvering = False #set to false before entering state 3
-            self.state = 3
-            self.timer0 = None
-            self.timer2 = None
-            return 1
+        # roadblock_sizes =  self.get_obj_size(obj_id = 10)
+        # num = len(roadblock_sizes)
+        # rightBlock = False
+        # for box in roadblock_sizes:
+        #     if box[0] + box[2]/2 > 144:
+        #         rightBlock = True
+        #         break
+        # if num > 0 and rightBlock:
+        #     if self.timerO is None:
+        #         print("roadblock detected, waiting for 2s to ascertain position")
+        #         self.timerO = rospy.Time.now() + rospy.Duration(2)
+        #         self.highwaySide = 1
+        #     if rospy.Time.now() >= self.timerO and num < 2:
+        #         print("overtake roadblock!") 
+        #         self.timerO = None
+        #         self.history = self.state
+        #         self.overtakeAngle = np.pi*0.3
+        #         self.roadblock = True
+        #         self.state = 7 #overtake
+        #         return 1
+        #     else:
+        #         self.publish_cmd_vel(0,0)
+        #         return 0
+        # elif self.parking_detected():
+        #     # if not at parking decision yet pass
+        #     if self.decisionsI >= len(self.decisions):
+        #         self.publish_cmd_vel(self.get_steering_angle())
+        #         return 0
+        #     elif (self.decisions[self.decisionsI] != 3 and self.decisions[self.decisionsI] != 4):
+        #         self.publish_cmd_vel(self.get_steering_angle())
+        #         return 0
+        #     if self.detected_objects[0] == 4:
+        #         self.parksize = max(self.box1[2], self.box1[3])
+        #         try:
+        #             if self.detected_objects[1] == 12:
+        #                 self.carsize = max(self.box2[2], self.box2[3])
+        #         except:
+        #             self.carsize = 0
+        #     else:
+        #         self.parksize = max(self.box2[2], self.box2[3])
+        #         if self.detected_objects[0] == 12:
+        #             self.carsize = max(self.box1[2], self.box1[3])
+        #     self.parksize = self.parksize*0.00263
+        #     print("about to park -> 9")
+        #     self.timer0 = None
+        #     self.state = 9
+        #     return 1
+        # elif self.ArrivedAtStopline:
+        #     print("signless intersection detected... -> state 3")
+        #     self.doneManeuvering = False #set to false before entering state 3
+        #     self.state = 3
+        #     self.timer0 = None
+        #     self.timer2 = None
+        #     return 1
         # Determine the steering angle based on the center and publish the steering command
         self.publish_cmd_vel(self.get_steering_angle())
         return 0
@@ -2296,7 +2299,7 @@ class StateMachine():
         else:
             conf_thresh = 0.8
         return size >= self.min_sizes[obj_id] and size <= self.max_sizes[obj_id] and conf >= conf_thresh #check this
-    def get_steering_angle(self,offset=30):
+    def get_steering_angle(self,offset=0):#30):
         """
         Determine the steering angle based on the lane center
         :param center: lane center
@@ -2312,6 +2315,7 @@ class StateMachine():
             return 0
         self.last = error
         steering_angle = (error*self.p+d_error*self.d)
+        # print("steering angle: ",steering_angle*180/np.pi)
         return steering_angle
     def publish_cmd_vel_real(self, steering_angle, velocity = None, clip = True):
         """
@@ -2337,7 +2341,7 @@ class StateMachine():
         self.msg.data = '{"action":"1","speed":'+str(velocity)+'}'
         self.msg2.data = '{"action":"2","steerAngle":'+str(float(steering_angle))+'}'
         # print(self.msg.data)
-        # print(self.msg2.data)
+        print("publishing: ",self.msg2.data)
         self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
 

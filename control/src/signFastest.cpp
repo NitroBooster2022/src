@@ -65,7 +65,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg, yoloFastestv2 *api, ro
     }
 
     // Publish Sign message
-    // pub->publish(sign_msg);
+    pub->publish(sign_msg);
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - start);
     // std::cout << "sign durations: " << duration.count() << std::endl;

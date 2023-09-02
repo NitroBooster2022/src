@@ -46,7 +46,8 @@
     <!-- 0.261799388 -->
     <include>
       <uri>model://camera</uri>
-      <pose>0 0 0.2 0 0.2617 -0.2</pose>
+      <pose>0 0 0.2 0 0.2617 -0.0</pose>
+      <!-- <pose>0 0 0.2 0 0.2617 -0.2</pose> -->
       <name>camera</name>
     </include>
 
@@ -337,6 +338,17 @@
     <plugin name='bno055' filename='libbno055_plugin.so'> </plugin>
     <plugin name='gps' filename='libgps_plugin.so'> </plugin>
 
-
+    <!-- Plugin for publishing TF for the chassis -->
+    <plugin name="gazebo_ros_tf_publisher_for_chassis" filename="libgazebo_ros_p3d.so">
+      <ros>
+        <namespace>/</namespace>
+        <argument>tf_prefix:=automobile</argument>
+      </ros>
+      <updateRate>50.0</updateRate>
+      <bodyName>chassis::link</bodyName> <!-- Replace with your actual link name for chassis -->
+      <topicName>odom</topicName>
+      <frameName>world</frameName>
+    </plugin>
+    
   </model>
 </sdf>
