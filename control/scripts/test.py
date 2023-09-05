@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import rospy
 import numpy as np
-from std_msgs.msg import String, Byte
+from std_msgs.msg import String, Byte, Float32
 from utils.msg import Lane, Sign, localisation, IMU, encoder
 # from utils.srv import get_direction, dotted, nav
 import time
@@ -22,6 +22,8 @@ class StateMachine():
     #initialization
     def __init__(self, simulation = False, planned_path = "/paths/path.json", custom_path = False):
         rospy.init_node('control_node', anonymous=True)
+        self.steering_pub = rospy.Publisher("/automobile/steering", float, queue_size=3)
+        self.steering_msg = Float32()
         self.rateVal = 5.0
         self.rate = rospy.Rate(self.rateVal)
         self.dt = 1/self.rateVal #for PID
@@ -2333,6 +2335,8 @@ class StateMachine():
             self.toggle = 0
             self.msg.data = '{"action":"2","steerAngle":'+str(float("{:.2f}".format(steering_angle)))+'}'
         self._write(self.msg)
+        self.steering_msg.data = steering_angle
+        self.steering_pub.publish(self.steering_msg)
     def publish_cmd_vel_sim(self, steering_angle, velocity = None, clip = True):
         if velocity is None:
             velocity = self.maxspeed
@@ -2344,6 +2348,8 @@ class StateMachine():
         print("publishing: ",self.msg2.data)
         self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
+        self.steering_msg.data = steering_angle
+        self.steering_pub.publish(self.steering_msg)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='State Machine for Robot Control.')
