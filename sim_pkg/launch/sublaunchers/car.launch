@@ -6,7 +6,10 @@
           name  = "automobile"
     	    pkg   = "gazebo_ros"
     	    type  = "spawn_model"
-	    args  = "-file $(find models_pkg)/rcCar_assembly/model.sdf -model automobile -sdf -x 0.82 -y -14.91 -z 0.032939 -Y 1.570796"/>
+	    args  = "-file $(find models_pkg)/rcCar_assembly_laser/model.sdf -model automobile -sdf -x 0.82 -y -14.91 -z 0.032939 -Y 1.570796"/>
       <!-- args  = "-file $(find models_pkg)/rcCar_assembly_laser/model.sdf -model automobile -sdf -x 0.82 -y -14.91 -z 0.032939 -Y 1.570796"/> -->
- 
+    <!-- <param name="robot_description" command="cat $(find models_pkg)/rcCar_assembly/model.sdf" /> -->
+    <!-- <node pkg="robot_state_publisher" name="robot_state_publisher" type="robot_state_publisher" /> -->
+    <!-- <node pkg="joint_state_publisher" name="joint_state_publisher" type="joint_state_publisher" /> -->
+
   </launch>
