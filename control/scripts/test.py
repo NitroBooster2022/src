@@ -22,8 +22,10 @@ class StateMachine():
     #initialization
     def __init__(self, simulation = False, planned_path = "/paths/path.json", custom_path = False):
         rospy.init_node('control_node', anonymous=True)
-        self.steering_pub = rospy.Publisher("/automobile/steering", float, queue_size=3)
-        self.steering_msg = Float32()
+        self.pub_steer = False
+        if self.pub_steer:
+            self.steering_pub = rospy.Publisher("/automobile/steering", float, queue_size=3)
+            self.steering_msg = Float32()
         self.rateVal = 5.0
         self.rate = rospy.Rate(self.rateVal)
         self.dt = 1/self.rateVal #for PID
@@ -224,6 +226,9 @@ class StateMachine():
         self.encoder_sub = rospy.Subscriber("/automobile/encoder", encoder, self.encoder_callback, queue_size=3)
         # self.localization_sub = rospy.Subscriber("/automobile/localisation", localisation, self.localization_callback, queue_size=3)
         self.twist_sub = rospy.Subscriber("/gazebo/model_states", ModelStates, self.twist_callback, queue_size=3)
+        if not self.pub_steer:
+            self.steer_sub = rospy.Subscriber("/automobile/steering", Float32, self.steer_callback, queue_size=3)
+            self.steer = 0.0
         self.gps_x = 0.0
         self.gps_y = 0.0
         print("hello1")
@@ -405,6 +410,8 @@ class StateMachine():
                 print(f"transitioning to '{self.states[self.state]}'")
             self.rate.sleep()
     #callback functions
+    def steer_callback(self,steer):
+        self.steer = steer.data
     def lane_callback(self,lane):
         self.center = lane.center
         self.ArrivedAtStopline = lane.stopline
@@ -506,8 +513,12 @@ class StateMachine():
 
                 # plot the ground and measured values
                 for i, label in enumerate(labels):
-                    axs[0, i].plot(groundValues[:, i], label='Ground')
-                    axs[0, i].plot(measuredValues[:, i], label='Measured')
+                    # ignore first 10% of the data to allow for the system to settle
+                    # calculate index of the first data point to plot
+                    start_index = int(len(groundValues) * 0.1)
+
+                    axs[0, i].plot(groundValues[start_index:, i], label='Ground Truth')
+                    axs[0, i].plot(measuredValues[start_index:, i], label='Measured')
                     axs[0, i].set_title(f"{label} Over Time")
                     axs[0, i].legend()
 
@@ -524,12 +535,12 @@ class StateMachine():
                     axs[1, i].text(0.05, 0.95, stats_text, transform=axs[1, i].transAxes, verticalalignment='top')
                 self.testAngle = "_lanefollow" if self.followLane else self.testAngle
                 plt.tight_layout()
-                plt.savefig(f'/home/simonli/Documents/Simulator/src/control/scripts/testPlots/plot_{self.updateMethod}_Dur{self.testDuration}_vel{self.testSpeed}_angle{self.testAngle}_rate{int(round(self.rateVal))}.png')
+                plt.savefig(f'/home/simonli/Documents/Simulator/src/control/scripts/testPlots/plot_realSteer3&Vel_{self.updateMethod}_Dur{self.testDuration}_vel{self.testSpeed}_angle{self.testAngle}_rate{int(round(self.rateVal))}.png')
                 exit()
                 return 1
             self.testAngle = np.clip(self.get_steering_angle()*180/np.pi, -23, 23) if self.followLane else self.testAngle
             print("testAngle: ", self.testAngle)
-            self.update_states(self.testSpeed, self.testAngle)
+            self.update_states(self.velocity, self.steer)#self.testAngle)
             groundYaw = self.yaw-self.initialPoints[2]
             groundYaw = np.fmod(groundYaw, 2*np.pi)
             if groundYaw < 0:
@@ -2335,8 +2346,9 @@ class StateMachine():
             self.toggle = 0
             self.msg.data = '{"action":"2","steerAngle":'+str(float("{:.2f}".format(steering_angle)))+'}'
         self._write(self.msg)
-        self.steering_msg.data = steering_angle
-        self.steering_pub.publish(self.steering_msg)
+        if self.pub_steer:
+            self.steering_msg.data = steering_angle
+            self.steering_pub.publish(self.steering_msg)
     def publish_cmd_vel_sim(self, steering_angle, velocity = None, clip = True):
         if velocity is None:
             velocity = self.maxspeed
@@ -2348,8 +2360,9 @@ class StateMachine():
         print("publishing: ",self.msg2.data)
         self.cmd_vel_pub.publish(self.msg)
         self.cmd_vel_pub.publish(self.msg2)
-        self.steering_msg.data = steering_angle
-        self.steering_pub.publish(self.steering_msg)
+        if self.pub_steer:
+            self.steering_msg.data = steering_angle
+            self.steering_pub.publish(self.steering_msg)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='State Machine for Robot Control.')

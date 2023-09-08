@@ -11,9 +11,10 @@ from gazebo_msgs.msg import ModelStates
 import message_filters
 from message_filters import ApproximateTimeSynchronizer
 import argparse
-from nav_msgs.msg import Odometry
-from geometry_msgs.msg import TwistWithCovariance, PoseWithCovariance
 from std_msgs.msg import Float32, Header
+import tf2_ros
+from geometry_msgs.msg import TransformStamped
+import tf
 
 class Odom():
     #initialization
@@ -23,7 +24,12 @@ class Odom():
         self.rate = rospy.Rate(self.rateVal)
         self.wheelbase = 0.27
         self.header = Header()
-        
+        # Create a TransformBroadcaster object
+        self.br = tf2_ros.TransformBroadcaster()
+        # Create a TransformStamped object to store the transform
+        self.transform_stamped = TransformStamped()
+        self.useOdom = True
+
         #simulation
         self.simulation = simulation
         if self.simulation:
@@ -57,8 +63,8 @@ class Odom():
         self.timerodom = rospy.Time.now()
 
         # Publishers
-        self.odom_pub = rospy.Publisher("/automobile/odometry", odometry, queue_size=10)
-        self.odom_msg = odometry()
+        # self.odom_pub = rospy.Publisher("/automobile/odometry", odometry, queue_size=10)
+        # self.odom_msg = odometry()
 
         # Subscribe to topics
         self.localization_sub = message_filters.Subscriber("/automobile/localisation", localisation, queue_size=3)
@@ -66,14 +72,14 @@ class Odom():
         self.encoder_sub = message_filters.Subscriber("/automobile/encoder", encoder, queue_size=3)
         # self.steering_sub = message_filters.Subscriber("/automobile/steering", Float32, queue_size=3)
         self.steering_sub = rospy.Subscriber("/automobile/steering", Float32,callback=self.steer_callback, queue_size=3)
-        # self.twist_sub = rospy.Subscriber("/gazebo/model_states", ModelStates, self.twist_callback, queue_size=3)
+        self.model_sub = message_filters.Subscriber("/gazebo/model_states", ModelStates, queue_size=3)
 
         self.subscribers = []
         # self.subscribers.append(self.twist_sub)
         self.subscribers.append(self.localization_sub)
         self.subscribers.append(self.imu_sub)
         self.subscribers.append(self.encoder_sub)
-        # self.subscribers.append(self.steering_sub)
+        self.subscribers.append(self.model_sub)
         
         # Create an instance of TimeSynchronizer
         ts = ApproximateTimeSynchronizer(self.subscribers, queue_size=3, slop=0.0015)
@@ -87,7 +93,7 @@ class Odom():
             self.yaw = newYaw if newYaw>0 else (6.2831853+newYaw)
     def steer_callback(self, steering):
         self.steer = steering.data
-    def callback(self, localization, imu, encoder):
+    def callback(self, localization, imu, encoder, model):
         self.gps_x = localization.posA
         self.gps_y = 15.0-localization.posB
         self.velocity = encoder.speed
@@ -114,12 +120,43 @@ class Odom():
         print(f"time: {rospy.Time.now().to_sec():.2f}, odomx: {self.odomX:.2f}, odomy: {self.odomY:.2f}, gps_x: {self.gps_x:.2f}, gps_y: {self.gps_y:.2f}, x_error: {abs(self.odomX-self.gps_x):.2f}, y_error: {abs(self.odomY-self.gps_y):.2f}, yaw: {self.odomYaw:.2f}, steer: {self.steer:.2f}, speed: {self.velocity:.2f}")
 
         # Publish odometry message
-        self.header.stamp = rospy.Time.now()
-        self.odom_pub.header = self.header
-        self.odom_msg.odomX = self.odomX
-        self.odom_msg.odomY = self.odomY
-        self.odom_msg.odomYaw = self.odomYaw
-        self.odom_pub.publish(self.odom_msg)
+        # self.header.stamp = rospy.Time.now()
+        # self.odom_pub.header = self.header
+        # self.odom_msg.odomX = self.odomX
+        # self.odom_msg.odomY = self.odomY
+        # self.odom_msg.odomYaw = self.odomYaw
+        # self.odom_pub.publish(self.odom_msg)
+
+        if not self.useOdom:
+            try:
+                i = model.name.index("automobile") # index of the car
+            except:
+                print("car not found")
+                return
+            
+            # Set translation and rotation 
+            self.transform_stamped.transform.translation.x = model.pose[i].position.x
+            self.transform_stamped.transform.translation.y = model.pose[i].position.y
+            self.transform_stamped.transform.translation.z = model.pose[i].position.z
+            
+            self.transform_stamped.transform.rotation.x = model.pose[i].orientation.x
+            self.transform_stamped.transform.rotation.y = model.pose[i].orientation.y
+            self.transform_stamped.transform.rotation.z = model.pose[i].orientation.z
+            self.transform_stamped.transform.rotation.w = model.pose[i].orientation.w
+        else: 
+            self.transform_stamped.transform.translation.x = self.odomX
+            self.transform_stamped.transform.translation.y = self.odomY
+            self.transform_stamped.transform.translation.z = 0.0
+            
+            yaw = self.odomYaw
+            qtn = tf.transformations.quaternion_from_euler(0, 0, yaw)
+            # these are in quaternion
+            self.transform_stamped.transform.rotation.x = qtn[0]
+            self.transform_stamped.transform.rotation.y = qtn[1]
+            self.transform_stamped.transform.rotation.z = qtn[2]
+            self.transform_stamped.transform.rotation.w = qtn[3]
+        # Broadcast the transform
+        self.br.sendTransform(self.transform_stamped)
 
     def update_states_rk4(self, speed, steering_angle):
         # dead reckoning odometry using Runge-Kutta 4th order method
