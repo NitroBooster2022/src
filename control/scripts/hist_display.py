@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import TextBox, Button
 import os
 
+current_image_index = 0
+
 def display_optimized_histogram(image_path):
     image = cv2.imread(image_path)
     image = cv2.resize(image, (640, 480))
@@ -14,6 +16,10 @@ def display_optimized_histogram(image_path):
     masks = np.zeros((480,640),dtype='uint8')
     polys = np.array([[(0,300),(640,300),(640,340),(0,340)]]) # polys might need adjustment
     cv2.fillPoly(masks,polys,255)
+    maskc = np.zeros((480,640),dtype='uint8')
+    h=int(0.5*480)
+    polyc = np.array([[(0,h),(640,h),(640,480),(0,480)]]) # polyh might need adjustment
+    cv2.fillPoly(maskc,polyc,255)
 
     def optimized_histogram(image, show=False):
         """
@@ -22,6 +28,7 @@ def display_optimized_histogram(image_path):
         :param show: Boolean to show the image
         :return: The steering angle
         """
+        stopline = False
         img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         # brightness = np.mean(img_gray)
         h = 480
@@ -31,7 +38,7 @@ def display_optimized_histogram(image_path):
         if t<30:
             t=30
         np.clip(t,30,200)
-        # print(t)
+        print(t)
         ret, thresh = cv2.threshold(img_roi, t, 255, cv2.THRESH_BINARY)
         hist=np.zeros((1,w))
         for i in range(w):
@@ -56,16 +63,42 @@ def display_optimized_histogram(image_path):
         for i in range(int(len(lanes)/2)):
             if abs(lanes[2*i]-lanes[2*i+1])>3: # and abs(lanes[2*i]-lanes[2*i+1])<100: #exclude large lanes
                 centers.append((lanes[2*i]+lanes[2*i+1])/2)
-        return centers
+            if abs(lanes[2*i]-lanes[2*i+1])>350 and t>50:
+                stopline = True
+        return centers, stopline
+    
+    # Define a function to go to the next image
+    def next_image(event):
+        global current_image_index
+        current_image_index = (current_image_index + 1) % 615
+        on_submit(str(current_image_index))
+
+    # Define a function to go to the previous image
+    def previous_image(event):
+        global current_image_index
+        current_image_index = (current_image_index - 1) % 615
+        on_submit(str(current_image_index))
 
     _, ax = plt.subplots(2, 2, figsize=(15, 10))
     ax = ax.ravel()
+    plt.subplots_adjust(bottom=0.2)
+    # Add the buttons
+    button_previous_ax = plt.axes([0.25, 0.05, 0.1, 0.075])
+    button_previous = plt.Button(button_previous_ax, label='Previous')
+    button_previous.on_clicked(previous_image)
+
+    button_next_ax = plt.axes([0.65, 0.05, 0.1, 0.075])
+    button_next = plt.Button(button_next_ax, label='Next')
+    button_next.on_clicked(next_image)
 
     text_box = TextBox(plt.axes([0.25, 0.95, 0.5, 0.05]), 'Enter image path:')
     def on_submit(text):
         image_path = text
+        global current_image_index
+        current_image_index = int(text)
+        # print(image_path)
         try:
-            image = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/images/'+image_path+'.jpg')
+            image = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/images/images11/'+image_path+'.jpg')
         except:
             print("invalid path")
         image = cv2.resize(image, (640, 480))
@@ -92,13 +125,32 @@ def display_optimized_histogram(image_path):
         ax[1].imshow(thresh, cmap='gray')
         ax[1].set_title('Threshold Image')
 
-        # hist
-        hist = np.sum(thresh, axis=0)
-        ax[2].plot(hist)
-        ax[2].set_title('Histogram')
-
         # lanes
-        centers = optimized_histogram(image)
+        centers, stopline = optimized_histogram(image)
+
+        # hist
+        if not stopline:
+            hist = np.sum(thresh, axis=0)
+            avg = np.full((640), np.average(hist))
+            ax[2].plot(hist)
+            ax[2].plot(avg)
+            print(np.average(hist))
+            ax[2].set_title('Histogram')
+        else:
+            img_roi = cv2.bitwise_and(img_gray,maskc)
+            t = np.max(img_roi)-55
+            if t<30:
+                t=30
+            np.clip(t,30,200)
+            print(t)
+            ret, thresh = cv2.threshold(img_roi, t, 255, cv2.THRESH_BINARY)
+            hist = np.sum(thresh, axis=0)
+            avg = np.full((640), np.average(hist))
+            ax[2].plot(hist)
+            ax[2].plot(avg)
+            print(np.average(hist))
+            ax[2].set_title('Histogram')
+
         # get lane centers based on 4 cases
         if len(centers)==0: # no lane detected
             center = 640/2
@@ -126,6 +178,8 @@ def display_optimized_histogram(image_path):
             ax[3].plot([centers[i],centers[i]], [480, 380], 'r-', linewidth=5)
         ax[3].plot([center, center], [480, 380], 'g-', linewidth=5)
         ax[3].set_title('Detected Lanes and Lane center')
+        if stopline:
+            ax[3].text(64, 48, "stopline!", fontsize=12, color='red')
         plt.draw()
     text_box.on_submit(on_submit)
 
@@ -151,11 +205,14 @@ def display_optimized_histogram(image_path):
 
     # hist
     hist = np.sum(thresh, axis=0)
+    avg = np.full((640), np.average(hist))
     ax[2].plot(hist)
+    ax[2].plot(avg)
+    print(np.average(hist))
     ax[2].set_title('Histogram')
 
     # lanes
-    centers = optimized_histogram(image)
+    centers, stopline = optimized_histogram(image)
     # get lane centers based on 4 cases
     if len(centers)==0: # no lane detected
         center = 640/2
@@ -184,9 +241,11 @@ def display_optimized_histogram(image_path):
     ax[3].plot([center, center], [480, 380], 'g-', linewidth=5)
     ax[3].set_title('Detected Lanes and Lane center')
     ax[3].text(center, 350, str(center), fontsize=12, color='green')
+    if stopline:
+        ax[3].text(64, 48, "stopline!", fontsize=12, color='red')
 
     plt.show()
 
 if __name__ == '__main__':
-    image_path = os.path.dirname(os.path.realpath(__file__))+'/images/0.jpg'
+    image_path = os.path.dirname(os.path.realpath(__file__))+'/images/images11/0.jpg'
     display_optimized_histogram(image_path)
