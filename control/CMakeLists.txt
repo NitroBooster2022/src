@@ -154,8 +154,8 @@ include_directories(
   # ${CMAKE_CURRENT_SOURCE_DIR}/src/control/src/include
 )
 
-# set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} /home/simonli/Documents/Simulator/src/control/src/lib/cmake/ncnn)
-# set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} /home/simonli/Documents/Simulator/src/control/src/lib/cmake/ncnn)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} /home/simonli/Documents/Simulator/src/control/src/lib/cmake/ncnn)
+set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} /home/simonli/Documents/Simulator/src/control/src/lib/cmake/ncnn)
 
 
 find_package(ncnn REQUIRED)
@@ -208,16 +208,16 @@ add_executable(signFastest
   src/signFastest.cpp
   src/yolo-fastestv2.cpp
 )
-add_executable(cameraNode
-  src/cameraNode.cpp
-  src/include/raspicam/raspicam_cv.cpp
-  src/yolo-fastestv2.cpp
-)
-add_executable(cameraNode2
-  src/cameraNode2.cpp
-  # src/include/raspicam/raspicam_cv.cpp
-  src/yolo-fastestv2.cpp
-)
+# add_executable(cameraNode
+#   src/cameraNode.cpp
+#   src/include/raspicam/raspicam_cv.cpp
+#   src/yolo-fastestv2.cpp
+# )
+# add_executable(cameraNode2
+#   src/cameraNode2.cpp
+#   # src/include/raspicam/raspicam_cv.cpp
+#   src/yolo-fastestv2.cpp
+# )
 # add_executable(localization
 #   src/localization.cpp
 # )
@@ -257,16 +257,16 @@ target_link_libraries(signFastest
   ${catkin_LIBRARIES}
   ncnn ${OpenCV_LIBS}
 )
-target_link_libraries(cameraNode
-  ${catkin_LIBRARIES}
-  ncnn ${OpenCV_LIBS}
-  raspicam
-)
-target_link_libraries(cameraNode2
-  ${catkin_LIBRARIES}
-  ncnn ${OpenCV_LIBS}
-  # raspicam
-)
+# target_link_libraries(cameraNode
+#   ${catkin_LIBRARIES}
+#   ncnn ${OpenCV_LIBS}
+#   raspicam
+# )
+# target_link_libraries(cameraNode2
+#   ${catkin_LIBRARIES}
+#   ncnn ${OpenCV_LIBS}
+#   # raspicam
+# )
 # target_link_libraries(localization
 #   ${catkin_LIBRARIES}
 # )

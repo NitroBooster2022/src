@@ -43,7 +43,7 @@ public:
 
             // Publish the modified image
             sensor_msgs::ImagePtr modified_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", cv_image).toImageMsg();
-            image_pub.publish(modified_msg);
+            // image_pub.publish(modified_msg);
             utils::Lane lane_msg;
             lane_msg.center = center;
             lane_msg.stopline = stopline;

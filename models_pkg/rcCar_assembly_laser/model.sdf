@@ -371,8 +371,21 @@
       <robotNamespace>/</robotNamespace>
     </plugin>
 
+    <!-- Plugin for publishing TF for the chassis -->
+    <!-- <plugin name="gazebo_ros_tf_publisher_for_chassis" filename="libgazebo_ros_p3d.so">
+      <ros>
+        <namespace>/</namespace>
+        <argument>tf_prefix:=automobile</argument>
+      </ros>
+      <updateRate>50.0</updateRate>
+      <bodyName>chassis::link</bodyName> 
+      <topicName>odom</topicName>
+      <frameName>world</frameName>
+    </plugin> -->
+
     <plugin name='bno055' filename='libbno055_plugin.so'> </plugin>
     <plugin name='gps' filename='libgps_plugin.so'> </plugin>
+
 
 
   </model>

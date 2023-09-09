@@ -575,15 +575,16 @@ class track_map():
         nx.write_edgelist(self.map_graph,os.path.dirname(os.path.realpath(__file__))+'/templates/map.edgelist')
 
 if __name__ == '__main__':
-    # m = ['int1E','int2N','int5N','int6E','int6S','int4W','int3W','int1S','start']
-    m = json.load(open(os.path.dirname(os.path.realpath(__file__))+'/paths/path.json', 'r'))
+    m = ['int1E','int2E','curvedpath','track2S','track1S','int6E','int6S']
+    # m = json.load(open(os.path.dirname(os.path.realpath(__file__))+'/paths/path.json', 'r'))
     # print(m)
     node = track_map(0,15,1.5,m)
     # node.get_location_dest('start')
     # node.make_map()
     # node.draw_map()
     # node.custum_path()
-    # node.custum_path(save=True, path="/paths/savedpaths/path1.json")
-    # node.plan_path()
+    # node.custum_path(save=True)
+    node.plan_path()
+    node.draw_map()
     # node.draw_map_edgelist()
     node.draw_map_graphml()
