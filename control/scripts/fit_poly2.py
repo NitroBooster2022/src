@@ -1,13 +1,20 @@
 import numpy as np
 from scipy.optimize import curve_fit
 
-sizes = np.load("sizes.npy")[42:200] 
-distances = np.load("distances.npy")[42:200] - 7.440532
+sizes = np.load("sizes.npy")
+distances = np.load("distances.npy") - 4.459
 
-# print("sizes: ", sizes)
-# print("distances: ", distances)
+#sort sizes & change distances to order of sizes
+sizes = np.sort(sizes)
+distances = distances[np.argsort(sizes)]
+
+
+
+print("sizes: ", sizes)
+print("distances: ", distances)
 print("len(sizes): ", len(sizes))
 print("len(distances): ", len(distances))
+print(list(zip(distances, sizes)))
 
 def inverse_function(x, a, b):
     return a / x + b
