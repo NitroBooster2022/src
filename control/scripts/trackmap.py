@@ -118,7 +118,7 @@ class track_map():
     def get_location_cood(self,loc):
         return self.map_graph.nodes[loc]['coord']
 
-    def custum_path(self, save=False):
+    def custum_path(self, save=False, path="/paths/savedpaths/path.json"):
         print("---Click on map to input path---")
         print("---Press any keys to continue---")
         self.regions = cv2.imread(os.path.dirname(os.path.realpath(__file__))+'/templates/map_graphv2.drawio.png')
@@ -132,7 +132,7 @@ class track_map():
         # self.plan_path()
         if save:
             # Save directed path to a JSON file
-            with open(os.path.dirname(os.path.realpath(__file__))+'/paths/test/curvedpath.json', 'w') as outfile:
+            with open(os.path.dirname(os.path.realpath(__file__))+path, 'w') as outfile:
                 json.dump(self.planned_path, outfile)
         cv2.destroyAllWindows()
 
@@ -581,10 +581,10 @@ if __name__ == '__main__':
     node = track_map(0,15,1.5,m)
     # node.get_location_dest('start')
     # node.make_map()
-    node.draw_map()
+    # node.draw_map()
     # node.custum_path()
     # node.custum_path(save=True)
     node.plan_path()
     node.draw_map()
     # node.draw_map_edgelist()
-    # node.draw_map_graphml()
+    node.draw_map_graphml()
