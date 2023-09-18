@@ -154,9 +154,8 @@ include_directories(
   # ${CMAKE_CURRENT_SOURCE_DIR}/src/control/src/include
 )
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} /home/simonli/Documents/Simulator/src/control/src/lib/cmake/ncnn)
-set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} /home/simonli/Documents/Simulator/src/control/src/lib/cmake/ncnn)
-
+# Set ncnn_DIR using the relative path
+set(ncnn_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/lib/cmake/ncnn)
 
 find_package(ncnn REQUIRED)
 if (${ncnn_FOUND})
